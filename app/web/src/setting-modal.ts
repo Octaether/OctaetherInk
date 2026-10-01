@@ -175,7 +175,8 @@ export function openSettingModal(option: SettingModalOption, start: SettingSecti
 				html =
 					'<h2>About</h2>' +
 					`<p><b>Octaether Ink</b> (OI) ${escapeHtml(option.version)} · <a href="https://octaether.com" target="_blank" rel="noopener noreferrer">octaether.com</a> · MIT licence</p>` +
-					`<p class="setting-explain">Notes are plain <code>.oi</code> text files (format “${escapeHtml(option.formatName)}”). Everything is a block; every block type comes from a module, every system function from a plugin. Settings and hotkeys are saved in ${escapeHtml(option.storageText())}.</p>`;
+					`<p class="setting-explain">Notes are plain <code>.oi</code> text files (format “${escapeHtml(option.formatName)}”). Everything is a block; every block type comes from a module, every system function from a plugin. Settings and hotkeys are saved in ${escapeHtml(option.storageText())}.</p>` +
+					`<p><a href="https://github.com/Octaether/OctaetherInk" target="_blank" rel="noopener noreferrer">GitHub repository</a> — browse the source code or report an issue.</p>`;
 			}
 			body.innerHTML = html;
 			bindSetting();
