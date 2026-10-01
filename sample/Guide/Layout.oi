@@ -1,0 +1,37 @@
+---
+Created: 2026-09-30 12:00 -04:00
+Format: Oi 1
+---
+
+Property:
+	Tag: [Guide, Module]
+	Module: Layout
+
+The **Layout** module places blocks: a callout puts a titled box around them, and a grid puts them side by side. Back to [[Welcome]].
+
+## Callouts
+
+Callout {Kind: Note}: A note
+	A callout holds any blocks. Its title is the text after the colon.
+
+Callout {Kind: Tip}: A tip with an equation
+	Math: \sum_{k=1}^{n} k = \frac{n(n+1)}{2}
+
+Callout {Kind: Warning}: Ten kinds
+	Note, Info, Tip, Success, Question, Warning, Danger, Bug, Example, and Quote. Obsidian's names such as hint, caution, and faq work too.
+
+Callout {Kind: Example, Collapsed: True}: A folded example (click the arrow)
+	It stays hidden until you open it.
+
+## Columns
+
+Grid {Gap: 16px}:
+	Column {Width: 50%}:
+		**Left column.** Columns stack on a narrow screen (Setting → Module → Layout).
+	Column {Width: 50%}:
+		**Right column.** Any block fits here:
+		```Python
+		print("side by side")
+		```
+
+Right-click a block in a column for *Add column to the left* or *to the right*.

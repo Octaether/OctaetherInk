@@ -1,0 +1,31 @@
+---
+Created: 2026-09-30 12:00 -04:00
+Format: Oi 1
+---
+
+Property:
+	Tag: [Guide, Module]
+	Module: Markdown
+
+The **Markdown** module keeps a whole Markdown document in one block: a README, a page copied from elsewhere, or notes that should stay exactly as Markdown. Pasted as ordinary text, the same lines would become many blocks. Back to [[Welcome]].
+
+Markdown:
+	### A lab checklist
+
+	Weigh the sample, then titrate **slowly** near the end point.
+
+	- [x] Weigh 0.5 g of KHP
+	- [ ] Titrate with NaOH
+		- [ ] Note the colour change
+	- [ ] Work out the molarity
+
+	| Trial | Volume (mL) |
+	|:--|--:|
+	| 1 | 24.10 |
+	| 2 | 24.05 |
+
+	```Python
+	molarity = mass / 204.22 / (volume / 1000)
+	```
+
+It looks like the rest of the note, and its to-do boxes tick too. A click opens the whole document for editing.

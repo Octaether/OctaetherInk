@@ -1,0 +1,40 @@
+---
+Created: 2026-09-30 12:00 -04:00
+Format: Oi 1
+---
+
+Property:
+	Tag: [Guide, Start Here]
+	Version: 1
+
+Octaether Ink keeps each note as a plain `.oi` text file made of **blocks**: paragraphs, lists, equations, code, chemistry, drawings, pictures, callouts, columns, and properties. This guide is a small vault of its own. Each module has a note that shows what it can do, and the notes link to each other, so the graph view (`Ctrl+G`) draws them as a map.
+
+## Start here
+
+- [[Text]]: writing, lists, links, tags, pictures, and colours
+- [[Layout]]: callouts and columns
+- [[Math]]: equations in TeX
+- [[Code]]: code in any language
+- [[Chemistry]]: structures, reactions, and electron-pushing mechanisms
+- [[Diagram]]: drawings in TikZ
+- [[Image]] and [[Video]]: pictures and videos from the vault or the web
+- [[Markdown]] and [[HTML]]: a whole Markdown document, or HTML, in one block
+- [[Property]]: tags, dates, checkboxes, and other fields of your own, when a note wants them
+- [[Workspace]]: views, tabs, hotkeys, and settings
+
+## How blocks work
+
+Callout {Kind: Tip}: Click anywhere to edit, exactly there
+	A block opens as its own source where you click, with the caret on the character you clicked. A paragraph shows its Markdown; any other block shows its header too, such as `Math:`, so its type and settings change right there. `Esc` leaves it, and `/` on an empty line offers every kind of block.
+
+- Blocks hold blocks: `Tab` nests a block under the one above, and `Shift+Tab` brings it back.
+	- A nested block can be anything, such as an equation:
+		Math: e^{i\pi} + 1 = 0
+- Drag the ⋮⋮ handle left of a block to move it, or right-click a block for its menu.
+- Every block type also fits in a sentence: {Math: a^2 + b^2 = c^2}, {Chem: H_2O}, and so on.
+
+## The file behind it
+
+Everything here is plain text, and the **Source** view (`Ctrl+Shift+E`) shows it. A block starts with its type and a colon, such as `Math:` or `Code: Python`, and its lines are indented below it; settings for one block go in braces before the colon, as in `Math {Numbered: True}:`. Text is Markdown.
+
+Some modules also take Markdown's own symbols, called *aliases*: three backticks around code and `$$` around math, as in Obsidian. Type one alone on an empty line and press `Enter` to start that block. Each module's aliases can be switched off or changed in Setting → Module.

@@ -1,0 +1,16 @@
+{
+	"name": "@octaether/module-markdown",
+	"version": "0.1.0",
+	"private": true,
+	"description": "OI Markdown module: a whole Markdown document kept as one block",
+	"license": "MIT",
+	"type": "module",
+	"exports": {
+		".": "./src/index.ts"
+	},
+	"dependencies": {
+		"@octaether/core-sdk": "*",
+		"@octaether/module-code": "*",
+		"@octaether/module-text": "*"
+	}
+}

@@ -1,0 +1,25 @@
+---
+Created: 2026-09-30 12:00 -04:00
+Format: Oi 1
+---
+
+Property:
+	Tag: [Guide, Module]
+	Module: Video
+
+The **Video** module plays videos from YouTube, from Vimeo, or from a file. A block starts with `Video:` and the address, and a caption goes on the lines below it. Back to [[Welcome]]; pictures are in [[Image]].
+
+Video {Width: 480, Muted: True, Loop: True}: https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.mp4
+	A flower opening: a sample video (CC0) from MDN's web docs, played by the browser.
+
+## Where videos come from
+
+- A YouTube address in any of its forms, such as `https://youtu.be/…`. It plays in YouTube's own player, which sets no cookies until you press play.
+- A Vimeo address, such as `https://vimeo.com/…`.
+- A video file in the vault (`Video: Lecture.mp4`) or on the web. Paste or drop one on a note to add it. A video in the vault also opens on its own, in a tab, from the sidebar.
+
+## Settings for one video
+
+They go in braces before the colon, as for every block: `Start` (`{Start: 90}` starts 90 seconds in; a YouTube address with `?t=90` does the same), `Loop`, `Muted`, and `Width`.
+
+A player takes clicks for itself, so click the caption (or the address under a video without one) to edit the block.

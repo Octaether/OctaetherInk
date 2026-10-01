@@ -1,0 +1,15 @@
+{
+	"name": "@octaether/core-sdk",
+	"version": "0.1.0",
+	"private": true,
+	"description": "Public types for OI module and plugin authors",
+	"license": "MIT",
+	"type": "module",
+	"exports": {
+		".": "./src/index.ts"
+	},
+	"dependencies": {
+		"@octaether/core-format": "*",
+		"@octaether/core-model": "*"
+	}
+}

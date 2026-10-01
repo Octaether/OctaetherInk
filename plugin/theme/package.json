@@ -1,0 +1,15 @@
+{
+	"name": "@octaether/plugin-theme",
+	"version": "0.1.0",
+	"private": true,
+	"description": "OI Theme plugin: Paper and HighContrast presets, theme files, theme commands",
+	"license": "MIT",
+	"type": "module",
+	"exports": {
+		".": "./src/index.ts"
+	},
+	"dependencies": {
+		"@octaether/core-format": "*",
+		"@octaether/core-sdk": "*"
+	}
+}

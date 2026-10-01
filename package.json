@@ -1,0 +1,32 @@
+{
+	"name": "octaether-ink",
+	"version": "0.1.0",
+	"private": true,
+	"description": "Octaether Ink (OI): local-first, block-based notes",
+	"license": "MIT",
+	"homepage": "https://octaether.com",
+	"type": "module",
+	"engines": {
+		"node": ">=22"
+	},
+	"workspaces": [
+		"core/*",
+		"module/*",
+		"plugin/*",
+		"app/*"
+	],
+	"scripts": {
+		"dev": "npm run dev -w @octaether/app-web",
+		"build": "npm run build -w @octaether/app-web",
+		"preview": "npm run preview -w @octaether/app-web",
+		"test": "vitest run",
+		"test:watch": "vitest",
+		"check": "tsc -p tsconfig.json"
+	},
+	"devDependencies": {
+		"happy-dom": "^20.14.5",
+		"typescript": "^7.0.2",
+		"vite": "^8.3.1",
+		"vitest": "^5.0.2"
+	}
+}

@@ -1,0 +1,15 @@
+{
+	"name": "@octaether/module-property",
+	"version": "1.0.0",
+	"private": true,
+	"description": "OI Property module: a Property block of typed fields (text, list, number, checkbox, date, date & time), edited in place",
+	"license": "MIT",
+	"type": "module",
+	"exports": {
+		".": "./src/index.ts"
+	},
+	"dependencies": {
+		"@octaether/core-format": "*",
+		"@octaether/core-sdk": "*"
+	}
+}

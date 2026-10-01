@@ -1,0 +1,14 @@
+{
+	"name": "@octaether/module-layout",
+	"version": "0.1.0",
+	"private": true,
+	"description": "OI Layout module (core): Flow, Grid, and Group containers via the layout protocol",
+	"license": "MIT",
+	"type": "module",
+	"exports": {
+		".": "./src/index.ts"
+	},
+	"dependencies": {
+		"@octaether/core-sdk": "*"
+	}
+}

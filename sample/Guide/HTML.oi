@@ -1,0 +1,28 @@
+---
+Created: 2026-09-30 12:00 -04:00
+Format: Oi 1
+---
+
+Property:
+	Tag: [Guide, Module]
+	Module: HTML
+
+The **HTML** module shows a block of HTML, for what Markdown can't say. Back to [[Welcome]].
+
+HTML:
+	<details>
+		<summary>What is the pH of pure water at 25 °C?</summary>
+		<p>It is <b>7</b>: <code>[H<sub>3</sub>O<sup>+</sup>] = 10<sup>−7</sup> M</code>.</p>
+	</details>
+
+HTML:
+	<table>
+		<tr><th>Keys</th><th>What they do</th></tr>
+		<tr><td><kbd>Ctrl</kbd> + <kbd>E</kbd></td><td>Switch between Edit and Read</td></tr>
+		<tr><td><kbd>Ctrl</kbd> + <kbd>,</kbd></td><td>Open Setting</td></tr>
+	</table>
+
+It fits in a sentence too: press {HTML: <kbd>Ctrl</kbd> + <kbd>P</kbd>} for the command palette.
+
+Callout {Kind: Info}: Safe by design
+	HTML is cleaned before it shows. Scripts, forms, frames, and event handlers are removed, `class` and `id` are dropped, and `style` keeps only colours, sizes, and spacing. Links open in a new tab.

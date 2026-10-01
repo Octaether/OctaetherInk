@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+		<meta name="color-scheme" content="light dark" />
+		<meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)" />
+		<meta name="theme-color" content="#161616" media="(prefers-color-scheme: dark)" />
+		<meta name="description" content="Octaether Ink: local-first, block-based notes. Plain text files, math, chemistry, code, diagrams, and more." />
+		<title>Octaether Ink</title>
+		<link rel="icon" href="/icon.svg" type="image/svg+xml" />
+		<link rel="apple-touch-icon" href="/icon-180.png" />
+		<link rel="manifest" href="/manifest.webmanifest" />
+	</head>
+	<body>
+		<div class="app" id="app">
+			<nav class="ribbon" aria-label="Ribbon">
+				<button type="button" class="ribbon-button" id="ribbonSidebar" data-command="Sidebar.Toggle" data-tip="Sidebar.Toggle" aria-label="Show or hide the sidebar"></button>
+				<button type="button" class="ribbon-button vault-only" id="ribbonSwitcher" data-command="Note.Switch" data-tip="Note.Switch" aria-label="Open quick switcher"></button>
+				<button type="button" class="ribbon-button vault-only" id="ribbonSearch" data-command="Search.Vault" data-tip="Search.Vault" aria-label="Search every note"></button>
+				<button type="button" class="ribbon-button vault-only" id="ribbonGraph" data-command="Graph.Open" data-tip="Graph.Open" aria-label="Open graph view"></button>
+				<button type="button" class="ribbon-button" id="ribbonNew" data-command="Note.Create" data-tip="Note.Create" aria-label="New note"></button>
+				<button type="button" class="ribbon-button" id="ribbonPalette" data-command="Command.Palette" data-tip="Command.Palette" aria-label="Open command palette"></button>
+				<div class="ribbon-space"></div>
+				<button type="button" class="ribbon-button" id="ribbonHelp" data-command="Guide.Open" data-tip="Guide.Open" aria-label="Open the welcome guide"></button>
+				<button type="button" class="ribbon-button" id="ribbonSetting" data-command="Setting.Open" data-tip="Setting.Open" aria-label="Setting"></button>
+			</nav>
+			<aside class="sidebar" id="sidebar" aria-label="File and search" hidden></aside>
+			<div class="sidebar-backdrop" id="sidebarBackdrop" aria-hidden="true"></div>
+			<div class="workspace">
+				<div class="tab-bar" id="tabBar" hidden></div>
+				<header class="view-header" id="viewHeader">
+					<div class="view-nav">
+						<button type="button" class="icon-button" id="viewBack" data-command="Navigate.Back" data-tip="Navigate.Back" aria-label="Back"></button>
+						<button type="button" class="icon-button" id="viewForward" data-command="Navigate.Forward" data-tip="Navigate.Forward" aria-label="Forward"></button>
+					</div>
+					<div class="view-title" id="viewTitle"></div>
+					<div class="view-action">
+						<div class="view-mode" role="radiogroup" aria-label="View">
+							<button type="button" class="icon-button" id="modeSource" data-mode="Source" role="radio" aria-label="Source view"></button>
+							<button type="button" class="icon-button" id="modeEdit" data-mode="Edit" role="radio" aria-label="Edit view"></button>
+							<button type="button" class="icon-button" id="modeRead" data-mode="Read" role="radio" aria-label="Read view"></button>
+						</div>
+						<button type="button" class="icon-button" id="moreButton" aria-label="More options"></button>
+					</div>
+				</header>
+				<main class="view-content" id="viewContent">
+					<div class="start-screen" id="startScreen"></div>
+					<div class="empty-view" id="emptyView" hidden></div>
+					<div class="page" id="page" hidden>
+						<div class="note-head" id="noteHead"></div>
+						<div id="note"></div>
+						<div id="sourceHost" hidden></div>
+					</div>
+					<div class="graph-host" id="graphHost"></div>
+					<div class="file-view" id="fileView" hidden></div>
+				</main>
+			</div>
+		</div>
+		<footer class="status-bar" id="status" role="status"></footer>
+		<div class="gutter" id="gutter" hidden data-oi-keep-editor>
+			<button type="button" class="gutter-button" id="gutterAdd" title="Add a block below" aria-label="Add a block below"></button>
+			<button type="button" class="gutter-button gutter-handle" id="gutterHandle" title="Drag to move · click for the block menu" aria-label="Drag to move, click for the block menu"></button>
+		</div>
+		<div class="drop-line" id="dropLine" hidden></div>
+		<div id="layer"></div>
+		<input type="file" id="fileInput" accept=".oi,.md,.txt,text/plain" hidden />
+		<script type="module" src="/src/main.ts"></script>
+	</body>
+</html>

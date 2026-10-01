@@ -1,0 +1,35 @@
+---
+Created: 2026-09-30 12:00 -04:00
+Format: Oi 1
+---
+
+Property:
+	Tag: [Guide, Module]
+	Module: Chemistry
+
+The **Chemistry** module draws chemfig: molecules, reactions, and mechanisms with electron-pushing arrows. Hover a molecule and click ✎ to change it with the drawing tool. Back to [[Welcome]]; equations are in [[Math]].
+
+## A mechanism
+
+Chem:
+	\chemfig{@{o}\lewis{0:2:6:,HO}^{-}} \qquad \chemfig{@{c}C(-[:100]H)(>[:215]H)(>:[:250]H)@{cb}-@{br}Br}
+	Arrow o.lp -> c
+	Arrow cb -> br {Curve: 70}
+	Label c {Side: Below}: backside attack, **inversion** of configuration
+	\schemestart \arrow{->[][slow]} \chemfig{HO-[,,,,dashed]@{ts}C(-[2]H)(>[:235]H)(>:[:305]H)-[,,,,dashed]Br} \arrow{->} \chemfig{HO-C(-[:80]H)(>[:-35]H)(>:[:-70]H)} \+ Br^{-} \schemestop
+	Label ts {Side: Below, Color: Accent}: transition state
+
+- `\lewis{0:2:6:,HO}` puts lone pairs at 0°, 90°, and 270° (each number times 45°).
+- `Arrow o.lp -> c` starts at a lone pair of the atom named `o`; `cb` names the C–Br bond.
+- `Label` puts text in the drawing, and it steps clear of atoms and arrows.
+
+## A reaction scheme
+
+Chem:
+	\schemestart \chemfig{*6(=-=-=-)} \arrow{->[Br_2][FeBr_3]} \chemfig{*6(=-=(-Br)-=-)} \+ HBr \schemestop
+
+## In a sentence
+
+The combustion of methane: {Chem: CH_4 + 2O_2 -> CO_2 + 2H_2O}.
+
+Bond length and label spacing are in Setting → Module → Chemistry.

@@ -1,0 +1,14 @@
+{
+	"name": "@octaether/module-math",
+	"version": "0.1.0",
+	"private": true,
+	"description": "OI Math module: own TeX parser and macro engine → MathML with source maps",
+	"license": "MIT",
+	"type": "module",
+	"exports": {
+		".": "./src/index.ts"
+	},
+	"dependencies": {
+		"@octaether/core-sdk": "*"
+	}
+}

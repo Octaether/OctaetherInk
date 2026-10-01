@@ -1,0 +1,43 @@
+---
+Created: 2026-09-30 12:00 -04:00
+Format: Oi 1
+---
+
+Property:
+	Tag: [Guide, Module]
+	Module: Code
+
+The **Code** module shows code with colours. A block starts with `Code:` and the language, and the code goes on the indented lines below it. The label in the corner gives the language its proper name. Back to [[Welcome]].
+
+Code: Python
+	def rate(k, a, b):
+	    """Rate of a second-order reaction."""
+	    return k * a * b
+
+Settings for one block go in braces before the colon, as for every block (`Math {Numbered: True}:`, `Callout {Kind: Tip}:`):
+
+Code {LineNumber: True}: JavaScript
+	const square = (x) => x * x;
+	console.log([1, 2, 3].map(square));
+
+The language is a setting like any other, so the braces can hold it too. This is the same block as `Code: Python`, and the corner label shows the language either way:
+
+Code {Language: Python}:
+	for k in [0.1, 0.2, 0.4]:
+	    print(rate(k, 1.0, 2.0))
+
+## Markdown fences
+
+A Markdown fence works too: it is an *alias* of `Code:`, so code pasted from Obsidian or GitHub needs no change. The language goes right after the three backticks, and settings may follow in braces.
+
+```SQL
+SELECT name, grade FROM student WHERE grade > 90 ORDER BY grade DESC;
+```
+
+The fences (three backticks, or `~~~`) can be switched off or changed in Setting → Module → Code.
+
+## In a sentence
+
+Backticks make `inline code`. With a language, `{Code {Language: Python}: len("ink")}` colours it too: {Code {Language: Python}: len("ink")}.
+
+Line numbers, wrapping, tab width, and the copy button for every block are in Setting → Module → Code.

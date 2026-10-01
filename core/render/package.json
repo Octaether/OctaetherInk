@@ -1,0 +1,16 @@
+{
+	"name": "@octaether/core-render",
+	"version": "0.1.0",
+	"private": true,
+	"description": "OI render layer: render host, registry, theme and layout protocols",
+	"license": "MIT",
+	"type": "module",
+	"exports": {
+		".": "./src/index.ts"
+	},
+	"dependencies": {
+		"@octaether/core-format": "*",
+		"@octaether/core-model": "*",
+		"@octaether/core-sdk": "*"
+	}
+}

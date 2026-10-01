@@ -1,0 +1,17 @@
+{
+	"name": "@octaether/core-edit",
+	"version": "0.1.0",
+	"private": true,
+	"description": "OI edit layer: commands, hotkeys, click-to-edit session",
+	"license": "MIT",
+	"type": "module",
+	"exports": {
+		".": "./src/index.ts"
+	},
+	"dependencies": {
+		"@octaether/core-format": "*",
+		"@octaether/core-model": "*",
+		"@octaether/core-render": "*",
+		"@octaether/core-sdk": "*"
+	}
+}

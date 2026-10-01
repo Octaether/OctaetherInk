@@ -1,0 +1,23 @@
+---
+Created: 2026-09-30 12:00 -04:00
+Format: Oi 1
+---
+
+The **Property** module gives a note fields of its own: tags, a due date, a rating, a checkbox. They live in a **Property** block, and the block is optional: a note needs none. Back to [[Welcome]].
+
+Property:
+	Tag: [Guide, Module]
+	Module: Property
+	Rating: 5
+	Reviewed: True
+	Due: 2026-10-05
+	Exam: 2026-10-12 09:00 -04:00
+
+- Add one with **+ Add property** under the name, with `/property` where you are writing, or with `Ctrl+;`.
+- It is a block like any other, so it can sit anywhere: drag its ⋮⋮ handle to move it, even into a callout or a column. Tags and search find it wherever it is.
+- Each field has a type: Text, List, Number, Checkbox, Date, or Date & time. Click its icon to change the type, and drag the icon to move the field.
+- Tags are pills: click one to edit it, drag it to move it, and press **+** to add one. `Enter` or a comma starts the next.
+- The fields are plain `Key: value` lines in the basic types of YAML, so other tools can read them.
+
+Callout {Kind: Info}: The note's own header stays out of the way
+	`Created`, `Id`, and `Format` belong to the app. They show only in the Source view.

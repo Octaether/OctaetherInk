@@ -1,0 +1,14 @@
+{
+	"name": "@octaether/module-code",
+	"version": "0.1.0",
+	"private": true,
+	"description": "OI Code module: Jupyter-like code cells with own highlighter and theme tokens",
+	"license": "MIT",
+	"type": "module",
+	"exports": {
+		".": "./src/index.ts"
+	},
+	"dependencies": {
+		"@octaether/core-sdk": "*"
+	}
+}

@@ -1,0 +1,16 @@
+{
+	"name": "@octaether/module-media",
+	"version": "0.1.0",
+	"private": true,
+	"description": "OI Image and Video modules: pictures and videos from the vault or the web",
+	"license": "MIT",
+	"type": "module",
+	"exports": {
+		".": "./src/index.ts"
+	},
+	"dependencies": {
+		"@octaether/core-format": "*",
+		"@octaether/core-sdk": "*",
+		"@octaether/module-text": "*"
+	}
+}

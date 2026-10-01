@@ -1,0 +1,15 @@
+{
+	"name": "@octaether/module-html",
+	"version": "0.1.0",
+	"private": true,
+	"description": "OI HTML module: a block of HTML, cleaned of anything that could run or reach outside it",
+	"license": "MIT",
+	"type": "module",
+	"exports": {
+		".": "./src/index.ts"
+	},
+	"dependencies": {
+		"@octaether/core-sdk": "*",
+		"@octaether/module-text": "*"
+	}
+}

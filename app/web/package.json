@@ -1,0 +1,32 @@
+{
+	"name": "@octaether/app-web",
+	"version": "0.1.0",
+	"private": true,
+	"description": "Octaether Ink web app (also the frontend inside native shells)",
+	"license": "MIT",
+	"type": "module",
+	"scripts": {
+		"dev": "vite",
+		"build": "vite build",
+		"preview": "vite preview"
+	},
+	"dependencies": {
+		"@octaether/core-edit": "*",
+		"@octaether/core-format": "*",
+		"@octaether/core-model": "*",
+		"@octaether/core-render": "*",
+		"@octaether/core-sdk": "*",
+		"@octaether/core-vault": "*",
+		"@octaether/module-chem": "*",
+		"@octaether/module-code": "*",
+		"@octaether/module-diagram": "*",
+		"@octaether/module-html": "*",
+		"@octaether/module-layout": "*",
+		"@octaether/module-markdown": "*",
+		"@octaether/module-math": "*",
+		"@octaether/module-media": "*",
+		"@octaether/module-property": "*",
+		"@octaether/module-text": "*",
+		"@octaether/plugin-theme": "*"
+	}
+}

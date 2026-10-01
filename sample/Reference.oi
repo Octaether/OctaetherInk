@@ -1,0 +1,69 @@
+---
+Created: 2026-09-29 10:00 -04:00
+Title: Welcome to Octaether Ink
+Tag: [Guide, Start Here, "Math, Chem"]
+Id: 01k6b9x2m4q7r8s3t5v6w9y0za
+Format: Oi 1
+---
+
+# Welcome to Octaether Ink
+
+Everything is a **block**. Click anywhere in a block to edit it at exactly that spot, and press `Esc` when done. Press `Enter` at the end of a line for a new block, type `/` in an empty line to pick a block type, and drag the ⋮⋮ handle to move a block.
+
+Text holds *italic*, ==highlight==, `code`, [links](https://octaether.com), [[Another Note]], tags like #Guide and #[Start Here], inline math {Math: e^{i\pi} + 1 = 0}, inline chemistry {Chem: 2H_2 + O_2 -> 2H_2O}, and [coloured words]{Color: Accent}. Select text, then right-click or use `Ctrl+B` / `Ctrl+I` to format it.
+
+## Blocks hold blocks
+
+- A list item is a block.
+	- Press `Tab` to nest a block under the one above, `Shift+Tab` to bring it back.
+	- A nested block can be anything:
+		Math: a^2 + b^2 = c^2
+
+Callout {Background: Surface2, Padding: 12px, Radius: 8px}:
+	A group keeps related blocks together. {Weight: Bold}
+
+	Code {Language: Python}:
+		def rate(k, a, b):
+			return k * a * b
+
+## Math
+
+Math: \int_0^\infty e^{-x^2}\,dx = \frac{\sqrt{\pi}}{2}
+
+Math {Numbered: True}:
+	\newcommand{\R}{\mathbb{R}}
+	f:\R\to\R,\quad f(x) = \sum_{n=0}^{\infty} \frac{x^n}{n!}
+
+Math:
+	\begin{pmatrix} a & b \\ c & d \end{pmatrix}^{-1} = \frac{1}{ad - bc}\begin{pmatrix} d & -b \\ -c & a \end{pmatrix}
+
+## Chemistry
+
+Chem:
+	\chemfig{@{o}HO^{-}} \qquad \chemfig{@{c}C(-[:100]H)(>[:215]H)(>:[:250]H)@{cb}-@{br}Br}
+	Arrow o -> c {Curve: 45}
+	Arrow cb -> br {Curve: 70}
+	Label c {Side: Below}: backside attack, **inversion** of configuration
+	\schemestart \arrow{->[][slow]} \chemfig{HO-[,,,,dashed]@{ts}C(-[2]H)(>[:235]H)(>:[:305]H)-[,,,,dashed]Br} \arrow{->} \chemfig{HO-C(-[:80]H)(>[:-35]H)(>:[:-70]H)} \+ Br^{-} \schemestop
+	Label ts {Side: Below, Color: Accent}: transition state
+
+Chem:
+	\schemestart \chemfig{*6(=-=-=-)} \arrow{->[Br_2][FeBr_3]} \chemfig{*6(=-=(-Br)-=-)} \+ HBr \schemestop
+
+## Side by side
+
+Grid {Gap: 16px}:
+	Column {Width: 50%}:
+		Math: \mathrm{CH_3Br} + \mathrm{OH^-} \rightarrow \mathrm{CH_3OH} + \mathrm{Br^-}
+	Column {Width: 50%}:
+		Code {Language: JavaScript}:
+			const square = (x) => x * x;
+			console.log([1, 2, 3].map(square));
+
+## Diagrams
+
+Diagram:
+	\draw[->] (-3.2,0) -- (3.4,0) node[right] {$x$};
+	\draw[->] (0,-1.4) -- (0,1.6) node[above] {$y$};
+	\draw[thick, Accent, domain=-3:3, samples=80] plot (\x, {sin(\x r)});
+	\node[Accent] at (2.2,1.2) {$\sin x$};

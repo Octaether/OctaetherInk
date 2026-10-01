@@ -1,0 +1,33 @@
+---
+Created: 2026-09-30 12:00 -04:00
+Format: Oi 1
+---
+
+Property:
+	Tag: [Guide, Module]
+	Module: Image
+
+The **Image** module shows pictures. A block starts with `Image:` and the picture's name, and a caption goes on the lines below it. Back to [[Welcome]]; videos have their own guide, [[Video]].
+
+Image {Width: 220}: Octahedron.svg
+	The Octaether octahedron: its lower half is a pen **nib**.
+
+## Where pictures come from
+
+- A name alone, such as `Octahedron.svg`, finds the picture anywhere in the vault, as in Obsidian.
+- A path, such as `Attachment/Cell.png`, starts at the top of the vault or at the note's folder.
+- A web address (`https://…`) loads the picture from the web.
+
+Paste a picture (`Ctrl+V`) or drop one on a note: it is saved in the vault's `Attachment` folder, and an Image block shows it. The folder can be changed in Setting → File.
+
+A picture in the vault also opens on its own, in a tab: click `Octahedron.svg` in the sidebar.
+
+## Settings for one picture
+
+They go in braces before the colon, as for every block: `Width` (`320` pixels, or `50%`), `Align` (`Left`, `Center`, or `Right`), and `Alt`, which describes the picture for screen readers. In the Read view, a click shows a picture full size.
+
+Image {Width: 90, Align: Left}: Octahedron.svg
+
+## In a sentence
+
+A paragraph can hold a picture too, written `![a caption](Octahedron.svg)` as in Markdown or `![[Octahedron.svg|28]]` as in Obsidian, where the number is a width: ![[Octahedron.svg|28]]

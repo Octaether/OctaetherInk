@@ -1,0 +1,16 @@
+{
+	"name": "@octaether/module-text",
+	"version": "0.1.0",
+	"private": true,
+	"description": "OI Text module (core): Markdown paragraphs, headings, lists, tags, links, spans, inline math",
+	"license": "MIT",
+	"type": "module",
+	"exports": {
+		".": "./src/index.ts"
+	},
+	"dependencies": {
+		"@octaether/core-format": "*",
+		"@octaether/core-sdk": "*",
+		"@octaether/module-layout": "*"
+	}
+}

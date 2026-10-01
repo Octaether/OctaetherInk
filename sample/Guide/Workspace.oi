@@ -1,0 +1,40 @@
+---
+Created: 2026-09-30 12:00 -04:00
+Format: Oi 1
+---
+
+Property:
+	Tag: [Guide]
+
+How to move around Octaether Ink. Back to [[Welcome]].
+
+## Views
+
+- **Source** (`Ctrl+Shift+E`): the whole note as text, like a code editor.
+- **Edit**: click a block to type in it. A soft outline shows the block, and a dashed one the block around it.
+- **Read** (`Ctrl+E` switches between Edit and Read): nothing changes by accident.
+
+## Tabs
+
+Every note opens in a tab. `Ctrl`+click a link or a file to open it in a new tab. A middle-click closes a tab, and dragging reorders them. Each tab has its own Back and Forward (`Ctrl+Alt+←` and `Ctrl+Alt+→`), and the graph view (`Ctrl+G`) opens in the tab too.
+
+## Files
+
+The sidebar lists every file in the vault. Notes open as notes; pictures, videos, and sounds open in a tab of their own, as in Obsidian (try `Octahedron.svg`). Other files are listed but greyed out.
+
+## Hotkeys
+
+| Action | Keys |
+|:--|:--|
+| Command palette | `Ctrl+P` |
+| Quick switcher | `Ctrl+O` |
+| Find, replace | `Ctrl+F`, `Ctrl+H` |
+| Search every note | `Ctrl+Shift+F` |
+| Undo, redo (anywhere, renames too) | `Ctrl+Z`, `Ctrl+Shift+Z` |
+| Add a property | `Ctrl+;` |
+
+Every key can be changed in Setting → Hotkey, and a macro runs several commands from one key.
+
+## Setting
+
+`Ctrl+,` opens Setting. Every module has a page of its own there, and Appearance holds the theme, the accent colour, the text size, and the hover highlight.

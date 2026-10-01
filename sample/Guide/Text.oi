@@ -1,0 +1,48 @@
+---
+Created: 2026-09-30 12:00 -04:00
+Format: Oi 1
+---
+
+Property:
+	Tag: [Guide, Module]
+	Module: Text
+
+The **Text** module draws your writing. Every Markdown paragraph, heading, list item, quote, and table is a block of its own. Back to [[Welcome]].
+
+## Styles
+
+**Bold**, *italic*, ~~strikethrough~~, ==highlight==, `inline code`, and [coloured words]{Color: Accent}. A colour can be a theme name ([danger]{Color: Danger}, [success]{Color: Success}) or any hex code ([rust]{Color: #b5452c}). Select text for the format bar, or press `Ctrl+B` and `Ctrl+I`.
+
+## Links and tags
+
+- A link to another note: [[Math]], or with a label: [[Chemistry|the chemistry guide]].
+- A web link: [octaether.com](https://octaether.com).
+- Tags: #Guide and #[Two Words]. In the Read view, a click on a tag searches for it.
+
+## Lists
+
+1. Numbered lists count by themselves.
+2. `Enter` continues a list, and `Enter` on an empty item ends it.
+- [x] A to-do ticks when you click its box.
+- [ ] This one is still open.
+
+## Quotes and tables
+
+> A quote is a block too.
+> It can run over several lines.
+
+| Symbol | Name | Value |
+|:--|:--:|--:|
+| {Math: \pi} | pi | 3.14159 |
+| {Math: e} | Euler's number | 2.71828 |
+
+## Pictures
+
+A picture fits in a line: `![what it shows](Octahedron.svg)` as in Markdown, or `![[Octahedron.svg]]` as in Obsidian. The [[Image]] guide shows more.
+
+## Anything in a sentence
+
+Any block type fits in a line of text as `{Type: …}`: water is {Chem: H_2O}, a derivative is {Math: \frac{d}{dx} x^2 = 2x}, and code is {Code {Language: Python}: print("hi")}.
+
+> [!tip] Obsidian callouts
+> Notes pasted from Obsidian keep their callouts. The [[Layout]] guide shows Octaether's own.

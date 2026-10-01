@@ -1,0 +1,4 @@
+# OI notes and meta files are text; keep LF so hashes and diffs match on every OS
+*.oi text eol=lf
+*.ts text eol=lf
+*.md text eol=lf

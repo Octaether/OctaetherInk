@@ -1,0 +1,11 @@
+{
+	"name": "@octaether/core-format",
+	"version": "0.1.0",
+	"private": true,
+	"description": "OI file format: .oi note and property documents, lossless parse and serialize",
+	"license": "MIT",
+	"type": "module",
+	"exports": {
+		".": "./src/index.ts"
+	}
+}

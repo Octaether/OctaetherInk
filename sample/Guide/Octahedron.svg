@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="64 76 384 360" width="384" height="360">
+	<!-- the Octaether octahedron, whose lower half is a pen nib (the Image guide shows it) -->
+	<path d="M84 244 256 300 256 420Z M428 244 256 300 256 420Z" fill="#c8a032" fill-opacity="0.2" />
+	<path d="M256 92 256 188M84 244 256 188 428 244M256 188 256 420" fill="none" stroke="#c8a032" stroke-opacity="0.35" stroke-width="7" stroke-linecap="round" />
+	<path d="M256 92 84 244 256 420 428 244Z M84 244 256 300 428 244 M256 92 256 300 256 420" fill="none" stroke="#c8a032" stroke-width="13" stroke-linejoin="round" stroke-linecap="round" />
+	<circle cx="256" cy="300" r="16" fill="none" stroke="#c8a032" stroke-width="9" />
+</svg>

@@ -1,0 +1,49 @@
+---
+Created: 2026-09-30 12:00 -04:00
+Format: Oi 1
+---
+
+Property:
+	Tag: [Guide, Module]
+	Module: Math
+
+The **Math** module turns TeX into equations the browser lays out itself (MathML), so they follow the theme and the text size. Click any part of an equation to edit that exact spot. Back to [[Welcome]]; chemistry has its own guide, [[Chemistry]].
+
+Math: \int_0^\infty e^{-x^2}\,dx = \frac{\sqrt{\pi}}{2}
+
+## In a sentence
+
+Write {Math: E = mc^2} as `{Math: E = mc^2}`, the same way as any other block in a line of text.
+
+## Numbers and macros
+
+Math {Numbered: True}:
+	\newcommand{\R}{\mathbb{R}}
+	f:\R\to\R,\quad f(x) = \sum_{n=0}^{\infty} \frac{x^n}{n!}
+
+Math {Numbered: True}: \nabla \cdot \mathbf{E} = \frac{\rho}{\varepsilon_0}
+
+## Matrices and aligned lines
+
+Math:
+	\begin{pmatrix} a & b \\ c & d \end{pmatrix}^{-1} = \frac{1}{ad - bc}\begin{pmatrix} d & -b \\ -c & a \end{pmatrix}
+
+Math:
+	\begin{aligned}
+	(a+b)^2 &= a^2 + 2ab + b^2 \\
+	(a-b)^2 &= a^2 - 2ab + b^2
+	\end{aligned}
+
+## Colour
+
+Math: \textcolor{Accent}{F} = m\,\textcolor{Danger}{a}
+
+## Dollar signs
+
+As in Obsidian, `$$` is an *alias* of `Math:`: put it around an equation, on one line or on lines of their own.
+
+$$
+\oint_{\partial S} \mathbf{F} \cdot d\mathbf{r} = \iint_S (\nabla \times \mathbf{F}) \cdot d\mathbf{S}
+$$
+
+A single `$` is always a dollar sign. The alias can be switched off or changed in Setting → Module → Math, next to the math font and numbering.

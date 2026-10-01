@@ -1,0 +1,15 @@
+{
+	"name": "@octaether/module-chem",
+	"version": "0.1.0",
+	"private": true,
+	"description": "OI Chem module: own chemfig-compatible parser and renderer, schemes, mechanisms, labels",
+	"license": "MIT",
+	"type": "module",
+	"exports": {
+		".": "./src/index.ts"
+	},
+	"dependencies": {
+		"@octaether/core-format": "*",
+		"@octaether/core-sdk": "*"
+	}
+}

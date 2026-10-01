@@ -1,0 +1,14 @@
+node_modules/
+dist/
+coverage/
+.vite/
+*.tsbuildinfo
+*.log
+.DS_Store
+Thumbs.db
+# a vault's rebuildable cache, if a sample vault is ever opened in-place
+.oi/Cache/
+# the app's own files in the sample vault (setting, workspace) belong to whoever opened it
+sample/.oi/
+# Vercel CLI link (vercel link)
+.vercel/

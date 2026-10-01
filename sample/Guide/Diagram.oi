@@ -1,0 +1,29 @@
+---
+Created: 2026-09-30 12:00 -04:00
+Format: Oi 1
+---
+
+Property:
+	Tag: [Guide, Module]
+	Module: Diagram
+
+The **Diagram** module draws a subset of TikZ. Node labels hold text and math, written the TikZ way (`$x$`). Back to [[Welcome]].
+
+Diagram:
+	\draw[->] (-3.2,0) -- (3.4,0) node[right] {$x$};
+	\draw[->] (0,-1.4) -- (0,1.6) node[above] {$y$};
+	\draw[thick, Accent, domain=-3:3, samples=80] plot (\x, {sin(\x r)});
+	\node[Accent] at (2.2,1.2) {$\sin x$};
+
+## Nodes and arrows
+
+Diagram:
+	\node[draw, circle] (a) at (0,0) {A};
+	\node[draw] (b) at (3,0) {B};
+	\node[draw, circle] (c) at (1.5,-1.6) {C};
+	\draw[->, thick] (a) -- (b);
+	\draw[->] (b) -- (c);
+	\draw[->, dashed] (c) -- (a);
+	\foreach \x in {0,...,4} { \fill[Accent] (\x*0.75, 1) circle (0.08); }
+
+The drawing size is in Setting → Module → Diagram.

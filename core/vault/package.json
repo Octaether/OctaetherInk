@@ -1,0 +1,14 @@
+{
+	"name": "@octaether/core-vault",
+	"version": "0.1.0",
+	"private": true,
+	"description": "OI vault: files and folders, trash, rename with link updates, link graph, and search over any file system",
+	"license": "MIT",
+	"type": "module",
+	"exports": {
+		".": "./src/index.ts"
+	},
+	"dependencies": {
+		"@octaether/core-format": "*"
+	}
+}
