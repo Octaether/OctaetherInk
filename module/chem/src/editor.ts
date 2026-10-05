@@ -155,7 +155,7 @@ export function openStructureEditor(option: StructureEditorOption): () => void {
 	backdrop.innerHTML =
 		'<div class="oi-draw" role="dialog" aria-modal="true" aria-label="Draw a structure">' +
 		'<div class="oi-draw-top"><span class="oi-draw-title">Draw a structure</span>' +
-		`<div class="oi-draw-element" role="toolbar" aria-label="Elements">${elementButtonList.map((element) => `<button type="button" data-element="${element}" title="${element} (hover an atom and press ${element === 'Cl' ? 'L' : element === 'Br' ? 'B' : element})">${element}</button>`).join('')}<button type="button" data-element="Other" title="Another element or a label (CO₂H, Ph…)">…</button></div>` +
+		`<div class="oi-draw-element" role="toolbar" aria-label="Elements">${elementButtonList.map((element) => `<button type="button" data-element="${element}" title="${element} (hover an atom and press ${element === 'Cl' ? 'L' : element === 'Br' ? 'B' : element})">${element}</button>`).join('')}<button type="button" data-element="Other" title="Another element or a label (CO₂H, Ph…)">Other</button></div>` +
 		'<span class="oi-draw-space"></span>' +
 		'<button type="button" class="oi-draw-small" data-action="Undo" title="Undo (Ctrl+Z)">↶</button><button type="button" class="oi-draw-small" data-action="Redo" title="Redo (Ctrl+Y)">↷</button>' +
 		'<button type="button" class="oi-draw-small" data-action="Clear" title="Erase everything">Clear</button>' +

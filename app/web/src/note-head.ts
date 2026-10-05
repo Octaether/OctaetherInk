@@ -48,6 +48,8 @@ export class NoteHead {
 	readonly title: HTMLTextAreaElement;
 	readonly action: HTMLElement;
 	private titleShown = '';
+	/** The rename under way: Enter starts it, and the blur right after must not start another. */
+	private committing: Promise<void> | undefined;
 
 	constructor(
 		container: HTMLElement,
@@ -69,7 +71,9 @@ export class NoteHead {
 		this.title.addEventListener('keydown', (event) => {
 			if (event.key === 'Enter') {
 				event.preventDefault();
-				void this.commitTitle().then(() => this.option.onTitleDone());
+				// on into the note at once: what you type next must not wait for the file to be renamed
+				void this.commitTitle();
+				this.option.onTitleDone();
 			}
 			if (event.key === 'Escape') {
 				event.preventDefault();
@@ -99,8 +103,8 @@ export class NoteHead {
 	/** Shows the current note's name and what can be added under it. */
 	refresh(): void {
 		const name = this.option.name();
-		// keep a name being typed; otherwise show the current one (after a rename, or an undo)
-		if (document.activeElement !== this.title || this.title.value === this.titleShown) this.title.value = name;
+		// keep a name being typed or being kept; otherwise show the current one (after a rename, or an undo)
+		if (!this.committing && (document.activeElement !== this.title || this.title.value === this.titleShown)) this.title.value = name;
 		this.titleShown = name;
 		// global undo first puts back a name typed but not kept (see Edit.Undo)
 		this.title.dataset.oiCommitted = name;
@@ -124,8 +128,14 @@ export class NoteHead {
 		this.title.style.height = `${this.title.scrollHeight}px`;
 	}
 
-	private async commitTitle(): Promise<void> {
-		const next = this.title.value.trim();
+	private commitTitle(): Promise<void> {
+		this.committing ??= this.renameTo(this.title.value.trim()).finally(() => {
+			this.committing = undefined;
+		});
+		return this.committing;
+	}
+
+	private async renameTo(next: string): Promise<void> {
 		if (next === '' || next === this.titleShown || this.option.readOnly()) {
 			this.title.value = this.titleShown;
 			return;

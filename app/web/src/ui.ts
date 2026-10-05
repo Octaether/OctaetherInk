@@ -319,8 +319,17 @@ export function promptDialog(message: string, value = '', action = 'OK'): Promis
 	});
 }
 
-/** A short message at the bottom of the window that fades away. */
-export function toast(message: string, time = 3200): void {
+/** A button in a toast: Undo after a delete, Reload after an update. */
+export interface ToastAction {
+	title: string;
+	run(): void;
+}
+
+/**
+ * A short message at the bottom of the window that fades away (after 3.2 s, or 8 s with an
+ * action). An action is a button in it; the toast stays while the pointer is over it.
+ */
+export function toast(message: string, time?: number, action?: ToastAction): void {
 	// messages stack at the bottom instead of covering each other
 	let stack = document.getElementById('toastStack');
 	if (!stack) {
@@ -333,9 +342,30 @@ export function toast(message: string, time = 3200): void {
 	element.className = 'toast';
 	element.setAttribute('role', 'status');
 	element.textContent = message;
+	let timerList: ReturnType<typeof setTimeout>[] = [];
+	const fade = (after: number): void => {
+		timerList = [setTimeout(() => element.classList.add('toast-out'), after), setTimeout(() => element.remove(), after + 400)];
+	};
+	if (action) {
+		element.classList.add('has-action');
+		const button = document.createElement('button');
+		button.type = 'button';
+		button.className = 'toast-action';
+		button.textContent = action.title;
+		button.addEventListener('click', () => {
+			for (const timer of timerList) clearTimeout(timer);
+			element.remove();
+			action.run();
+		});
+		element.append(button);
+		element.addEventListener('pointerenter', () => {
+			for (const timer of timerList) clearTimeout(timer);
+			element.classList.remove('toast-out');
+		});
+		element.addEventListener('pointerleave', () => fade(2500));
+	}
 	stack.append(element);
-	setTimeout(() => element.classList.add('toast-out'), time);
-	setTimeout(() => element.remove(), time + 400);
+	fade(time ?? (action ? 8000 : 3200));
 }
 
 export { escapeHtml };

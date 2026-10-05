@@ -1,10 +1,11 @@
 // The browser's file systems for a vault:
 //   DirectoryFileSystem   a real folder on disk (File System Access: Chrome, Edge, Opera, Brave)
-//   BrowserFileSystem     a vault kept in this browser (IndexedDB: every browser, iPad and iPhone too)
+//   BrowserFileSystem     notes kept in this browser (IndexedDB: every browser, iPad and iPhone
+//                         too): the quick notes, with no folder needed
 // Both implement core-vault's FileSystem, like the memory one the tests use.
 
 import { type Entry, type FileSystem, FileSystemError, baseName, isInside, joinPath, mediaTypeOf, parentPath } from '@octaether/core-vault';
-import { idbDelete, idbGet, idbKeyList, idbSet } from './storage';
+import { idbDelete, idbGet, idbPickList, idbSet } from './storage';
 
 /** Whether this browser can open a folder with read and write access. */
 export function canOpenFolder(): boolean {
@@ -162,7 +163,10 @@ function entryBlob(entry: StoredEntry, path: string): Blob {
 	return new Blob([entry.data ?? entry.text ?? ''], { type });
 }
 
-/** A vault kept in this browser's storage (IndexedDB), for browsers that can't open folders. */
+/**
+ * Files kept in this browser's storage (IndexedDB) under one ID: the quick notes. Browsers may
+ * clear it with the site's data, so the app says so wherever these notes show.
+ */
 export class BrowserFileSystem implements FileSystem {
 	constructor(
 		readonly id: string,
@@ -178,14 +182,9 @@ export class BrowserFileSystem implements FileSystem {
 	}
 
 	async list(): Promise<Entry[]> {
-		const keyList = await idbKeyList('File', this.range());
-		const list: Entry[] = [];
-		for (const key of keyList) {
-			const path = String(key).slice(this.id.length + 1);
-			const entry = await idbGet<StoredEntry>('File', key);
-			if (entry) list.push({ path, kind: entry.kind });
-		}
-		return list;
+		// one pass over this ID's keys (not one request per file, which slows down as notes pile up)
+		const pairList = await idbPickList('File', this.range(), (value) => (value as StoredEntry | undefined)?.kind);
+		return pairList.flatMap(([key, kind]) => (kind ? [{ path: String(key).slice(this.id.length + 1), kind }] : []));
 	}
 
 	async read(path: string): Promise<string> {
@@ -243,8 +242,12 @@ export class BrowserFileSystem implements FileSystem {
 
 /** Downloads text as a file (the fallback for saving where browsers can't write files). */
 export function downloadText(name: string, text: string): void {
+	downloadBlob(name, new Blob([text], { type: 'text/plain;charset=utf-8' }));
+}
+
+export function downloadBlob(name: string, blob: Blob): void {
 	const link = document.createElement('a');
-	link.href = URL.createObjectURL(new Blob([text], { type: 'text/plain;charset=utf-8' }));
+	link.href = URL.createObjectURL(blob);
 	link.download = name;
 	link.click();
 	setTimeout(() => URL.revokeObjectURL(link.href), 1000);

@@ -28,7 +28,7 @@
 - [Highlights](#highlights)
 - [Quick start](#quick-start)
 - [Using Octaether Ink](#using-octaether-ink)
-  - [First launch: a folder, a file, or a vault in the browser](#first-launch-a-folder-a-file-or-a-vault-in-the-browser)
+  - [First launch: a vault, a quick note, or a file](#first-launch-a-vault-a-quick-note-or-a-file)
   - [Files: new, save, rename, delete](#files-new-save-rename-delete)
   - [Tabs](#tabs)
   - [Three views: Source, Edit, Read](#three-views-source-edit-read)
@@ -52,7 +52,7 @@
 - **Your notes are plain text.** A note is a `.oi` file you can read in any editor, diff in git, and sync with anything. Markdown lines are blocks by themselves; any other block starts with its type and a colon, `Math: x^2` or `Code: Python`, as in Python, and its settings go in braces before the colon, `Math {Numbered: True}:`, the same for every block.
 - **Markdown's symbols still work.** Three backticks around code and `$$` around math are *aliases* of `Code:` and `Math:`, so notes from Obsidian open as they are. Every module can have aliases, and each can be switched off or changed.
 - **Everything is a block.** Paragraphs, list items, math, code, chemical mechanisms, diagrams, pictures, videos, callouts, columns, and properties are blocks, and blocks hold blocks. Any block type also works inline in a sentence: `{Chem: 2H_2 + O_2 -> 2H_2O}`.
-- **Obsidian‑style app, VS Code‑style start.** Open a folder as a vault (or one file), with tabs, a file sidebar (pictures, videos, and sounds open in a tab of their own), search, graph view, backlinks through `[[links]]`, and, when a note wants fields of its own, an optional Property block.
+- **Obsidian‑style app, VS Code‑style start.** A vault is a folder on your disk: create one or open one, and switch between them from the bottom of the sidebar. Tabs, a file sidebar (pictures, videos, and sounds open in a tab of their own), search, graph view, backlinks through `[[links]]`, and, when a note wants fields of its own, an optional Property block. No folder at hand? A **quick note** is kept in the browser until you move it into a vault.
 - **Three views.** *Source* shows the whole note as text, with line numbers and colours, like a code editor. *Edit* lets you click anywhere in a rendered block and type exactly there, in the block's own source, header included. *Read* never changes anything by accident.
 - **Own renderers.** Our own TeX → MathML engine, chemfig parser (with electron‑pushing arrows and lone pairs), TikZ subset, Markdown, HTML cleaner, and code highlighter. Themes, fonts, and "click this part to edit it" work the same in all of them.
 - **A drawing tool for structures,** like the ALEKS or ChemDraw editor. Draw a molecule and it becomes chemfig text in your note.
@@ -61,14 +61,14 @@
 
 ## Quick start
 
-**Use it:** open **[ink.octaether.com](https://ink.octaether.com)** (Chrome or Edge can open a folder on your disk; Safari and Firefox keep a vault in the browser). It installs as an app and works offline.
+**Use it:** open **[ink.octaether.com](https://ink.octaether.com)**. In Chrome or Edge a vault is a folder on your disk; every browser, Safari and Firefox too, keeps quick notes. It installs as an app, opens at once, and works offline.
 
 **Develop:**
 
 ```bash
 npm install
 npm run dev       # web app at http://localhost:5173
-npm test          # 218 tests: format round trip and aliases, model, vault, edit actions, every module, render host, app
+npm test          # 228 tests: format round trip and aliases, model, vault, edit actions, every module, render host, app
 npm run check     # TypeScript type-check of every package
 npm run build     # production build of the web app → app/web/dist
 npm run preview   # serve the production build locally
@@ -80,22 +80,29 @@ Requires Node 22+. No global installs. The repository is an npm workspace (see [
 
 ## Using Octaether Ink
 
-### First launch: a folder, a file, or a vault in the browser
+### First launch: a vault, a quick note, or a file
 
-The first screen works like VS Code's:
+The first screen works like Obsidian's vault manager and VS Code's start page. **A vault is a folder of notes on your disk**:
 
 | Choice | What it does | Where it works |
 |---|---|---|
-| **Open a folder as a vault…** | Your folder of notes becomes a vault, with a sidebar, search, and graph. The app writes only inside one hidden `.oi/` folder there | Chrome, Edge (File System Access), and the desktop app later |
-| **Open a file…** | Edits one `.oi`, `.md`, or `.txt` file. Chrome and Edge save it in place; other browsers download it on `Ctrl+S` and keep a draft meanwhile | Everywhere |
-| **New note** | An untitled note on its own | Everywhere |
-| **New vault in this browser…** | A vault stored in the browser's own storage (IndexedDB), for Safari, Firefox, and iPad | Everywhere |
+| **Create new vault** | Give it a name and choose where it goes: the app makes the folder there and opens it, ready for a first note. The place is remembered for the next vault | Chrome, Edge (File System Access), and the desktop app later |
+| **Open folder as vault** | A folder of notes you already have becomes a vault, with a sidebar, search, and graph. The app writes only inside one hidden `.oi/` folder there | Chrome, Edge, and the desktop app later |
+| **Quick note** | A note kept in this browser, with no folder needed: for something to jot down now and file later (see below) | Everywhere: Safari, Firefox, iPad, and phones too |
+| **Open file** | Edits one `.oi`, `.md`, or `.txt` file. Chrome and Edge save it in place; other browsers download it on `Ctrl+S` and keep a draft meanwhile | Everywhere |
 | **Open the welcome guide** | A small vault in memory: an overview and one note per module, linked to each other so the graph view draws them as a map. Changes stay until it is closed | Everywhere |
 
-- **Recent** lists the folders, files, and browser vaults you opened, so you can reopen them with one click.
+- **Recent** lists the vaults, quick notes, and files you opened, so you can reopen them with one click. **×** takes one off the list; nothing is deleted.
+- **Switch vaults** from the vault's name at the bottom of the sidebar, as in Obsidian: it lists the vaults you use (the open one ticked), then *Create new vault*, *Open folder as vault*, and *Close vault*. *Switch vault* in the command palette does the same from the keyboard. The vault on screen stays until the next one is ready, which then shows with its tabs, with no flash of the start screen in between.
 - **The last vault reopens by itself** next time, with its tabs (setting *File → Reopen what was open*). A folder may need one click to allow access again, because browsers ask once per session. If the folder is gone, the start screen says so and removes it from the list.
 
-![The start screen, with a vault kept in the browser under Recent](doc/Start.png)
+**Quick notes** are one place per browser for notes that don't need a vault (yet):
+- *Quick note* on the start screen, or `Alt+N` with no vault open, starts one. They are a flat list of notes: links, search, pictures, and the graph work, but there are no folders to make.
+- A warning on top of the sidebar says they are **kept only in this browser**: clearing the site's data deletes them, and there is no trash: a quick note you delete comes back only with the **Undo** button shown for a few seconds right after. The vault name at the bottom reads *Quick note · in this browser*.
+- **Move to a folder** moves them all into a folder (an existing vault, or a new folder) and opens it as the vault; the browser's copies are removed only after every file is written. **Download .zip** saves a copy of them all (it works in every browser).
+- Later, a quick note (or a whole vault) is also what you send to another device in one go ([Transfer](#9-transfer-sync-collaboration-history)).
+
+![The start screen, with vaults and the quick notes under Recent](doc/Start.png)
 
 ### Files: new, save, rename, delete
 
@@ -103,7 +110,8 @@ The first screen works like VS Code's:
 - **A blank note is never kept.** An Untitled note stays unwritten until it has content. If you leave it blank, or type and then undo back to nothing, it is **deleted for good**: not left behind as another Untitled file and not moved to the trash. A note you *named* is kept even while empty.
 - **Saving is automatic** in a vault and for files opened with write access, 0.6 s after you stop typing, when you switch notes, and when the page is hidden. The status bar shows *Saved*, *Saving…*, *Unsaved*, or *Not saved!*; click it (or press `Ctrl+S`) to save now. A single file without write access keeps a draft in the browser. If you close it (or open something else) with unsaved changes, the app asks first.
 - **Rename** by editing the name at the top of the note, pressing `F2`, or from the file menu. Links to it in other notes (`[[Old name]]`) are rewritten (setting *Update links when renaming*). `Ctrl+Z` renames it back, in order with your edits.
-- **Delete** moves the note (or folder) to the vault's trash, `.oi/Trash/`, after asking. *Open trash* in the vault menu restores or deletes for good. Settings can switch the question off or make deletes permanent.
+- **Delete** (the file menu, the right‑click menu, or `Delete` in the sidebar) asks first, then moves the note or folder to the **vault's trash**: the `.oi/Trash/` folder inside the vault, which your file manager shows too. (A web page can't reach the computer's recycle bin, so the trash travels with the vault, as Obsidian's *.trash* option does.) The message after a delete has **Undo**, which puts it back and opens it again. To restore something later, *Open the trash* in the command palette lists what is there. Settings can switch the question off or make deletes permanent; Undo works either way, right after.
+- **Quick notes have no trash.** Deleting one always asks first. After it, the **Undo** button in the message (shown for a few seconds; it stays while the pointer is on it) is the only way to get the note back; once it is gone, so is the note.
 - **Move** notes and folders by dragging them in the sidebar; links follow.
 
 ### Tabs
@@ -238,7 +246,7 @@ Macro:
 | `Theme.Active` | System, Light, Dark, Paper, HighContrast | System follows the device's light or dark mode |
 | `File.OpenLast` | On, Off | Reopens the last vault (with its tabs) or file |
 | `File.NewNoteLocation` | VaultRoot, CurrentFolder | Where new notes go |
-| `File.DeleteTo` | Trash, Permanent | Deleted files go to `.oi/Trash` or away for good |
+| `File.DeleteTo` | Trash, Permanent | Deleted files go to the vault's `.oi/Trash`, or are deleted with no trash to restore from (either way, Undo works for a few seconds right after; quick notes have no trash) |
 | `File.ConfirmDelete` | On, Off | Asks before deleting |
 | `File.UpdateLink` | On, Off | Renaming rewrites `[[links]]` |
 | `File.AttachmentFolder` | `Attachment` | Where pasted or dropped pictures and videos go (empty: next to the note) |
@@ -295,10 +303,11 @@ Nothing is ever lost. A block that can't render as intended keeps its text on sc
 ### Offline, install, and phones
 
 - The web app is a **PWA**: after the first visit it opens offline, and it installs as an app. In Chrome or Edge, use the install icon in the address bar; on iPad and iPhone, use Safari → Share → *Add to Home Screen*. The installed app on a computer can open `.oi` files from the file manager.
+- **It opens at once.** After the first visit the app starts from the copy the browser keeps, never waiting on the network, so a slow or stalled connection can't hold it up. A new version downloads in the background, and a message offers **Reload** when it is ready.
 - **On phones** the ribbon becomes a bottom bar, the sidebar a drawer, and columns stack. Long‑press opens the block menu.
 
   <img src="doc/Phone.png" width="300" alt="The welcome guide on a phone">
-- **Where notes live:** in your folder, or in a browser vault in site storage. Browsers can clear site storage, so for anything important use a folder, or download notes now and then (*Export* in the note menu; a whole‑vault `.zip` export is on the roadmap).
+- **Where notes live:** in your vault's folder, or, for quick notes, in the browser's own storage (IndexedDB, not cookies). Browsers can clear site storage, so quick notes are for jotting down: move them into a vault, or download them as a `.zip`, from the warning on top of their sidebar.
 
 ---
 
@@ -377,7 +386,7 @@ The web app is a static site. It deploys to **[ink.octaether.com](https://ink.oc
 |---|---|
 | [`vercel.json`](vercel.json) | Install `npm ci`, build `npm run build`, serve `app/web/dist`. Security headers (a strict Content‑Security‑Policy: scripts only from the site itself, no eval, pictures and videos from the web and from the vault (`blob:`), and frames only for the YouTube and Vimeo players), long caching for hashed `/assets/*`, no caching for `sw.js`, and every path served by `index.html` |
 | [`app/web/public/manifest.webmanifest`](app/web/public/manifest.webmanifest) | Makes the app installable, with a file handler for `.oi` |
-| [`app/web/public/sw.js`](app/web/public/sw.js) | Offline support: the page is network‑first (new versions show up at once), and built files are cache‑first |
+| [`app/web/public/sw.js`](app/web/public/sw.js) | Offline support and an instant start: the page comes from the cache at once and is refreshed in the background with every file it needs (open pages then offer Reload); built files are cache‑first |
 | `app/web/public/icon*.svg/png` | App icons (the Octaether octahedron in gold on black, its lower half a pen nib), including a maskable one and the Apple touch icon |
 
 **First deployment (about 10 minutes):**
@@ -402,7 +411,8 @@ The web app is a static site. It deploys to **[ink.octaether.com](https://ink.oc
 **If something goes wrong:**
 - *Build fails:* run `npm ci && npm run build` locally; the build log in Vercel shows the same output.
 - *Blank page:* the Content‑Security‑Policy in `vercel.json` blocks scripts from other origins. Anything new must be bundled, not loaded from a CDN.
-- *Old version after a deploy:* the service worker serves the cached page only when offline. A normal reload shows the new version, since `sw.js` itself is never cached.
+- *Old version after a deploy:* the app opens from its cached copy at once and fetches the new version meanwhile; it then shows *A new version of Octaether Ink is ready* with **Reload**. Any reload after that runs the new version. `sw.js` itself is never cached, so a change to it arrives on the next visit.
+- *Slow first visit:* the first visit downloads the app (about 160 KB compressed); from then on it opens from the browser's copy. A first request that hangs for seconds is the connection or DNS, not the app: compare with `curl -w "%{time_total}\n" -o /dev/null -s https://ink.octaether.com`.
 
 ---
 
@@ -419,16 +429,18 @@ This checklist is the project's to‑do list. Tick items in the same change that
 - [x] Inline blocks are `{Name: text}` for every type, math included (`$…$` is plain text)
 - [x] Model: operations on runtime keys, transactions, undo/redo with typing coalesced, whole‑text replace from the Source view (one undo step, unchanged blocks keep their keys), a block's own source as one operation (`Block.Source.Set`: its type, properties, and body at once), and steps outside the text (a rename) in the same history
 - [x] Render host: keyed nested frames, layouts, placeholders, per‑block error boundary, broken‑block outlines, a read‑only mode, and module settings that re‑render their blocks
-- [x] Vault (`core/vault`): a file‑system interface (text and bytes), folder, browser, and memory vaults, `.oi/Trash`, link rewriting on rename and move, backlinks, tags (Property blocks included), graph, search, and Obsidian‑style file lookup for pictures
+- [x] Vault (`core/vault`): a file‑system interface (text and bytes), folder, browser (quick notes), and memory vaults, `.oi/Trash` with restore (empty trash folders tidied away), copies in memory so a delete for good can be undone, link rewriting on rename and move, backlinks, tags (Property blocks included), graph, search, and Obsidian‑style file lookup for pictures
 - [x] Registry: modules and plugins on and off, per‑module settings (alias settings generated), alias conflicts, and status‑bar items
 
 **App**
-- [x] Start screen like VS Code: open a folder, open a file, new note, a vault in the browser, the welcome guide, and recent items. The last vault reopens by itself, with its tabs
-- [x] Obsidian‑style shell: ribbon, file sidebar (tree, drag to move, rename in place, context menu, resize), vault menu, view header with back and forward, and a phone layout (bottom bar, drawer)
+- [x] Start screen like Obsidian's vault manager and VS Code: create a vault (a name and a place), open a folder as a vault, a quick note, open a file, the welcome guide, and recent items. The last vault reopens by itself, with its tabs
+- [x] Obsidian‑style shell: ribbon, file sidebar (tree, drag to move, rename in place, context menu, resize), the vault switcher at the bottom, view header with back and forward, and a phone layout (bottom bar, drawer)
+- [x] Vaults switch in one step: the next one is read while the current one stays on screen, its settings apply before its notes are drawn, and it shows with its tabs (no flash of the start screen)
+- [x] Quick notes: notes kept in the browser with no folder, a warning on top of their sidebar that can't be missed, *Move to a folder*, and *Download .zip*
 - [x] Tabs: a tab per note (`Ctrl`+click for a new one), middle‑click to close, drag to reorder, a tab menu, per‑tab back and forward (the graph view and files included), and per‑tab scroll
 - [x] Files on their own, as in Obsidian: pictures (PNG, JPEG, GIF, WebP, AVIF, SVG, BMP), videos (MP4, WebM, Ogg), and sounds (MP3, M4A, Ogg, WAV) open in a tab from the sidebar, a link, or the quick switcher; dragging one onto a note adds its block or a link
 - [x] Welcome guide: a vault in memory with an overview and one note per module, linked for the graph
-- [x] File rules: blank Untitled notes are never kept (not even in the trash), autosave, trash with restore, a question before deleting, links rewritten on rename, and a question before closing unsaved single files
+- [x] File rules: blank Untitled notes are never kept (not even in the trash), autosave, the vault's trash with Undo right after a delete (and the trash dialog in the palette), quick notes deleted for good only after a warning, a question before deleting, links rewritten on rename, and a question before closing unsaved single files
 - [x] Three views: Source (a code‑editor view of the whole note), Edit, and Read. The old text box under the note is gone
 - [x] Block editor: every block edits as its own source, header included (`Math:`, ```` ```Python ````), so its type and settings change in place; `Math:`, `Code: Python`, or an alias typed alone and `Enter` turns a paragraph into that block
 - [x] Text selected on the page: `Delete` removes it and typing replaces it (instead of deleting the selected block)
@@ -437,11 +449,12 @@ This checklist is the project's to‑do list. Tick items in the same change that
 - [x] Hotkeys: everything rebindable, chords, conflicts, reset, and macros, saved to `.oi/Hotkey.oi`. `Ctrl+Z` works everywhere: while typing, on the page, in the name, and for renames
 - [x] Setting: Editor, File, Appearance, Hotkey, Module, Plugin, About, with a page per module (every label singular)
 - [x] Appearance: the accent colour (any hex code, ↺ for Octaether gold), the hover highlight (on or off, its colour), and hex colours for text
-- [x] Pictures and videos pasted or dropped on a note go into the vault's `Attachment` folder, in an Image or Video block (a vault kept in the browser stores the bytes so that private windows in Safari and Firefox take them too)
+- [x] Pictures and videos pasted or dropped on a note go into the vault's `Attachment` folder, in an Image or Video block (quick notes store the bytes so that private windows in Safari and Firefox take them too)
 - [x] Status bar: cursor, word and character counts (selection‑aware), and save state; modules add items
 - [x] Editing visuals: an outline and type badge on the block being edited, a dashed outline on the block around it, a gutter outline, block outlines while dragging, a drop line that shows at once, and dragging from right‑hand columns
 - [x] Look: the Octaether mark (a gold octahedron whose lower half is a pen nib, on black), warm greys, and no blue or purple anywhere, code colours included
 - [x] Deployment files for Vercel, a PWA (offline, installable, opens `.oi` files), and app icons
+- [x] Live at ink.octaether.com on Vercel; the app opens from its cached copy at once and offers Reload when a new version is ready
 - [x] Development: the dev server doesn't reload the page when the app saves notes into `sample/`
 
 **Modules**
@@ -458,13 +471,14 @@ This checklist is the project's to‑do list. Tick items in the same change that
 - [x] Theme plugin: Paper and HighContrast, `Theme.Switch`, `Theme.Cycle`, and System following the device
 
 **Quality**
-- [x] 218 unit and app tests. Strict TypeScript 7 (unused code refused). Build: 474 KB JS (154 KB gzipped) + 37 KB CSS
-- [x] Checked in Chromium, WebKit (Safari, iPad, iPhone), and Firefox, at desktop and phone sizes, covering every view, find, undo while typing, dragging (including from a right column), settings, the palette, the drawing tool, browser and folder vaults, trash, graph, reopening, the phone layout, and the review‑5 and review‑6 features (the block source editor, aliases and their clashes, selection delete, pictures pasted and in text, the sample video, files opened on their own, the new modules, renames undone, tabs reopened): 66 checks, all passing
+- [x] 228 unit and app tests. Strict TypeScript 7 (unused code refused). Build: 486 KB JS (158 KB gzipped) + 40 KB CSS
+- [x] Checked in Chromium, WebKit (Safari, iPad, iPhone), and Firefox, at desktop and phone sizes, covering every view, find, undo while typing, dragging (including from a right column), settings, the palette, the drawing tool, browser and folder vaults, trash, graph, reopening, the phone layout, and the review‑5 and review‑6 features (the block source editor, aliases and their clashes, selection delete, pictures pasted and in text, the sample video, files opened on their own, the new modules, renames undone, tabs reopened): 66 checks, all passing. For review 7, 70 more: vaults made, opened, and switched with no frame of the start screen between, delete and Undo on a real folder handle, quick notes in all three engines (kept across a reload, deleted with the warning, undone, downloaded as a `.zip`, moved into a folder), and the service worker served with Vercel's headers (offline, instant with an 8‑second page delay, a new version offered with Reload)
 
 ### Next (version 1.x)
 
-- [ ] **Go live:** deploy ink.octaether.com with Vercel ([Deploy](#deploy)); the files are ready
-- [ ] Export and import a whole vault as a `.zip` (a backup for vaults kept in the browser)
+- [ ] Export any vault as a `.zip` and import one (quick notes download as a `.zip` already)
+- [ ] Send a quick note, or a whole vault, to another device (the first use of `Transfer`)
+- [ ] Trash: empty what has been there longer than a set number of days
 - [ ] Block links: `[[Note#^id]]`, `![[Note#^id]]` embeds, and "Copy link to block"
 - [ ] Backlinks and outline panes in the sidebar
 - [ ] Split panes (tabs are done)
@@ -511,8 +525,9 @@ This checklist is the project's to‑do list. Tick items in the same change that
 
 ### Known limits of version 1
 
-- Safari and Firefox can't open folders on disk (a browser rule). Use a vault kept in the browser, single files, or Chrome/Edge.
+- Safari and Firefox can't open folders on disk (a browser rule), so they can't hold a vault. Use quick notes and single files there, or Chrome/Edge.
 - A folder vault asks for access again after the browser restarts (one click on the start screen).
+- A web page can't move files to the computer's recycle bin: deleted files go to the vault's own trash, `.oi/Trash`.
 - Graph and search are part of the app shell for now; they become switchable plugins with the plugin loader.
 - A pasted picture needs a vault to be saved in; a single file opened on its own can't take one yet.
 - YouTube and Vimeo videos, and pictures from web addresses, need the network.
@@ -762,9 +777,9 @@ My Vault/
 - Transfers skip files the other device already has.
 - The vault stays clean.
 
-**Vault back ends** (one `FileSystem` interface in `core/vault`): a real folder through the File System Access API (Chromium), a vault kept in the browser (IndexedDB; Safari, Firefox, iPad), and an in‑memory one for tests. Native shells add the OS file system. Moving a note inside the vault is free, and links to it are rewritten. Moving it to another vault goes through export/import (§5.11). If the vault is a git repo, the app writes `.oi/.gitignore` containing `Cache/`.
+**Vault back ends** (one `FileSystem` interface in `core/vault`): a real folder through the File System Access API (Chromium), the quick notes kept in the browser (IndexedDB, one place per browser, listed in one pass; every browser), and an in‑memory one for tests and the guide. Native shells add the OS file system. A vault is always a folder; the browser's storage holds only the quick notes, which move into a folder vault in one step. (Vaults that an earlier build kept in the browser still open from *Recent*, with the same warning, and move to a folder the same way.) Moving a note inside the vault is free, and links to it are rewritten. Moving it to another vault goes through export/import (§5.11). If the vault is a git repo, the app writes `.oi/.gitignore` containing `Cache/`.
 
-**Trash:** deleting moves a file or folder to `.oi/Trash/` with its path (`.oi/Trash/Lab/Titration.oi`). Restoring puts it back, under a free name if the old one was taken meanwhile. Emptying the trash deletes for good. `File.DeleteTo: Permanent` skips the trash. A blank Untitled note never goes there (§7.5).
+**Trash:** deleting moves a file or folder to `.oi/Trash/` with its path (`.oi/Trash/Lab/Titration.oi`; a folder keeps its own name, `.oi/Trash/Lab/`). The trash is a folder of the vault because a web page can't reach the system's recycle bin; it travels with the vault, and any file manager shows it. Restoring puts it back, under a free name if the old one was taken meanwhile, and removes the trash folders it leaves empty. Emptying the trash deletes for good. `File.DeleteTo: Permanent` skips the trash, and quick notes have none. A delete for good first copies what goes into memory (up to 200 MB), so **Undo** in the message after any delete puts it back. A blank Untitled note never goes to the trash (§7.5).
 
 ### 5.2 A note, end to end
 
@@ -1280,6 +1295,8 @@ Whatever the kind, the host edits a block's own source the same way (header, ali
 - **Autosave** (built): 0.6 s after the last edit, when you switch notes, and when the page is hidden. Native writes are atomic (temp file + rename), and Chromium's File System Access does the same. The status bar shows the state.
 - **New notes:** "Untitled.oi" (then "Untitled 1.oi", …) is not written until it has content. **A blank Untitled note is removed for good** when you leave it, even after typing and undoing back to nothing, and never goes to the trash, so empty Untitled files never pile up. Naming it keeps it, even empty.
 - **Single files** without write access: `Mod+S` downloads (or picks a place in Chromium), and a draft is kept in the browser until then. Closing or replacing it with unsaved changes asks first.
+- **Delete** (built): after a question (`File.ConfirmDelete`; always for quick notes) to the vault's trash or, with `File.DeleteTo: Permanent` and for quick notes, for good. The note is saved first, so the trash (or the copy kept for Undo) holds what you last saw. The message after it offers **Undo**, which puts the file back and shows the note again; it acts only while that vault is still open.
+- **Switching vaults** (built): the next vault is read first, while the current one stays on screen. Then, in one step, the open notes are saved and closed, the next vault's settings are read (so its notes are drawn once, with its theme and aliases), and its tabs come back. The workspace holds its events during the switch and sends them as one round, so the start screen never shows in between.
 - **Crash safety:** an ink journal is flushed every ≤250 ms.
 - **External changes** (VS Code, git, Dropbox; next): a clean note reloads and only its changed blocks re‑render. A note with unsaved edits gets a 3‑way block merge (§9.4).
 - **IDs on paste:** a pasted block keeps its ID unless that ID is already taken in the note. Moving a linked block to another note rewrites the links to it.
@@ -1588,10 +1605,11 @@ Settings:
 
 ### 11.1 Minimal by default, everything reshapeable
 
-- **Start screen** (built, like VS Code): the app's name, then *Start* (open a folder as a vault, open a file, new note, new vault in this browser, the welcome guide) and *Recent* (folders, files, and browser vaults, each removable). The last vault or file reopens by itself (`File.OpenLast`); if it can't be found, the start screen says so. A folder that needs permission again is one click under Recent.
+- **Start screen** (built, like Obsidian's vault manager and VS Code's start page): the app's name, then *Start* (create new vault, open folder as vault, quick note, open file, the welcome guide) and *Recent* (vaults, the quick notes, and files, each removable from the list). The last vault or file reopens by itself (`File.OpenLast`); if it can't be found, the start screen says so. A folder that needs permission again is one click under Recent. Where folders can't be opened, the two vault actions are disabled with the reason.
+- **Create new vault** (built): a dialog with a name and a location (*Choose* opens the folder picker in Documents, then where you chose last time). The app makes the folder and opens it with a new note. An empty folder of that name is used as it is; one with files in it is refused, with a pointer to *Open folder as vault*.
 - **Default screen** (built, Obsidian‑style):
   - A thin **ribbon** on the left: sidebar, quick switcher, search, graph, new note, and command palette, with help and settings at the bottom. Buttons for vault features show only in a vault.
-  - The **sidebar** in a vault has two tabs, *File* and *Search*. File is a tree with folders first and natural sort, drag to move (or onto a note, to use the file there), rename in place, a right‑click menu (open, open in a new tab, new note, new folder, rename, copy link, move to trash), sort and collapse‑all buttons, and a resize handle. Notes open as notes and pictures, videos, and sounds in a file view; other files are listed, greyed. The vault's name at the bottom opens the vault menu: open another folder, new browser vault, trash, settings, and close vault.
+  - The **sidebar** in a vault has two tabs, *File* and *Search*. File is a tree with folders first and natural sort, drag to move (or onto a note, to use the file there), rename in place, a right‑click menu (open, open in a new tab, new note, new folder, rename, copy link, move to trash), sort and collapse‑all buttons, and a resize handle; `F2` renames and `Delete` deletes the open file. Notes open as notes and pictures, videos, and sounds in a file view; other files are listed, greyed. The vault's name at the bottom (with ⇅, no icon in front, as in Obsidian) opens the **vault switcher**: the vaults you use, the open one ticked, then *Create new vault*, *Open folder as vault*, and *Close vault*. For the quick notes, a warning box sits on top of the file list (*Kept only in this browser*, with *Move to a folder* and *Download .zip*), the name at the bottom adds *· in this browser*, and *New folder* is gone. **With no vault open**, the sidebar button still opens the sidebar (shut by default there, and remembered apart from a vault's): the file pane offers *Create new vault*, *Open folder as vault*, *Quick note*, and the vaults used recently, and the name at the bottom reads *No vault open*.
   - A **tab bar** above it holds a tab per note, file, or graph.
   - The **view header** has back and forward, the note's folder path and name, the three view buttons, and the note menu (save, rename, add a property, find, export, print, copy link, move to trash, close the tab). For a file, the menu offers copy link, show in the sidebar, rename, and move to trash.
   - The **note area** has a readable width (`Editor.ReadableWidth`), with the name on top (and *+ Add property* while the note has no Property block).
@@ -1641,7 +1659,7 @@ Macro:
 	- {Id: Macro.LectureMode, Title: Lecture mode, Step: [{Command: Setting.Toggle, Argument: Code.LineNumber}, {Command: View.Set, Argument: Read}]}
 ```
 
-**Commands in v1** (for macros, the palette, and hotkeys): `Note.Create`, `Note.Switch`, `Note.Save`, `Note.Rename`, `Note.Delete`, `Note.Export`, `Tab.Close`, `Tab.Next`, `Tab.Previous`, `Guide.Open`, `Property.Add`, `File.Open`, `Vault.Open`, `Vault.Browser`, `Vault.Close`, `Trash.Open`, `Command.Palette`, `Setting.Open`, `Setting.Toggle`, `Sidebar.Toggle`, `View.Source`, `View.Edit`, `View.Read`, `View.Toggle`, `View.Set`, `Find.Open`, `Find.Replace`, `Search.Vault`, `Graph.Open`, `Navigate.Back`, `Navigate.Forward`, `Edit.Undo`, `Edit.Redo`, `Format.Bold`, `Format.Italic`, `Format.Strike`, `Format.Highlight`, `Format.Code`, `Format.Math`, `Format.Link`, `Block.Insert`, `Block.Delete`, `Block.Duplicate`, `Block.MoveUp`, `Block.MoveDown`, `Theme.Switch`, `Theme.Cycle`, and every `Macro.*`.
+**Commands in v1** (for macros, the palette, and hotkeys): `Note.Create`, `Note.Switch`, `Note.Save`, `Note.Rename`, `Note.Delete`, `Note.Export`, `Tab.Close`, `Tab.Next`, `Tab.Previous`, `Guide.Open`, `Property.Add`, `File.Open`, `Note.Quick`, `Vault.Create`, `Vault.Open`, `Vault.Switch`, `Vault.Close`, `Trash.Open`, `Command.Palette`, `Setting.Open`, `Setting.Toggle`, `Sidebar.Toggle`, `View.Source`, `View.Edit`, `View.Read`, `View.Toggle`, `View.Set`, `Find.Open`, `Find.Replace`, `Search.Vault`, `Graph.Open`, `Navigate.Back`, `Navigate.Forward`, `Edit.Undo`, `Edit.Redo`, `Format.Bold`, `Format.Italic`, `Format.Strike`, `Format.Highlight`, `Format.Code`, `Format.Math`, `Format.Link`, `Block.Insert`, `Block.Delete`, `Block.Duplicate`, `Block.MoveUp`, `Block.MoveDown`, `Theme.Switch`, `Theme.Cycle`, and every `Macro.*`.
 
 ### 11.3 Theme & palette
 
@@ -1721,7 +1739,7 @@ The target is **WCAG 2.2 AA**, the standard checklist that makes an app usable w
 
 | Capability | Web Chromium | Web Safari/Firefox | Desktop | iPad/iPhone | Android |
 |---|---|---|---|---|---|
-| Open a real folder as vault | ✓ File System Access (built) | ✗ a vault kept in the browser (IndexedDB, built) + open/download files | ✓ | ✓ app folder, Files, iCloud Drive | ✓ app storage (SAF folders are slow with many files) |
+| Open a real folder as vault | ✓ File System Access (built) | ✗ quick notes kept in the browser (IndexedDB, built) + open/download files | ✓ | ✓ app folder, Files, iCloud Drive | ✓ app storage (SAF folders are slow with many files) |
 | Durable storage | ✓ | ⚠ Safari may evict: install as app, backups | ✓ | ✓ | ✓ |
 | Offline, installable | ✓ PWA (built) | ✓ PWA (Safari: Add to Home Screen) | ✓ | ✓ | ✓ |
 | Pen pressure/tilt | ✓ | ✓ Safari iPad | ✓ | ✓ + native wet ink (P2) | ✓ + native wet ink (P2) |
@@ -1792,7 +1810,7 @@ Unavailable features appear **disabled with a one‑line reason**, never silentl
 |---|---|
 | Format | Grammar tests, round‑trip tests on every sample, fuzzing, and a backward‑compatibility corpus: every released format version must still load |
 | Module | Conformance kit (§8.4) in CI |
-| Vault and app | Workspace tests on an in‑memory vault (blank notes, autosave, rename with links, trash, restore, history), setting and hotkey file tests, and app tests that boot the real app in happy‑dom |
+| Vault and app | Workspace tests on an in‑memory vault (blank notes, autosave, rename with links, trash, restore, delete for good, Undo, quick notes, switching vaults in one step, history), setting and hotkey file tests, the `.zip` writer read back, and app tests that boot the real app in happy‑dom |
 | Render | Visual snapshots per block type in Light and Dark on Chromium and WebKit (Playwright) |
 | Engines | Scripted checks of the production build in Chromium, WebKit, and Firefox, at desktop and phone sizes (22 checks per engine in v1, 66 in all) |
 | Performance | Benchmarks against §13. A regression over 10% fails CI |
@@ -1813,7 +1831,7 @@ Unavailable features appear **disabled with a one‑line reason**, never silentl
 | 6 | **Networks without a server** | Campus client isolation, firewalls, and symmetric NAT for internet collaboration | Both‑direction dialing, hotspot guidance, LAN‑first collaboration. A relay later (self‑host or paid) |
 | 7 | **Same note, two devices** | Offline edits conflict | Block‑level 3‑way merge, stroke union, never drop data, and a history tree to recover |
 | 8 | **Engine differences in general** | WebKit vs Chromium fonts, CSS, print | Bundled fonts, a conservative CSS subset, visual tests |
-| 9 | **Web durability** | Safari can evict storage, and only Chromium opens real folders | Recommend the installed app. `persist()`, scheduled bundle backups, warnings (built: a notice when a browser vault is made) |
+| 9 | **Web durability** | Safari can evict storage, and only Chromium opens real folders | Recommend the installed app. Vaults are folders; the browser keeps only quick notes, under a warning that can't be missed, with *Move to a folder* and *Download .zip* (built). `persist()` and scheduled bundle backups next |
 | 10 | **Tauri mobile maturity** | Plugin gaps (BLE, Pencil, share) | The platform interface keeps the shell swappable. Budget Swift/Kotlin work. Capacitor as plan B |
 | 11 | **App Store review** | Downloadable modules and runtimes | WebKit‑only execution, no native passthrough, a report button |
 | 12 | **iOS memory** | WebView processes get killed; canvas memory is capped | Virtualization, tiled ink, lazy PDF pages, runtimes only on demand |
@@ -1908,7 +1926,7 @@ Your fourth review:
 | Undo | `Ctrl+Z` works everywhere, and renaming a note is a step in its history (§7.5) |
 | Properties | Fields of your own are an optional **Property** block (tags as pills edited in place and dragged, a **+** to add, YAML's basic types); the note's own header (`Created`, `Id`, `Format`) shows only in the Source view (§5.4) |
 | Logo and colour | A logo in the Octaether style, and an accent colour of your own (any hex code, ↺ back to gold); text can take hex colours (§11.3) |
-| Guide | One note per module plus a Welcome overview, linked so the graph draws them; the graph's Back button works ([First launch](#first-launch-a-folder-a-file-or-a-vault-in-the-browser)) |
+| Guide | One note per module plus a Welcome overview, linked so the graph draws them; the graph's Back button works ([First launch](#first-launch-a-vault-a-quick-note-or-a-file)) |
 | Hover | The character under the pointer is highlighted, in a stronger colour that can be changed or switched off (`Appearance.HoverHighlight`, `Appearance.HoverColor`) |
 | Tabs | Notes open in tabs, each with its own Back and Forward ([Tabs](#tabs)) |
 | Autosave | Saving must not disturb editing: the dev server no longer reloads the page when notes are written ([Quick start](#quick-start)) |
@@ -1933,6 +1951,16 @@ Your sixth review:
 | Names | An acronym keeps its capitals: the module and block type are `HTML` (and `PDF` later) (§2) |
 | Files | Pictures, videos, and sounds of the vault open on their own in a tab, as in Obsidian ([Tabs](#tabs)) |
 | Guide | The Video guide plays MDN's CC0 sample video (the earlier link had gone); the README's screenshots show the gold look |
+
+Your seventh review (after going live):
+
+| Topic | Decision |
+|---|---|
+| Vaults | A vault is a folder on your disk: *Create new vault* (a name and a place; the app makes the folder) or *Open folder as vault*. "New vault in this browser" is gone ([First launch](#first-launch-a-vault-a-quick-note-or-a-file)) |
+| Switching | The vault's name at the bottom of the sidebar opens a switcher, as in Obsidian: the vaults you use, create, open, close. The folder icon in front of the name is gone. Switching shows no start screen in between (§7.5). The sidebar button works with no vault open too: the sidebar then offers vaults to make or open (§11.1) |
+| Browser storage | No more vaults in the browser. Each browser keeps **quick notes** instead: a few loose notes for jotting down, under a warning that can't be missed, which move into a folder vault or download as a `.zip` (and, later, go to another device) |
+| Trash | A web page can't reach the computer's recycle bin, so a folder vault's trash stays its own `.oi/Trash` folder (visible in the file manager), with no button of its own: **Undo** in the message after a delete, and *Open the trash* in the command palette. Quick notes have no trash: deleting one always warns that only the Undo button shown for a few seconds right after can bring it back. A deleted folder no longer turns into `Name.oi` in the trash, and *New folder* no longer makes `Untitled.oi` |
+| Loading | The slow first load was the network (about 3 s for the page from Vercel on a cold connection), not the vault or cookies; the old service worker waited on the network every time. Now the app opens from its cached copy at once and updates in the background, offering Reload |
 
 **Still open (defaults are in use until you say otherwise):**
 1. Licence: MIT (default) or AGPL‑3.0.

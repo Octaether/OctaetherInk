@@ -485,6 +485,139 @@ body:not(.in-vault) .vault-only {
 	white-space: nowrap;
 }
 
+/* notes kept in the browser: a warning on top of the file list that can't be missed */
+.vault-notice {
+	margin: 8px 8px 2px;
+	padding: 9px 10px 10px;
+	border: 1px solid color-mix(in srgb, var(--oi-color-warning) 55%, transparent);
+	border-radius: 8px;
+	background: color-mix(in srgb, var(--oi-color-warning) 11%, var(--oi-color-surface1));
+	font-size: 12.5px;
+	line-height: 1.45;
+}
+
+.vault-notice-title {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	color: var(--oi-color-text);
+	font-weight: 650;
+}
+
+.vault-notice-title svg {
+	width: 16px;
+	height: 16px;
+	flex: none;
+	color: var(--oi-color-warning);
+}
+
+.vault-notice p {
+	margin: 4px 0 8px;
+	color: var(--oi-color-text-muted);
+}
+
+.vault-notice-row {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 6px;
+}
+
+.vault-notice-button {
+	display: inline-flex;
+	align-items: center;
+	gap: 5px;
+	padding: 4px 9px;
+	border: 1px solid var(--oi-color-border);
+	border-radius: 6px;
+	background: var(--oi-color-background);
+	color: var(--oi-color-text);
+	font-size: 12.5px;
+	cursor: pointer;
+}
+
+.vault-notice-button:hover {
+	border-color: var(--oi-color-accent);
+	color: var(--oi-color-accent);
+}
+
+.vault-notice-button svg {
+	width: 14px;
+	height: 14px;
+	flex: none;
+}
+
+/* no vault open: what can be opened, in the file pane */
+.sidebar-empty {
+	display: flex;
+	flex-direction: column;
+	gap: 1px;
+	padding: 10px 0 0;
+}
+
+.sidebar-empty-title {
+	margin: 0 6px 8px;
+	color: var(--oi-color-text-muted);
+	font-size: 13px;
+}
+
+.sidebar-empty-head {
+	margin: 14px 6px 4px;
+	color: var(--oi-color-text-muted);
+	font-size: 11.5px;
+	font-weight: 600;
+	letter-spacing: 0.04em;
+	text-transform: uppercase;
+}
+
+.sidebar-empty-link {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	min-height: 28px;
+	padding: 3px 6px;
+	border: none;
+	border-radius: 5px;
+	background: none;
+	color: var(--oi-color-text);
+	font-size: 13.5px;
+	text-align: start;
+	cursor: pointer;
+}
+
+.sidebar-empty-link:hover:not(:disabled) {
+	background: var(--oi-color-surface2);
+}
+
+.sidebar-empty-link:disabled {
+	opacity: 0.5;
+	cursor: default;
+}
+
+.sidebar-empty-link svg {
+	width: 16px;
+	height: 16px;
+	flex: none;
+	color: var(--oi-color-text-muted);
+}
+
+.sidebar-empty-link span {
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.sidebar.no-vault .vault-name {
+	color: var(--oi-color-text-muted);
+	font-weight: 500;
+}
+
+/* the vault name at the bottom says where the notes are */
+.sidebar.in-browser .vault-name::after {
+	content: ' · in this browser';
+	color: var(--oi-color-warning);
+	font-weight: 500;
+}
+
 .sidebar-resize {
 	position: absolute;
 	top: 0;
@@ -1990,6 +2123,85 @@ mark.s-find-current span {
 	transform: translateY(8px);
 }
 
+/* a toast with a button (Undo, Reload) can be clicked */
+.toast.has-action {
+	display: flex;
+	align-items: center;
+	gap: 14px;
+	pointer-events: auto;
+}
+
+.toast-action {
+	flex: none;
+	padding: 3px 10px;
+	border: 1px solid color-mix(in srgb, var(--oi-color-background) 45%, transparent);
+	border-radius: 6px;
+	background: transparent;
+	color: var(--oi-color-background);
+	font: inherit;
+	font-weight: 650;
+	cursor: pointer;
+}
+
+.toast-action:hover {
+	background: color-mix(in srgb, var(--oi-color-background) 16%, transparent);
+}
+
+/* Create new vault: a name and a place */
+.vault-modal h2 {
+	margin-bottom: 6px;
+}
+
+.dialog-label {
+	display: flex;
+	flex-direction: column;
+	gap: 5px;
+	margin-top: 12px;
+	font-size: 12.5px;
+	font-weight: 600;
+	color: var(--oi-color-text-muted);
+}
+
+.dialog-label .dialog-input {
+	font-weight: 400;
+}
+
+.vault-location {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	padding: 5px 5px 5px 10px;
+	border: 1px solid var(--oi-color-border);
+	border-radius: 6px;
+	color: var(--oi-color-text);
+	font-size: 13.5px;
+	font-weight: 400;
+}
+
+.vault-location-name {
+	flex: 1;
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.vault-location-name.empty {
+	color: var(--oi-color-text-muted);
+	font-style: italic;
+}
+
+.vault-location .dialog-button {
+	padding: 3px 10px;
+}
+
+.dialog-problem {
+	margin: 12px 0 0;
+	color: var(--oi-color-danger);
+	font-size: 13px;
+	line-height: 1.45;
+}
+
 @keyframes toast-in {
 	from {
 		opacity: 0;
@@ -2550,6 +2762,14 @@ mark.s-find-current span {
 	}
 }
 
+/* a touch screen with no keyboard: key hints would only be noise */
+@media (hover: none) and (pointer: coarse) and (max-width: 1024px) {
+	.start-link kbd,
+	.empty-link kbd {
+		display: none;
+	}
+}
+
 @media (max-width: 640px) {
 	/* phones: the ribbon is a bottom bar and the sidebar a drawer over the note, as in Obsidian mobile */
 	.app {
@@ -2582,7 +2802,7 @@ mark.s-find-current span {
 	.sidebar-resize {
 		display: none;
 	}
-	body.in-vault.sidebar-open .sidebar-backdrop {
+	body.sidebar-open .sidebar-backdrop {
 		display: block;
 		position: fixed;
 		inset: 0;

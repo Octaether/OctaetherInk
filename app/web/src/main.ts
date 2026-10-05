@@ -24,7 +24,7 @@ import {
 } from '@octaether/core-edit';
 import { type HostService, Registry, RenderHost, type TemplateEntry, ThemeRegistry, applyThemeVariable, installBaseStyle, themeContext } from '@octaether/core-render';
 import { type AssetResolver, type CommandDefinition, type Definition, type SettingDefinition, assetExtension } from '@octaether/core-sdk';
-import { type FileSystem, MemoryFileSystem, type Vault, baseName, isNote, joinPath, linkTargetOf, mediaKindOf, mediaTypeOf, parentPath, stemOf } from '@octaether/core-vault';
+import { type FileSystem, MemoryFileSystem, Vault, baseName, extensionOf, isNote, joinPath, linkTargetOf, mediaKindOf, mediaTypeOf, nameProblem, parentPath, stemOf } from '@octaether/core-vault';
 import { chemModule } from '@octaether/module-chem';
 import { codeModule } from '@octaether/module-code';
 import { diagramModule } from '@octaether/module-diagram';
@@ -37,7 +37,7 @@ import { openPropertyForm, propertyModule } from '@octaether/module-property';
 import { textModule } from '@octaether/module-text';
 import { themePlugin } from '@octaether/plugin-theme';
 import { accentToken, normalizeHex, recentColorList, rememberColor } from './color';
-import { BrowserFileSystem, DirectoryFileSystem, canOpenFolder, downloadText, ensurePermission } from './file-system';
+import { BrowserFileSystem, DirectoryFileSystem, canOpenFolder, downloadBlob, downloadText, ensurePermission } from './file-system';
 import { FindBar, NoteFindTarget, SourceFindTarget } from './find-bar';
 import { setupFormatBar } from './format-bar';
 import { GraphView } from './graph-view';
@@ -52,10 +52,11 @@ import { Sidebar, vaultPathType } from './sidebar';
 import { SourceEditor } from './source-editor';
 import { StartScreen } from './start-screen';
 import { StatusBar } from './status-bar';
-import { type RecentEntry, clearLast, createId, forgetRecent, lastEntry, readJson, recentList, rememberRecent, storageKey, writeJson } from './storage';
+import { type RecentEntry, clearLast, createId, forgetRecent, idbGet, idbSet, lastEntry, readJson, recentList, rememberRecent, storageKey, writeJson } from './storage';
 import { TabBar } from './tab-bar';
-import { Menu, type MenuItem, closeAllMenu, confirmDialog, currentMenu, escapeHtml, openModal, promptDialog, toast } from './ui';
-import { type Tab, Workspace, newNoteText } from './workspace';
+import { Menu, type MenuItem, closeAllMenu, confirmDialog, currentMenu, escapeHtml, openModal, toast } from './ui';
+import { type Tab, Workspace, newNoteText, nowText } from './workspace';
+import { type ZipEntry, makeZip } from './zip';
 
 export const appVersion = '1.0.0';
 export type ViewMode = 'Source' | 'Edit' | 'Read';
@@ -84,8 +85,15 @@ const appSettingList: SettingDefinition[] = [
 	{ id: 'Appearance.HoverColor', title: 'Hover highlight colour', type: 'Color', default: '', explain: 'The colour of that highlight, drawn see-through over the text. Default: the accent colour.' },
 	{ id: 'File.OpenLast', title: 'Reopen what was open', type: 'Toggle', default: true, explain: 'Opens the last vault (with its tabs) or file when the app starts. In a browser tab, a folder may need one click to allow access again.' },
 	{ id: 'File.NewNoteLocation', title: 'Where a new note goes', type: 'Choice', choiceList: ['VaultRoot', 'CurrentFolder'], default: 'VaultRoot', explain: 'VaultRoot: the top of the vault. CurrentFolder: the folder of the note you are in.' },
-	{ id: 'File.DeleteTo', title: 'A deleted file goes to', type: 'Choice', choiceList: ['Trash', 'Permanent'], default: 'Trash', explain: 'Trash: the vault’s own trash (.oi/Trash), where you can restore it. Permanent: gone for good. A blank Untitled note is always removed for good.' },
-	{ id: 'File.ConfirmDelete', title: 'Ask before deleting', type: 'Toggle', default: true, explain: 'Asks before a note or folder goes to the trash.' },
+	{
+		id: 'File.DeleteTo',
+		title: 'A deleted file goes to',
+		type: 'Choice',
+		choiceList: ['Trash', 'Permanent'],
+		default: 'Trash',
+		explain: 'Trash: the vault’s own trash, the .oi/Trash folder inside it (browsers can’t reach the computer’s recycle bin). Permanent: deleted, with no trash to restore from. Either way, the Undo button shown for a few seconds after a delete brings it back. Quick notes have no trash, and a blank Untitled note is always removed permanently.',
+	},
+	{ id: 'File.ConfirmDelete', title: 'Ask before deleting', type: 'Toggle', default: true, explain: 'Asks before a note or folder is deleted. Quick notes, kept in this browser, always ask.' },
 	{ id: 'File.UpdateLink', title: 'Update links when renaming', type: 'Toggle', default: true, explain: 'Renaming a note rewrites the [[links]] to it in every other note.' },
 	{ id: 'File.AttachmentFolder', title: 'Folder for pasted pictures', type: 'Text', default: 'Attachment', explain: 'A picture or video pasted or dropped on a note is saved in this folder of the vault, and an Image or Video block shows it. Empty: next to the note.' },
 ];
@@ -176,7 +184,16 @@ const workspace = new Workspace({
 	formatOption: () => registry.formatOption(),
 	setting: (id) => setting.get(id),
 	confirm: (message, action, danger) => confirmDialog(message, action, danger),
-	notify: (message) => toast(message),
+	notify: (message, action) => toast(message, undefined, action),
+	// a vault's own settings (theme, aliases, hotkeys) apply before its notes show, so they are drawn once
+	prepareVault: async (vault, source) => {
+		await setting.attachVault(source?.kind === 'Guide' ? undefined : vault);
+		applyAccentColor();
+		applySavedTheme();
+		applyEditorSetting();
+		hotkeyManager.setBindingList(setting.bindingList());
+		registerMacro();
+	},
 });
 
 const model = (): import('@octaether/core-model').NoteModel | undefined => workspace.note?.model;
@@ -319,9 +336,40 @@ const sidebar = new Sidebar(element('sidebar'), {
 			if (opened) findBar.open(false, query, { matchCase, regex });
 		});
 	},
-	vaultMenu: (x, y) => openVaultMenu(x, y),
+	vaultMenu: (x, y) => void openVaultMenu(x, y),
 	copyLink: (path) => void navigator.clipboard?.writeText(linkTextOf(path)).then(() => toast('Link copied.')),
+	canOpenFolder: canOpenFolder(),
+	moveToFolder: () => void moveToFolder(),
+	downloadAll: () => void downloadAll(),
+	renderNoVault: (container) => renderNoVault(container),
 });
+
+/** The file pane while no vault is open: make or open one, a quick note, or a vault used before. */
+function renderNoVault(container: HTMLElement): void {
+	const noFolder = !canOpenFolder();
+	const link = (action: string, svg: string, title: string, disabled = false): string =>
+		`<button type="button" class="sidebar-empty-link" data-action="${action}"${disabled ? ' disabled' : ''}>${svg}<span>${escapeHtml(title)}</span></button>`;
+	container.innerHTML =
+		'<div class="sidebar-empty"><p class="sidebar-empty-title">No vault is open</p>' +
+		link('CreateVault', icon.FolderPlus, 'Create new vault', noFolder) +
+		link('OpenFolder', icon.FolderOpen, 'Open folder as vault', noFolder) +
+		link('QuickNote', icon.FilePlus, 'Quick note') +
+		'<div class="sidebar-empty-list"></div></div>';
+	const run: Readonly<Record<string, () => void>> = {
+		CreateVault: () => void createVault(),
+		OpenFolder: () => void openFolder(),
+		QuickNote: () => void createNote(),
+	};
+	for (const button of container.querySelectorAll<HTMLButtonElement>('[data-action]')) button.addEventListener('click', () => run[button.dataset.action!]?.());
+	const holder = container.querySelector<HTMLElement>('.sidebar-empty-list')!;
+	void vaultEntryList().then((list) => {
+		if (list.length === 0) return;
+		holder.innerHTML =
+			'<p class="sidebar-empty-head">Recent</p>' +
+			list.map((entry, index) => `<button type="button" class="sidebar-empty-link" data-index="${index}">${vaultIcon(entry.kind)}<span>${escapeHtml(entry.name)}</span></button>`).join('');
+		for (const button of holder.querySelectorAll<HTMLButtonElement>('[data-index]')) button.addEventListener('click', () => void openRecent(list[Number(button.dataset.index)]!, true));
+	});
+}
 
 /**
  * How a note links to a vault file: `[[Note]]`, or `![[Cell.png]]` for a picture, which then shows.
@@ -352,13 +400,13 @@ const statusBar = new StatusBar(element('status'), {
 
 const startScreen = new StartScreen(element('startScreen'), {
 	canOpenFolder: canOpenFolder(),
+	createVault: () => void createVault(),
 	openFolder: () => void openFolder(),
+	quickNote: () => void createNote(),
 	openFile: () => void openFile(),
-	newNote: () => void createNote(),
-	newBrowserVault: () => void newBrowserVault(),
 	openSample: () => void openGuide(),
 	openRecent: (entry) => void openRecent(entry, true),
-	removeRecent: (entry) => void forgetRecent(entry.id),
+	removeRecent: (entry) => forgetRecent(entry.id),
 	recentList,
 	hotkeyText,
 });
@@ -403,7 +451,8 @@ function updateLayout(): void {
 	// the Source, Edit, and Read buttons belong to notes
 	element('viewHeader').classList.toggle('no-mode', graphOpen || file !== undefined);
 	element('tabBar').hidden = kind === 'None';
-	const showSidebar = kind === 'Vault' && sidebar.isOpen();
+	// with no vault the sidebar offers vaults to open (shut unless you open it)
+	const showSidebar = sidebar.isOpen();
 	element('sidebar').hidden = !showSidebar;
 	document.body.classList.toggle('sidebar-open', showSidebar);
 	element('sidebar').style.width = `${sidebar.width()}px`;
@@ -640,7 +689,7 @@ function toggleGraph(): void {
 		return;
 	}
 	if (workspace.kind !== 'Vault') {
-		toast('The graph shows the notes of a vault. Open a folder, a vault in this browser, or the welcome guide.');
+		toast('The graph shows the notes of a vault. Open a folder as a vault, your quick notes, or the welcome guide.');
 		return;
 	}
 	workspace.showGraph();
@@ -662,14 +711,8 @@ function openVaultSearch(query?: string): void {
 
 workspace.subscribe((event) => {
 	if (event === 'Vault') {
+		// its settings are attached already (prepareVault)
 		sidebar.attach();
-		void setting.attachVault(workspace.source?.kind === 'Guide' ? undefined : workspace.vault).then(() => {
-			applyAccentColor();
-			applySavedTheme();
-			applyEditorSetting();
-			hotkeyManager.setBindingList(setting.bindingList());
-			registerMacro();
-		});
 		updateLayout();
 	} else if (event === 'Note') {
 		showTab();
@@ -699,25 +742,36 @@ workspace.subscribe((event) => {
 
 // ---------------------------------------------------------------- vaults and files
 
+/** Opens a vault with the tabs it had; what was open stays on screen until it is ready. */
 async function openVaultWith(fs: FileSystem, entry: RecentEntry): Promise<boolean> {
 	try {
 		// false: an open note has changes that can't be saved and you kept it
-		if (!(await workspace.openVault(fs, { kind: entry.kind === 'Browser' ? 'Browser' : 'Folder', id: entry.id, name: entry.name, ...(entry.handle ? { handle: entry.handle as FileSystemDirectoryHandle } : {}) }))) return false;
+		if (!(await workspace.openVault(fs, { kind: entry.kind === 'Browser' ? 'Browser' : 'Folder', id: entry.id, name: entry.name, ...(entry.handle ? { handle: entry.handle as FileSystemDirectoryHandle } : {}) }, { restore: true }))) return false;
 	} catch {
 		toast(`Couldn’t open “${entry.name}”. It may have been moved or deleted.`);
 		await forgetRecent(entry.id);
-		void startScreen.render(`Couldn’t find “${entry.name}”.`);
+		if (workspace.kind === 'None') void startScreen.render(`Couldn’t find “${entry.name}”.`);
 		return false;
 	}
 	await rememberRecent({ ...entry, time: Date.now() });
-	// the notes that were open last time come back in their tabs
-	await workspace.restoreTab();
 	return true;
+}
+
+const folderMessage = 'This browser can’t open folders on your computer. Use Chrome or Edge, or the desktop app. Quick notes work here.';
+
+/** A folder handle as a vault, under the ID it had before when it was opened already. */
+async function openFolderHandle(handle: FileSystemDirectoryHandle): Promise<boolean> {
+	let id = createId();
+	for (const entry of await recentList()) {
+		if (entry.kind !== 'Folder' || !entry.handle || entry.name !== handle.name) continue;
+		if (await (entry.handle as FileSystemHandle & { isSameEntry?(other: FileSystemHandle): Promise<boolean> }).isSameEntry?.(handle)) id = entry.id;
+	}
+	return openVaultWith(new DirectoryFileSystem(handle), { id, kind: 'Folder', name: handle.name, handle, time: Date.now() });
 }
 
 async function openFolder(): Promise<void> {
 	if (!window.showDirectoryPicker) {
-		toast('This browser can’t open folders. Use Chrome or Edge, the desktop app, or a vault in this browser.');
+		toast(folderMessage);
 		return;
 	}
 	let handle: FileSystemDirectoryHandle;
@@ -726,10 +780,181 @@ async function openFolder(): Promise<void> {
 	} catch {
 		return;
 	}
-	const known = (await recentList()).find((entry) => entry.kind === 'Folder' && entry.handle && entry.name === handle.name);
-	let id = createId();
-	if (known?.handle && (await (known.handle as FileSystemHandle & { isSameEntry?(other: FileSystemHandle): Promise<boolean> }).isSameEntry?.(handle))) id = known.id;
-	await openVaultWith(new DirectoryFileSystem(handle), { id, kind: 'Folder', name: handle.name, handle, time: Date.now() });
+	await openFolderHandle(handle);
+}
+
+/**
+ * A new vault, as in Obsidian: a name and a place, and the app makes the folder there (the place
+ * is remembered for next time). An empty folder of that name is used as it is.
+ */
+async function createVault(): Promise<void> {
+	if (!window.showDirectoryPicker) {
+		toast(folderMessage);
+		return;
+	}
+	let parent = await idbGet<FileSystemDirectoryHandle>('State', 'VaultParent');
+	const handle = await new Promise<FileSystemDirectoryHandle | undefined>((resolve) => {
+		let made: FileSystemDirectoryHandle | undefined;
+		openModal(
+			'dialog-modal vault-modal',
+			(modal, close) => {
+				modal.innerHTML =
+					'<h2>Create new vault</h2>' +
+					'<p class="dialog-text">A vault is a folder of notes on your computer. The app makes the folder; any other app can open its notes too.</p>' +
+					'<label class="dialog-label">Name<input class="dialog-input" value="My vault" spellcheck="false"></label>' +
+					'<div class="dialog-label">Location<div class="vault-location"><span class="vault-location-name"></span><button type="button" class="dialog-button" data-action="Choose">Choose</button></div></div>' +
+					'<p class="dialog-problem" role="alert" hidden></p>' +
+					'<div class="dialog-row"><button type="button" class="dialog-button" data-answer="No">Cancel</button><button type="button" class="dialog-button primary" data-answer="Yes">Create</button></div>';
+				const input = modal.querySelector<HTMLInputElement>('.dialog-input')!;
+				const location = modal.querySelector<HTMLElement>('.vault-location-name')!;
+				const problem = modal.querySelector<HTMLElement>('.dialog-problem')!;
+				const say = (text?: string): void => {
+					problem.hidden = text === undefined;
+					problem.textContent = text ?? '';
+				};
+				const showLocation = (): void => {
+					location.textContent = parent ? parent.name : 'No folder chosen yet';
+					location.classList.toggle('empty', !parent);
+				};
+				const choose = async (): Promise<boolean> => {
+					const pick = (startIn: FileSystemHandle | 'documents'): Promise<FileSystemDirectoryHandle> => window.showDirectoryPicker!({ id: 'oi-vault-parent', mode: 'readwrite', startIn });
+					try {
+						parent = await pick(parent ?? 'documents').catch((error: unknown) => {
+							// the place picked last time may be gone: start in Documents instead (but a cancel is a cancel)
+							if (error instanceof DOMException && error.name === 'AbortError') throw error;
+							return pick('documents');
+						});
+					} catch {
+						return false;
+					}
+					void idbSet('State', 'VaultParent', parent);
+					showLocation();
+					say();
+					return true;
+				};
+				const create = async (): Promise<void> => {
+					const name = input.value.trim();
+					const issue = nameProblem(name);
+					if (issue) {
+						say(issue);
+						input.focus();
+						return;
+					}
+					if (!parent && !(await choose())) return;
+					const place = parent!;
+					if (!(await ensurePermission(place, true))) {
+						say(`The browser didn’t allow writing in “${place.name}”. Choose another place.`);
+						return;
+					}
+					let existing: FileSystemDirectoryHandle | undefined;
+					try {
+						existing = await place.getDirectoryHandle(name);
+					} catch {
+						existing = undefined;
+					}
+					if (existing && !(await existing.keys().next()).done) {
+						say(`“${place.name}” has a folder “${name}” with files in it already. Pick another name, or open it with Open folder as vault.`);
+						return;
+					}
+					try {
+						made = existing ?? (await place.getDirectoryHandle(name, { create: true }));
+					} catch {
+						say(`Couldn’t make the folder “${name}” in “${place.name}”.`);
+						return;
+					}
+					close();
+				};
+				showLocation();
+				modal.querySelector('[data-action="Choose"]')!.addEventListener('click', () => void choose());
+				modal.querySelector('[data-answer="Yes"]')!.addEventListener('click', () => void create());
+				modal.querySelector('[data-answer="No"]')!.addEventListener('click', close);
+				input.addEventListener('keydown', (event) => {
+					if (event.key === 'Enter') void create();
+				});
+				input.focus();
+				input.select();
+			},
+			() => resolve(made),
+		);
+	});
+	// a new vault starts with a note to write in (nothing is kept if it stays blank)
+	if (handle && (await openFolderHandle(handle))) await createNote();
+}
+
+// The quick notes: a few notes kept in this browser, for when no vault is needed (yet). Every
+// browser has them, Safari, Firefox, and phones too; the sidebar warns that they live only here,
+// and moves them into a folder or downloads them.
+const quickNote = { id: 'quick', name: 'Quick note' } as const;
+
+async function openQuickNote(): Promise<boolean> {
+	if (workspace.source?.id === quickNote.id) return true;
+	return openVaultWith(new BrowserFileSystem(quickNote.id, quickNote.name), { id: quickNote.id, kind: 'Browser', name: quickNote.name, time: Date.now() });
+}
+
+/** The files of the notes kept in the browser (not the app's .oi folder), with their bytes. */
+async function browserFileList(vault: Vault): Promise<{ path: string; data: Blob }[]> {
+	const list: { path: string; data: Blob }[] = [];
+	for (const entry of vault.visibleEntryList()) if (entry.kind === 'File') list.push({ path: entry.path, data: await vault.readBinary(entry.path) });
+	return list;
+}
+
+/**
+ * Moves the notes kept in the browser into a folder (a vault or a new one), then opens it: the
+ * copies are written first, and only then removed from the browser. A name taken there gets a
+ * free one.
+ */
+async function moveToFolder(): Promise<void> {
+	const vault = workspace.vault;
+	if (!vault || workspace.source?.kind !== 'Browser') return;
+	if (!window.showDirectoryPicker) {
+		toast(folderMessage);
+		return;
+	}
+	let handle: FileSystemDirectoryHandle;
+	try {
+		handle = await window.showDirectoryPicker({ mode: 'readwrite', id: 'oi-vault' });
+	} catch {
+		return;
+	}
+	await workspace.saveAll();
+	const fileList = await browserFileList(vault);
+	if (fileList.length === 0) {
+		await openFolderHandle(handle);
+		return;
+	}
+	try {
+		const target = new Vault(new DirectoryFileSystem(handle));
+		await target.load();
+		for (const file of fileList) {
+			const extension = extensionOf(file.path);
+			const stem = extension ? baseName(file.path).slice(0, -extension.length - 1) : baseName(file.path);
+			const path = target.isTaken(file.path) ? target.uniquePath(parentPath(file.path), stem, extension) : file.path;
+			await target.fs.writeBinary(path, file.data);
+		}
+	} catch {
+		toast(`Couldn’t write the notes into “${handle.name}”. They are still kept in this browser.`);
+		return;
+	}
+	const noteCount = fileList.filter((file) => isNote(file.path)).length;
+	if (!(await openFolderHandle(handle))) return;
+	// all written: the browser's copies go
+	for (const entry of vault.childList('')) await vault.deleteForever(entry.path);
+	toast(`Moved ${noteCount} ${noteCount === 1 ? 'note' : 'notes'} into “${handle.name}”. They are no longer kept in the browser.`, 6000);
+}
+
+/** Downloads the notes kept in the browser (and their pictures) as one .zip, folders kept. */
+async function downloadAll(): Promise<void> {
+	const vault = workspace.vault;
+	if (!vault) return;
+	await workspace.saveAll();
+	const entryList: ZipEntry[] = [];
+	for (const file of await browserFileList(vault)) entryList.push({ path: file.path, data: new Uint8Array(await file.data.arrayBuffer()) });
+	if (entryList.length === 0) {
+		toast('There is nothing to download yet.');
+		return;
+	}
+	// today's date where you are: "Quick note 2026-10-04.zip"
+	downloadBlob(`${workspace.source?.name ?? 'Notes'} ${nowText().slice(0, 10)}.zip`, makeZip(entryList));
 }
 
 async function openFile(): Promise<void> {
@@ -754,14 +979,6 @@ element<HTMLInputElement>('fileInput').addEventListener('change', async (event) 
 	if (file) await workspace.openText(await file.text(), file.name, { keepVault: false });
 	input.value = '';
 });
-
-async function newBrowserVault(): Promise<void> {
-	const name = (await promptDialog('A name for the vault kept in this browser', 'My notes', 'Create'))?.trim();
-	if (!name) return;
-	const id = `browser-${createId()}`;
-	await openVaultWith(new BrowserFileSystem(id, name), { id, kind: 'Browser', name, time: Date.now() });
-	toast('This vault lives in this browser. Download important notes now and then (Export in the note menu), or use a folder in Chrome, Edge, or the desktop app.', 6500);
-}
 
 async function openRecent(entry: RecentEntry, ask: boolean): Promise<boolean> {
 	if (entry.kind === 'Browser') return openVaultWith(new BrowserFileSystem(entry.id, entry.name), entry);
@@ -903,7 +1120,9 @@ pageElement.addEventListener('drop', (event) => {
 	void addMediaFile(fileList, targetKey);
 });
 
+/** A new note in the vault; outside a vault, a quick note, kept in this browser. */
 async function createNote(folder?: string): Promise<void> {
+	if (workspace.kind !== 'Vault' && !(await openQuickNote())) return;
 	if (viewMode === 'Read') setView('Edit');
 	const created = await workspace.newNote(folder ?? workspace.newNoteFolder());
 	if (!created) return;
@@ -918,21 +1137,46 @@ async function createNote(folder?: string): Promise<void> {
 	noteHead.focusTitle();
 }
 
-function openVaultMenu(x: number, y: number): void {
-	const guide = workspace.source?.kind === 'Guide';
-	const menu = new Menu(
-		[
-			{ title: 'Open another folder…', icon: icon.FolderOpen, run: () => void openFolder() },
-			{ title: 'New vault in this browser…', icon: icon.Browser, run: () => void newBrowserVault() },
-			...(guide ? [] : [{ title: 'Open trash', icon: icon.Trash, run: () => openTrash() }]),
-			{ title: 'Setting', icon: icon.Setting, run: () => openSetting() },
-			{ title: guide ? 'Close the guide' : 'Close vault', separatorBefore: true, run: () => void closeVault() },
-		],
-		{ x, y },
+/** Vaults to switch to: folders, the quick notes, and vaults an earlier build kept in the browser. */
+async function vaultEntryList(): Promise<RecentEntry[]> {
+	return (await recentList()).filter((entry) => entry.kind !== 'File');
+}
+
+const vaultIcon = (kind: RecentEntry['kind'] | 'Guide'): string => (kind === 'Browser' ? icon.Browser : kind === 'Guide' ? icon.Help : icon.Folder);
+
+/** The vault switcher, as in Obsidian: the vaults you use (one click to switch), make or open another, or close this one. */
+async function openVaultMenu(x: number, y: number): Promise<void> {
+	const current = workspace.source;
+	const itemList: MenuItem[] = [];
+	if (current) itemList.push({ title: current.name, icon: vaultIcon(current.kind), hint: '✓', run: () => undefined });
+	for (const entry of await vaultEntryList()) {
+		if (entry.id === current?.id) continue;
+		itemList.push({ title: entry.name, icon: vaultIcon(entry.kind), ...(entry.kind === 'Browser' ? { hint: 'in this browser' } : {}), run: () => void openRecent(entry, true) });
+	}
+	itemList.push(
+		{ title: 'Create new vault', icon: icon.FolderPlus, separatorBefore: true, run: () => void createVault() },
+		{ title: 'Open folder as vault', icon: icon.FolderOpen, hint: hotkeyText('Vault.Open'), run: () => void openFolder() },
 	);
+	if (current) itemList.push({ title: current.kind === 'Guide' ? 'Close the guide' : 'Close vault', separatorBefore: true, run: () => void closeVault() });
+	const menu = new Menu(itemList, { x, y });
 	// the menu opens above the button
 	const rect = menu.element.getBoundingClientRect();
 	menu.place(x, Math.max(8, y - rect.height), y);
+}
+
+/** The vault switcher from the keyboard (command palette: Switch vault). */
+async function switchVault(): Promise<void> {
+	const list = (await vaultEntryList()).filter((entry) => entry.id !== workspace.source?.id);
+	openPicker({
+		placeholder: 'Switch to a vault',
+		emptyText: 'No other vault yet',
+		itemList: (query) =>
+			list
+				.map((entry) => ({ entry, score: bestFuzzyScore(query, [[entry.name, 0]]) }))
+				.filter((item) => item.score >= 0)
+				.sort((left, right) => left.score - right.score)
+				.map(({ entry }) => ({ title: entry.name, hint: entry.kind === 'Browser' ? 'in this browser' : 'vault', run: () => void openRecent(entry, true) })),
+	});
 }
 
 function tabMenu(tab: Tab, x: number, y: number): void {
@@ -966,14 +1210,19 @@ async function closeTabList(list: readonly Tab[]): Promise<void> {
 	for (const tab of [...list]) if (!(await workspace.closeTab(tab.id))) return;
 }
 
+/** The vault's trash (command palette: Open the trash): restore, or delete for good. */
 function openTrash(): void {
 	const vault = workspace.vault;
 	if (!vault) return;
+	if (workspace.source?.kind === 'Browser') {
+		toast('Quick notes have no trash: a deleted one comes back only with the Undo button shown for a few seconds right after deleting it.', 6000);
+		return;
+	}
 	openModal('trash-modal', (modal, close) => {
 		const render = (): void => {
 			const list = vault.trashList();
 			modal.innerHTML =
-				'<h2>Trash</h2><p class="setting-explain">A deleted note waits in the vault’s <code>.oi/Trash</code> folder until you empty it.</p>' +
+				'<h2>Trash</h2><p class="setting-explain">A deleted note waits in the vault’s <code>.oi/Trash</code> folder (open the vault’s folder to see it) until you empty it.</p>' +
 				(list.length === 0
 					? '<p class="empty-trash">The trash is empty.</p>'
 					: `<div class="trash-list">${list.map((entry, index) => `<div class="trash-row"><span>${escapeHtml(entry.path.slice('.oi/Trash/'.length))}</span><button type="button" class="setting-button" data-restore="${index}">Restore</button><button type="button" class="setting-button danger" data-remove="${index}">Delete</button></div>`).join('')}</div>`) +
@@ -1057,7 +1306,7 @@ async function createNamedNote(name: string, folder = workspace.newNoteFolder(),
 async function followLink(target: string, newTab: boolean): Promise<void> {
 	const vault = workspace.vault;
 	if (!vault) {
-		toast('Links between notes work inside a vault. Open a folder, a vault in this browser, or the welcome guide.');
+		toast('Links between notes work inside a vault. Open a folder as a vault, your quick notes, or the welcome guide.');
 		return;
 	}
 	const name = target.split('#')[0]!.trim();
@@ -1214,7 +1463,7 @@ function colorItemList(): MenuItem[] {
 		...['Accent', 'Danger', 'Success', 'Warning', 'TextMuted'].map((color) => ({ title: color === 'TextMuted' ? 'Muted' : color, icon: swatch(`var(--oi-color-${color === 'TextMuted' ? 'text-muted' : color.toLowerCase()})`), run: () => applyColor(color) })),
 		// colours of your own: the last few you used, and any hex code
 		...recentColorList().map((hex, index) => ({ title: hex, icon: swatch(hex), separatorBefore: index === 0, run: () => applyColor(hex) })),
-		{ title: 'Custom colour…', icon: '#', separatorBefore: recentColorList().length === 0, run: () => void pickCustomColor() },
+		{ title: 'Custom colour', icon: '#', separatorBefore: recentColorList().length === 0, run: () => void pickCustomColor() },
 		{ title: 'No colour', separatorBefore: true, run: () => applyColor(undefined) },
 	];
 }
@@ -1449,11 +1698,19 @@ const commandList: CommandDefinition[] = [
 	{ id: 'Note.Save', title: 'Save the note', run: () => void workspace.save(true) },
 	{ id: 'Note.Rename', title: 'Rename the note', run: () => workspace.note && noteHead.focusTitle() },
 	{
+		id: 'Note.Quick',
+		title: 'New quick note (kept in this browser)',
+		run: () =>
+			void openQuickNote().then(async (opened) => {
+				if (opened) await createNote();
+			}),
+	},
+	{
 		id: 'Note.Delete',
 		title: 'Delete the note',
 		run: () => {
 			const note = workspace.note;
-			if (note && !note.external) void workspace.trash(note.path);
+			if (note && !note.external) void workspace.delete(note.path);
 		},
 	},
 	{
@@ -1468,15 +1725,16 @@ const commandList: CommandDefinition[] = [
 	{ id: 'Tab.Next', title: 'Next tab', run: () => workspace.cycleTab(1) },
 	{ id: 'Tab.Previous', title: 'Previous tab', run: () => workspace.cycleTab(-1) },
 	{ id: 'Guide.Open', title: 'Open the welcome guide', run: () => void openGuide() },
-	{ id: 'File.Open', title: 'Open a file…', run: () => void openFile() },
-	{ id: 'Vault.Open', title: 'Open a folder as a vault…', run: () => void openFolder() },
-	{ id: 'Vault.Browser', title: 'New vault in this browser…', run: () => void newBrowserVault() },
+	{ id: 'File.Open', title: 'Open a file', run: () => void openFile() },
+	{ id: 'Vault.Create', title: 'Create new vault', run: () => void createVault() },
+	{ id: 'Vault.Open', title: 'Open folder as vault', run: () => void openFolder() },
+	{ id: 'Vault.Switch', title: 'Switch vault', run: () => void switchVault() },
 	{ id: 'Vault.Close', title: 'Close the vault', run: () => void closeVault() },
 	{ id: 'Trash.Open', title: 'Open the trash', run: () => openTrash() },
 	{ id: 'Command.Palette', title: 'Open the command palette', run: () => openCommandPalette(commandRegistry, hotkeyText) },
 	{ id: 'Setting.Open', title: 'Open Setting', run: () => openSetting() },
 	{ id: 'Setting.Toggle', title: 'Toggle a setting', explain: 'Argument: the setting’s ID, e.g. Code.LineNumber', run: toggleSetting },
-	{ id: 'Sidebar.Toggle', title: 'Show or hide the sidebar', run: () => (workspace.kind === 'Vault' ? setSidebar(!sidebar.isOpen()) : toast('The sidebar shows the files of a vault.')) },
+	{ id: 'Sidebar.Toggle', title: 'Show or hide the sidebar', run: () => setSidebar(!sidebar.isOpen()) },
 	{ id: 'Property.Add', title: 'Add a property', run: () => addProperty() },
 	{ id: 'View.Source', title: 'Source view (the note as text)', run: () => setView(viewMode === 'Source' ? 'Edit' : 'Source') },
 	{ id: 'View.Edit', title: 'Edit view', run: () => setView('Edit') },
@@ -1512,7 +1770,7 @@ const commandList: CommandDefinition[] = [
 	{ id: 'Format.Link', title: 'Link', run: () => applyFormat('Link') },
 	{
 		id: 'Block.Insert',
-		title: 'Insert a block…',
+		title: 'Insert a block',
 		run: () => {
 			if (!model()) return;
 			const key = activeKey();
@@ -1625,7 +1883,7 @@ element('moreButton').addEventListener('click', (event) => {
 						sidebar.startRename(file);
 					},
 				},
-				{ title: setting.get('File.DeleteTo') === 'Permanent' ? 'Delete the file' : 'Move to trash', danger: true, separatorBefore: true, run: () => void workspace.trash(file) },
+				{ title: workspace.deletesForGood() ? 'Delete the file' : 'Move to trash', danger: true, separatorBefore: true, run: () => void workspace.delete(file) },
 				{ title: 'Close the tab', hint: hotkeyText('Tab.Close'), separatorBefore: true, run: () => void workspace.closeTab() },
 			],
 			{ x: rect.right - 220, y: rect.bottom + 4 },
@@ -1645,7 +1903,7 @@ element('moreButton').addEventListener('click', (event) => {
 			...(inVault
 				? [
 						{ title: 'Copy link', run: () => void navigator.clipboard?.writeText(`[[${linkTargetOf(stemOf(note.path))}]]`).then(() => toast('Link copied.')) },
-						{ title: setting.get('File.DeleteTo') === 'Permanent' ? 'Delete the note' : 'Move to trash', danger: true, separatorBefore: true, run: () => void workspace.trash(note.path) },
+						{ title: workspace.deletesForGood() ? 'Delete the note' : 'Move to trash', danger: true, separatorBefore: true, run: () => void workspace.delete(note.path) },
 					]
 				: []),
 			{ title: 'Close the tab', hint: hotkeyText('Tab.Close'), separatorBefore: true, run: () => void workspace.closeTab() },
@@ -1677,7 +1935,7 @@ function openSetting(): void {
 		keyText,
 		// a colour left at its default shows the theme's accent in its swatch
 		defaultColor: () => normalizeHex(themeRegistry.current().token['Color.Accent'] ?? '') ?? '#8a6a1c',
-		storageText: () => (workspace.vault && workspace.source?.kind !== 'Guide' ? `this browser and in the vault (${workspace.source?.name}/.oi/Setting.oi, .oi/Hotkey.oi)` : 'this browser'),
+		storageText: () => (workspace.vault && workspace.source?.kind === 'Folder' ? `this browser and in the vault (${workspace.source.name}/.oi/Setting.oi, .oi/Hotkey.oi)` : 'this browser'),
 		version: appVersion,
 		formatName,
 	});
@@ -1813,9 +2071,18 @@ document.addEventListener('visibilitychange', () => {
 	if (document.visibilityState === 'hidden') void workspace.saveAll();
 });
 
-// installable and usable offline (the page, scripts, and styles are cached on first visit)
+// installable and usable offline (the page, scripts, and styles are cached on first visit); the
+// app opens from that copy at once, and a new version, fetched meanwhile, is offered with Reload
 if (import.meta.env.PROD && 'serviceWorker' in navigator) {
 	window.addEventListener('load', () => void navigator.serviceWorker.register('/sw.js').catch(() => undefined));
+	let offered = false;
+	navigator.serviceWorker.addEventListener('message', (event) => {
+		if ((event.data as { type?: string } | null)?.type !== 'Updated' || offered) return;
+		offered = true;
+		toast('A new version of Octaether Ink is ready.', 20000, { title: 'Reload', run: () => location.reload() });
+	});
+	// the worker may have fetched the new version before this page listened: it is asked once
+	void navigator.serviceWorker.ready.then((registration) => registration.active?.postMessage({ type: 'Version', script: document.querySelector<HTMLScriptElement>('script[type="module"][src]')?.src }));
 }
 
 // the installed app opens .oi files from the computer's file manager ("Open with Octaether Ink")
@@ -1835,6 +2102,7 @@ window.launchQueue?.setConsumer((params) => {
 
 /** What the app opens first: the last vault or file (when allowed), a kept draft, or the start screen. */
 async function boot(): Promise<void> {
+	sidebar.attach();
 	updateLayout();
 	tabBar.render();
 	await startScreen.render();

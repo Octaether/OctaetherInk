@@ -6,6 +6,8 @@ interface FilePickerOption {
 	suggestedName?: string;
 	id?: string;
 	mode?: 'read' | 'readwrite';
+	/** Where the picker opens: a folder picked before, or a well-known one. */
+	startIn?: FileSystemHandle | 'desktop' | 'documents' | 'downloads';
 }
 
 interface FileSystemHandlePermissionDescriptor {
@@ -20,6 +22,7 @@ interface FileSystemHandle {
 
 interface FileSystemDirectoryHandle {
 	entries(): AsyncIterableIterator<[string, FileSystemHandle]>;
+	keys(): AsyncIterableIterator<string>;
 }
 
 // Files opened with the installed app from the computer's file manager (Chromium).

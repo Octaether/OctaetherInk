@@ -1,7 +1,7 @@
 // The left sidebar, as in Obsidian: the file explorer (folders first, natural sort, drag to move,
 // rename in place, right-click menu; pictures, videos, and sounds open in a tab of their own, and
-// drag into a note) and search across every note. The vault's name sits at the
-// bottom and opens the vault menu.
+// drag into a note) and search across every note. The vault's name sits at the bottom and opens
+// the vault switcher. Notes kept in the browser get a warning on top that can't be missed.
 
 import { type SortOrder, baseName, extensionOf, isInside, mediaKindOf, parentPath, stemOf } from '@octaether/core-vault';
 import { icon } from './icon';
@@ -18,8 +18,17 @@ export interface SidebarOption {
 	notify(message: string): void;
 	/** A search result was chosen: open the note and find the query there. */
 	openSearchResult(path: string, query: string, matchCase: boolean, regex: boolean, newTab: boolean): void;
+	/** The vault switcher, opened from the vault's name at the bottom. */
 	vaultMenu(x: number, y: number): void;
 	copyLink(path: string): void;
+	/** Whether this browser can open a folder (then the quick notes can move into one). */
+	canOpenFolder: boolean;
+	/** Moves the notes kept in the browser into a folder, which opens as the vault. */
+	moveToFolder(): void;
+	/** Downloads the notes kept in the browser as a .zip. */
+	downloadAll(): void;
+	/** Fills the file pane while no vault is open: the vaults to open, or make one. */
+	renderNoVault(container: HTMLElement): void;
 }
 
 type Tab = 'File' | 'Search';
@@ -32,6 +41,8 @@ const layoutKey = 'OctaetherInk.Sidebar';
 interface SavedLayout {
 	width?: number;
 	open?: boolean;
+	/** Open while no vault is (shut by default, so the start screen stays clear). */
+	openNoVault?: boolean;
 	tab?: Tab;
 	order?: SortOrder;
 	expanded?: Record<string, string[]>;
@@ -45,6 +56,7 @@ export class Sidebar {
 	/** The phone drawer, open for now (never remembered). */
 	private drawerOpen = false;
 	private readonly tree: HTMLElement;
+	private readonly notice: HTMLElement;
 	private readonly searchInput: HTMLInputElement;
 	private readonly searchResult: HTMLElement;
 	private matchCase = false;
@@ -63,16 +75,23 @@ export class Sidebar {
 		element.innerHTML =
 			`<div class="sidebar-tab-row" role="tablist"><button type="button" class="sidebar-tab" data-tab="File" role="tab" title="File" aria-label="File">${icon.Folder}</button><button type="button" class="sidebar-tab" data-tab="Search" role="tab" title="Search (Ctrl+Shift+F)" aria-label="Search">${icon.Search}</button></div>` +
 			'<div class="sidebar-pane" data-pane="File">' +
+			'<div class="vault-notice" role="note" hidden></div>' +
 			`<div class="sidebar-tool-row"><button type="button" class="icon-button" data-action="NewNote" title="New note" aria-label="New note">${icon.FilePlus}</button><button type="button" class="icon-button" data-action="NewFolder" title="New folder" aria-label="New folder">${icon.FolderPlus}</button><button type="button" class="icon-button" data-action="Sort" title="Sort" aria-label="Sort">${icon.Sort}</button><button type="button" class="icon-button" data-action="Collapse" title="Collapse all" aria-label="Collapse all">${icon.Collapse}</button></div>` +
 			'<div class="file-tree" role="tree" tabindex="0"></div></div>' +
 			'<div class="sidebar-pane" data-pane="Search" hidden>' +
 			'<div class="search-box"><input class="search-input" placeholder="Search every note" aria-label="Search every note" spellcheck="false"><button type="button" class="find-toggle" data-toggle="Case" title="Match case">Aa</button><button type="button" class="find-toggle" data-toggle="Regex" title="Regular expression">.*</button></div>' +
 			'<div class="search-hint">Words or tag:Name. Enter opens the first result.</div><div class="search-result"></div></div>' +
-			`<button type="button" class="vault-button" title="Vault menu">${icon.Folder}<span class="vault-name"></span>${icon.ChevronUp}</button>` +
+			`<button type="button" class="vault-button" title="Switch vault" aria-haspopup="menu"><span class="vault-name"></span>${icon.ChevronUpDown}</button>` +
 			'<div class="sidebar-resize" title="Drag to resize"></div>';
 		this.tree = element.querySelector('.file-tree')!;
 		this.searchInput = element.querySelector('.search-input')!;
 		this.searchResult = element.querySelector('.search-result')!;
+		this.notice = element.querySelector('.vault-notice')!;
+		this.notice.addEventListener('click', (event) => {
+			const action = (event.target as Element).closest<HTMLElement>('[data-notice]')?.dataset.notice;
+			if (action === 'Move') option.moveToFolder();
+			else if (action === 'Download') option.downloadAll();
+		});
 		for (const button of element.querySelectorAll<HTMLButtonElement>('.sidebar-tab')) button.addEventListener('click', () => this.showTab(button.dataset.tab as Tab));
 		element.querySelector('[data-action="NewNote"]')!.addEventListener('click', () => option.newNote(this.selectedFolder()));
 		element.querySelector('[data-action="NewFolder"]')!.addEventListener('click', () => void this.newFolder(this.selectedFolder()));
@@ -137,12 +156,27 @@ export class Sidebar {
 		}
 	}
 
-	/** Called when a vault opens: restores its open folders. */
+	/** Called when a vault opens: restores its open folders, and warns when its notes live in the browser. */
 	attach(): void {
-		const id = this.option.workspace.source?.id;
+		const source = this.option.workspace.source;
 		this.drawerOpen = false;
-		this.expandedSet = new Set(id ? (this.layout.expanded?.[id] ?? []) : []);
-		this.element.querySelector('.vault-name')!.textContent = this.option.workspace.source?.name ?? '';
+		this.expandedSet = new Set(source ? (this.layout.expanded?.[source.id] ?? []) : []);
+		this.element.querySelector('.vault-name')!.textContent = source?.name ?? 'No vault open';
+		const browser = source?.kind === 'Browser';
+		this.element.classList.toggle('in-browser', browser);
+		this.element.classList.toggle('no-vault', !this.option.workspace.vault);
+		// quick notes are a few loose notes: no folders to make there
+		this.element.querySelector<HTMLElement>('[data-action="NewFolder"]')!.hidden = browser;
+		this.element.querySelector<HTMLElement>('.sidebar-tool-row')!.hidden = !this.option.workspace.vault;
+		this.element.querySelector('.search-hint')!.textContent = this.option.workspace.vault ? 'Words or tag:Name. Enter opens the first result.' : 'Search looks through the notes of a vault. Open one first.';
+		this.notice.hidden = !browser;
+		this.notice.innerHTML = browser
+			? `<div class="vault-notice-title">${icon.Warning}<span>Kept only in this browser</span></div>` +
+				`<p>Clearing this site’s data deletes these notes. There is no trash: a deleted note comes back only with the Undo button shown for a few seconds right after. ${this.option.canOpenFolder ? 'Move them to a folder to keep them.' : 'Download them now and then to keep a copy.'}</p>` +
+				'<div class="vault-notice-row">' +
+				(this.option.canOpenFolder ? `<button type="button" class="vault-notice-button" data-notice="Move">${icon.FolderOpen}<span>Move to a folder</span></button>` : '') +
+				`<button type="button" class="vault-notice-button" data-notice="Download">${icon.Download}<span>Download .zip</span></button></div>`
+			: '';
 		this.searchInput.value = '';
 		this.searchResult.replaceChildren();
 		this.render();
@@ -154,7 +188,8 @@ export class Sidebar {
 	}
 
 	isOpen(): boolean {
-		return this.phone() ? this.drawerOpen : this.layout.open !== false;
+		if (this.phone()) return this.drawerOpen;
+		return this.option.workspace.vault ? this.layout.open !== false : this.layout.openNoVault === true;
 	}
 
 	setOpen(open: boolean): void {
@@ -162,7 +197,8 @@ export class Sidebar {
 			this.drawerOpen = open;
 			return;
 		}
-		this.layout.open = open;
+		if (this.option.workspace.vault) this.layout.open = open;
+		else this.layout.openNoVault = open;
 		this.saveLayout();
 	}
 
@@ -212,7 +248,7 @@ export class Sidebar {
 		const workspace = this.option.workspace;
 		const vault = workspace.vault;
 		if (!vault) {
-			this.tree.replaceChildren();
+			this.option.renderNoVault(this.tree);
 			return;
 		}
 		const note = workspace.note;
@@ -314,27 +350,32 @@ export class Sidebar {
 		});
 		this.tree.addEventListener('contextmenu', (event) => {
 			event.preventDefault();
+			if (!this.option.workspace.vault) return;
 			const row = (event.target as Element).closest<HTMLElement>('.tree-item');
 			const path = row?.dataset.path;
 			const folder = row?.dataset.kind === 'Folder' ? path! : path ? parentPath(path) : '';
-			const itemList: MenuItem[] = [
-				{ title: 'New note', icon: icon.FilePlus, run: () => this.option.newNote(folder) },
-				{ title: 'New folder', icon: icon.FolderPlus, run: () => void this.newFolder(folder) },
-			];
+			const workspace = this.option.workspace;
+			const itemList: MenuItem[] = [{ title: 'New note', icon: icon.FilePlus, run: () => this.option.newNote(folder) }];
+			if (workspace.source?.kind !== 'Browser') itemList.push({ title: 'New folder', icon: icon.FolderPlus, run: () => void this.newFolder(folder) });
 			if (path && row?.classList.contains('pending') === false) {
 				if (row.dataset.kind === 'File' && this.canOpen(path)) itemList.unshift({ title: 'Open', run: () => this.open(path, false) }, { title: 'Open in a new tab', run: () => this.open(path, true) });
 				itemList.push(
 					{ title: 'Rename', hint: 'F2', separatorBefore: true, run: () => this.startRename(path) },
 					...(row.dataset.kind === 'File' ? [{ title: 'Copy link', run: () => this.option.copyLink(path) }] : []),
-					{ title: this.option.workspace.option.setting('File.DeleteTo') === 'Permanent' ? 'Delete' : 'Move to trash', icon: icon.Trash, danger: true, separatorBefore: true, run: () => void this.option.workspace.trash(path) },
+					{ title: workspace.deletesForGood() ? 'Delete' : 'Move to trash', hint: 'Del', icon: icon.Trash, danger: true, separatorBefore: true, run: () => void workspace.delete(path) },
 				);
 			}
 			new Menu(itemList, { x: event.clientX, y: event.clientY });
 		});
+		// F2 renames and Delete deletes what is open, as in a file manager
 		this.tree.addEventListener('keydown', (event) => {
-			if (event.key !== 'F2') return;
-			const note = this.option.workspace.note;
-			if (note && !note.external) this.startRename(note.path);
+			const workspace = this.option.workspace;
+			const note = workspace.note;
+			const shown = workspace.file ?? (note && !note.external ? note.path : undefined);
+			if (!shown || (event.key !== 'F2' && event.key !== 'Delete')) return;
+			event.preventDefault();
+			if (event.key === 'F2') this.startRename(shown);
+			else void workspace.delete(shown);
 		});
 		// drag files and folders onto folders (or the empty area for the vault root)
 		let dragPath: string | undefined;

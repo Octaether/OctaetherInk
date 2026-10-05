@@ -1,5 +1,5 @@
 // Browser storage, best effort: small preferences in localStorage, and IndexedDB for what
-// localStorage can't hold (folder and file handles, vaults kept in the browser). Everything
+// localStorage can't hold (folder and file handles, quick notes kept in the browser). Everything
 // still works when storage is blocked (private windows); it just isn't remembered.
 
 export const storageKey = {
@@ -45,7 +45,7 @@ export function writeJson(key: string, value: unknown): void {
 const databaseName = 'OctaetherInk';
 let database: Promise<IDBDatabase | undefined> | undefined;
 
-/** The app's database (stores: `State` for handles and recents, `File` for vaults kept in the browser). */
+/** The app's database (stores: `State` for handles and recents, `File` for notes kept in the browser). */
 export function openDatabase(): Promise<IDBDatabase | undefined> {
 	database ??= new Promise((resolve) => {
 		try {
@@ -107,14 +107,28 @@ export async function idbDelete(store: string, key: IDBValidKey | IDBKeyRange): 
 	}
 }
 
-export async function idbKeyList(store: string, range?: IDBKeyRange): Promise<IDBValidKey[]> {
+/** Every key in `range` with what `pick` takes from its value, in one pass of one transaction. */
+export async function idbPickList<T>(store: string, range: IDBKeyRange, pick: (value: unknown) => T): Promise<[IDBValidKey, T][]> {
 	const db = await openDatabase();
 	if (!db) return [];
-	try {
-		return await wrap(db.transaction(store, 'readonly').objectStore(store).getAllKeys(range));
-	} catch {
-		return [];
-	}
+	return new Promise((resolve) => {
+		const list: [IDBValidKey, T][] = [];
+		try {
+			const request = db.transaction(store, 'readonly').objectStore(store).openCursor(range);
+			request.onsuccess = () => {
+				const cursor = request.result;
+				if (!cursor) {
+					resolve(list);
+					return;
+				}
+				list.push([cursor.primaryKey, pick(cursor.value)]);
+				cursor.continue();
+			};
+			request.onerror = () => resolve(list);
+		} catch {
+			resolve(list);
+		}
+	});
 }
 
 // ---------------------------------------------------------------- recent vaults and files
@@ -123,9 +137,10 @@ export type RecentKind = 'Folder' | 'File' | 'Browser';
 
 export interface RecentEntry {
 	id: string;
+	/** Browser: the quick notes (or a vault an earlier build kept in the browser). */
 	kind: RecentKind;
 	name: string;
-	/** Folder and file handles (Chromium); a vault kept in the browser has none. */
+	/** Folder and file handles (Chromium); notes kept in the browser have none. */
 	handle?: FileSystemHandle;
 	time: number;
 }

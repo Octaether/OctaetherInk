@@ -2,7 +2,8 @@
 // Works on any FileSystem, so the web app, the desktop and mobile shells, and tests share it.
 //
 //   create    unique names ("Untitled.oi", "Untitled 1.oi", …), never two that differ only by case
-//   delete    moves to .oi/Trash/ (keeping the folder path), restore puts it back
+//   delete    moves to .oi/Trash/ (keeping the folder path), restore puts it back; or permanently,
+//             with a copy in memory first (snapshot) so Undo can put it back
 //   rename    renames or moves, and rewrites [[links]] to the note when its name changed
 //   index     every note's links and tags → backlinks, the graph, and search
 
@@ -56,8 +57,22 @@ export interface SearchOption {
 	limit?: number;
 }
 
+/** A file or folder copied into memory before a permanent delete, so Undo can put it back. */
+export interface VaultSnapshot {
+	path: string;
+	folderList: string[];
+	fileList: { path: string; data: Blob }[];
+}
+
 export function isNote(path: string): boolean {
 	return extensionOf(path) === 'oi';
+}
+
+/** A name split for numbering: `Cell.png` → `Cell` + `png`; a folder keeps its whole name (`v1.2`). */
+function splitName(path: string, kind: EntryKind | undefined): { stem: string; extension: string } {
+	const extension = kind === 'Folder' ? '' : extensionOf(path);
+	const name = baseName(path);
+	return { stem: extension ? name.slice(0, -extension.length - 1) : name, extension };
 }
 
 /** `.oi/` and dot-files are the app's, not shown in the file tree. */
@@ -142,8 +157,8 @@ export class Vault {
 		return this.entryList.some((entry) => entry.path.toLowerCase() === lower && entry.path !== except);
 	}
 
-	/** A free path in `folder`: `Untitled.oi`, then `Untitled 1.oi`, `Untitled 2.oi`, … */
-	uniquePath(folder: string, stem: string, extension: string | undefined = 'oi', except?: string): string {
+	/** A free path in `folder`: `Untitled.oi`, then `Untitled 1.oi`, `Untitled 2.oi`, … (`extension` '' for a folder or a bare name). */
+	uniquePath(folder: string, stem: string, extension = 'oi', except?: string): string {
 		for (let count = 0; ; count++) {
 			const name = `${count === 0 ? stem : `${stem} ${count}`}${extension ? `.${extension}` : ''}`;
 			const path = joinPath(folder, name);
@@ -175,7 +190,7 @@ export class Vault {
 	async addFile(folder: string, name: string, data: Blob): Promise<string> {
 		const extension = extensionOf(name);
 		const stem = (extension ? name.slice(0, -extension.length - 1) : name).replace(/[<>:"/\\|?*\u0000-\u001f]/g, ' ').trim() || 'File';
-		const path = this.uniquePath(folder, stem, extension || undefined);
+		const path = this.uniquePath(folder, stem, extension);
 		if (folder !== '' && !this.has(folder)) {
 			await this.fs.makeFolder(folder);
 			this.addEntry(folder, 'Folder');
@@ -208,7 +223,7 @@ export class Vault {
 	async createFolder(parent: string, name = 'Untitled'): Promise<string> {
 		const problem = nameProblem(name);
 		if (problem) throw new VaultError(problem);
-		const path = this.uniquePath(parent, name, undefined);
+		const path = this.uniquePath(parent, name, '');
 		await this.fs.makeFolder(path);
 		this.addEntry(path, 'Folder');
 		this.emit();
@@ -260,7 +275,8 @@ export class Vault {
 			await this.deleteForever(path);
 			return path;
 		}
-		const target = this.uniquePath(joinPath(trashFolder, parentPath(path)), stemOf(path), this.kindOf(path) === 'File' ? extensionOf(path) || undefined : undefined);
+		const { stem, extension } = splitName(path, this.kindOf(path));
+		const target = this.uniquePath(joinPath(trashFolder, parentPath(path)), stem, extension);
 		await this.fs.move(path, target);
 		this.moveEntry(path, target);
 		this.emit();
@@ -276,21 +292,74 @@ export class Vault {
 		this.emit();
 	}
 
+	/** Every file and folder inside `path` (itself included). */
+	private entryListIn(path: string): Entry[] {
+		return this.entryList.filter((entry) => isInside(entry.path, path));
+	}
+
+	/**
+	 * A copy in memory of a file or folder, to put back after deleting it permanently (Undo).
+	 * Undefined when it holds more than `limit` bytes (a folder of videos is not kept twice).
+	 */
+	async snapshot(path: string, limit = 200 * 1024 * 1024): Promise<VaultSnapshot | undefined> {
+		const entryList = this.entryListIn(path);
+		const fileList: VaultSnapshot['fileList'] = [];
+		let size = 0;
+		for (const entry of entryList) {
+			if (entry.kind !== 'File') continue;
+			const blob = await this.fs.readBinary(entry.path);
+			size += blob.size;
+			if (size > limit) return undefined;
+			// a file on disk is read only when used, and after the delete it is gone: the bytes are copied now
+			fileList.push({ path: entry.path, data: new Blob([await blob.arrayBuffer()], { type: blob.type }) });
+		}
+		return { path, folderList: entryList.filter((entry) => entry.kind === 'Folder').map((entry) => entry.path), fileList };
+	}
+
+	/** Puts a snapshot back where it was (under a free name if that is taken now); returns its path. */
+	async putBack(snapshot: VaultSnapshot): Promise<string> {
+		const kind = snapshot.folderList.includes(snapshot.path) ? 'Folder' : 'File';
+		const { stem, extension } = splitName(snapshot.path, kind);
+		const root = this.isTaken(snapshot.path) ? this.uniquePath(parentPath(snapshot.path), stem, extension) : snapshot.path;
+		const moved = (path: string): string => root + path.slice(snapshot.path.length);
+		for (const folder of snapshot.folderList) {
+			await this.fs.makeFolder(moved(folder));
+			this.addEntry(moved(folder), 'Folder');
+		}
+		for (const file of snapshot.fileList) {
+			const path = moved(file.path);
+			await this.fs.writeBinary(path, file.data);
+			this.addEntry(path, 'File');
+			if (isNote(path) && !isHidden(path)) this.textMap.set(path, await file.data.text());
+		}
+		this.emit();
+		return root;
+	}
+
 	/** Files in the trash, newest structure as it is. */
 	trashList(): Entry[] {
 		return this.entryList.filter((entry) => entry.kind === 'File' && isInside(entry.path, trashFolder) && entry.path !== trashFolder);
 	}
 
-	/** Puts a file from the trash back where it was (with a new name if that's taken); returns its path. */
+	/** Puts a file or folder from the trash back where it was (with a new name if that's taken); returns its path. */
 	async restore(trashPath: string): Promise<string> {
-		if (!isInside(trashPath, trashFolder) || !this.has(trashPath)) throw new VaultError('That isn’t in the trash.');
+		if (!isInside(trashPath, trashFolder) || trashPath === trashFolder || !this.has(trashPath)) throw new VaultError('That isn’t in the trash.');
 		const original = trashPath.slice(trashFolder.length + 1);
-		const target = this.isTaken(original) ? this.uniquePath(parentPath(original), stemOf(original), extensionOf(original) || undefined) : original;
+		const { stem, extension } = splitName(original, this.kindOf(trashPath));
+		const target = this.isTaken(original) ? this.uniquePath(parentPath(original), stem, extension) : original;
 		await this.fs.move(trashPath, target);
 		this.moveEntry(trashPath, target);
-		if (isNote(target)) {
+		// the folders it leaves empty in the trash go too, so Undo leaves no trace
+		for (let folder = parentPath(trashPath); folder !== trashFolder && isInside(folder, trashFolder); folder = parentPath(folder)) {
+			if (this.entryList.some((entry) => entry.path !== folder && isInside(entry.path, folder))) break;
+			await this.fs.remove(folder);
+			this.entryList = this.entryList.filter((entry) => entry.path !== folder);
+		}
+		// the trash isn't indexed: the notes that came back are read again for links, tags, and search
+		for (const entry of this.entryListIn(target)) {
+			if (entry.kind !== 'File' || !isNote(entry.path) || isHidden(entry.path)) continue;
 			try {
-				this.textMap.set(target, await this.fs.read(target));
+				this.textMap.set(entry.path, await this.fs.read(entry.path));
 			} catch {
 				// it is back in the tree; the index catches up on the next load
 			}

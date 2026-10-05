@@ -36,10 +36,28 @@ describe('Vault', () => {
 		await v.write('Lab/Titration.oi', 'new');
 		expect(await v.restore(trashed)).toBe('Lab/Titration 1.oi');
 		expect(v.search('pH').map((result) => result.path)).toEqual(['Lab/Titration 1.oi']);
+		// and the trash keeps no empty folder behind
+		expect((await fs.list()).map((entry) => entry.path).filter((path) => path.startsWith('.oi/Trash/'))).toEqual([]);
 		await v.trash('Keep.oi');
 		await v.emptyTrash();
 		expect(v.trashList()).toEqual([]);
 		expect((await fs.list()).some((entry) => entry.path.startsWith('.oi/Trash'))).toBe(false);
+	});
+
+	it('names folders without an extension, in the tree and in the trash, and restores a whole folder', async () => {
+		const { vault: v, fs } = await vault({ 'Lab/Titration.oi': 'pH #Acid', 'Lab/Cell.png': 'png', 'v1.2/Old.oi': '' });
+		expect(await v.createFolder('', 'Untitled')).toBe('Untitled');
+		expect(await v.createFolder('', 'Untitled')).toBe('Untitled 1');
+		expect(await v.addFile('', 'LICENSE', new Blob(['MIT']))).toBe('LICENSE');
+		const trashed = await v.trash('Lab');
+		expect(trashed).toBe('.oi/Trash/Lab');
+		expect((await fs.list()).map((entry) => entry.path)).toContain('.oi/Trash/Lab/Titration.oi');
+		expect(await v.trash('v1.2')).toBe('.oi/Trash/v1.2');
+		expect(v.search('tag:Acid')).toEqual([]);
+		// back with its notes indexed again (links, tags, search)
+		expect(await v.restore(trashed)).toBe('Lab');
+		expect(v.search('tag:Acid').map((result) => result.path)).toEqual(['Lab/Titration.oi']);
+		expect(v.has('Lab/Cell.png')).toBe(true);
 	});
 
 	it('deletes permanently when asked (a blank Untitled note never reaches the trash)', async () => {
@@ -47,6 +65,25 @@ describe('Vault', () => {
 		await v.deleteForever('Untitled.oi');
 		expect(v.noteList()).toEqual([]);
 		expect(v.trashList()).toEqual([]);
+	});
+
+	it('keeps a copy in memory of what it deletes for good, so Undo can put it back', async () => {
+		const { vault: v, fs } = await vault({ 'Lab/Titration.oi': 'pH #Acid', 'Lab/Cell.png': 'png bytes', 'Index.oi': '[[Titration]]' });
+		const snapshot = (await v.snapshot('Lab'))!;
+		await v.deleteForever('Lab');
+		expect(v.has('Lab')).toBe(false);
+		expect(v.resolve('Titration')).toBeUndefined();
+		expect(await v.putBack(snapshot)).toBe('Lab');
+		expect(await fs.read('Lab/Titration.oi')).toBe('pH #Acid');
+		expect(await (await v.readBinary('Lab/Cell.png')).text()).toBe('png bytes');
+		expect(v.resolve('Titration')).toBe('Lab/Titration.oi');
+		// a name taken meanwhile: it comes back beside it
+		const note = (await v.snapshot('Index.oi'))!;
+		await v.deleteForever('Index.oi');
+		await v.write('Index.oi', 'new');
+		expect(await v.putBack(note)).toBe('Index 1.oi');
+		// too big to keep twice: no copy, and no Undo
+		expect(await v.snapshot('Lab', 4)).toBeUndefined();
 	});
 
 	it('renames a note and rewrites the links that named it', async () => {

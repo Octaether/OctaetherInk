@@ -8,12 +8,16 @@
 //              (never to the trash), even after typing and undoing back to nothing.
 //   save       automatic (0.6 s after a change) in a vault and for files opened with write access;
 //              elsewhere Ctrl+S downloads, and a draft is kept in this browser meanwhile.
-//   delete     to .oi/Trash/ (or permanently, a setting), after a question (a setting too).
+//   delete     to the vault's trash, .oi/Trash/ (or for good, a setting), after a question (a
+//              setting too). Notes kept in the browser have no trash: always asked, always for
+//              good. Either way the message after it offers Undo.
 //   rename     renames the file and rewrites [[links]] to it (a setting); Ctrl+Z takes it back.
+//   switch     the next vault is read while the current one stays on screen, then everything
+//              changes at once (its settings, its tabs): no flash of the start screen between.
 
 import { type FormatOption, type PropertyValue, createNoteId, formatName, walkNode } from '@octaether/core-format';
 import { NoteModel } from '@octaether/core-model';
-import { type FileSystem, Vault, VaultError, baseName, extensionOf, isInside, isNote, joinPath, nameProblem, parentPath, stemOf } from '@octaether/core-vault';
+import { type FileSystem, Vault, VaultError, type VaultSnapshot, baseName, extensionOf, isInside, isNote, joinPath, nameProblem, parentPath, stemOf } from '@octaether/core-vault';
 import { downloadText, writeHandle } from './file-system';
 import { storage, storageKey } from './storage';
 
@@ -60,10 +64,17 @@ export interface Tab {
 }
 
 export interface VaultSource {
+	/** Folder: a folder on disk. Browser: notes kept in this browser (the quick notes). Guide: the welcome guide, in memory. */
 	kind: 'Folder' | 'Browser' | 'Guide';
 	id: string;
 	name: string;
 	handle?: FileSystemDirectoryHandle;
+}
+
+/** A button with a message: Undo after a delete. */
+export interface NotifyAction {
+	title: string;
+	run(): void;
 }
 
 export interface WorkspaceOption {
@@ -71,7 +82,12 @@ export interface WorkspaceOption {
 	setting(id: string): PropertyValue | undefined;
 	/** Asks a yes/no question; resolves false to cancel. */
 	confirm(message: string, action: string, danger?: boolean): Promise<boolean>;
-	notify(message: string): void;
+	notify(message: string, action?: NotifyAction): void;
+	/**
+	 * Called when the open vault changes (undefined: none), before anything of it shows, so the
+	 * app reads its settings first and draws its notes once.
+	 */
+	prepareVault?(vault: Vault | undefined, source: VaultSource | undefined): Promise<void>;
 }
 
 const untitledPattern = /^Untitled(?: \d+)?\.oi$/;
@@ -116,6 +132,9 @@ export class Workspace {
 	private readonly unsubscribeMap = new Map<OpenNote, () => void>();
 	private unsubscribeVault: (() => void) | undefined;
 	private saving: Promise<void> = Promise.resolve();
+	/** While above 0, events wait in `heldEventSet` and go out once at the end (see `hold`). */
+	private holdDepth = 0;
+	private readonly heldEventSet = new Set<WorkspaceEvent>();
 
 	constructor(readonly option: WorkspaceOption) {}
 
@@ -125,7 +144,30 @@ export class Workspace {
 	}
 
 	private emit(event: WorkspaceEvent): void {
+		if (this.holdDepth > 0) {
+			this.heldEventSet.add(event);
+			return;
+		}
 		for (const listener of this.listenerSet) listener(event);
+	}
+
+	/**
+	 * Runs `step` with the screen held: what it changes goes out as one round of events at the end,
+	 * so the screen goes straight from before to after (no empty or start screen between).
+	 */
+	private async hold<T>(step: () => Promise<T>): Promise<T> {
+		this.holdDepth++;
+		try {
+			return await step();
+		} finally {
+			this.holdDepth--;
+			if (this.holdDepth === 0) {
+				const order: WorkspaceEvent[] = ['Vault', 'Tab', 'Note', 'Save', 'Tree', 'Rename'];
+				const list = order.filter((event) => this.heldEventSet.has(event));
+				this.heldEventSet.clear();
+				for (const event of list) this.emit(event);
+			}
+		}
 	}
 
 	/** The tab in front. */
@@ -160,23 +202,37 @@ export class Workspace {
 
 	// ------------------------------------------------------------ vault
 
-	/** Opens a vault; false when you kept a note that couldn't be saved. */
-	async openVault(fs: FileSystem, source: VaultSource): Promise<boolean> {
-		if (!(await this.closeAll())) return false;
+	/**
+	 * Opens a vault (with the tabs it had last time, when `restore`); false when you kept a note
+	 * that couldn't be saved. Throws when the vault can't be read; what was open then stays.
+	 */
+	async openVault(fs: FileSystem, source: VaultSource, option: { restore?: boolean } = {}): Promise<boolean> {
+		// read it first: what is on screen stays meanwhile
 		const vault = new Vault(fs);
 		await vault.load();
-		this.vault = vault;
-		this.source = source;
-		this.kind = 'Vault';
-		this.unsubscribeVault = vault.subscribe(() => this.emit('Tree'));
-		this.emit('Vault');
-		return true;
+		return this.hold(async () => {
+			if (!(await this.close(false))) return false;
+			await this.option.prepareVault?.(vault, source);
+			this.vault = vault;
+			this.source = source;
+			this.kind = 'Vault';
+			this.unsubscribeVault = vault.subscribe(() => this.emit('Tree'));
+			this.emit('Vault');
+			if (option.restore) await this.restoreTab();
+			return true;
+		});
 	}
 
 	/** Leaves every tab (saving, or dropping blank Untitled notes) and closes the vault or files. */
-	async closeAll(): Promise<boolean> {
+	closeAll(): Promise<boolean> {
+		return this.hold(() => this.close(true));
+	}
+
+	/** Closes everything; `prepare`: tell the app no vault is open (not when another opens next). */
+	private async close(prepare: boolean): Promise<boolean> {
 		for (const tab of [...this.tabList]) if (!(await this.release(tab))) return false;
 		for (const tab of this.tabList) if (tab.note) this.forget(tab.note);
+		const hadVault = this.vault !== undefined;
 		this.tabList = [];
 		this.activeTabId = undefined;
 		this.unsubscribeVault?.();
@@ -184,6 +240,7 @@ export class Workspace {
 		this.vault = undefined;
 		this.source = undefined;
 		this.kind = 'None';
+		if (prepare && hadVault) await this.option.prepareVault?.(undefined, undefined);
 		this.emit('Tab');
 		this.emit('Note');
 		this.emit('Save');
@@ -364,18 +421,20 @@ export class Workspace {
 	}
 
 	/** Opens text that isn't a vault file, in a new tab: a single file, or a kept draft. */
-	async openText(text: string, name: string, option: { handle?: FileSystemFileHandle; keepVault?: boolean; saved?: boolean } = {}): Promise<boolean> {
-		if (!option.keepVault && this.kind === 'Vault' && !(await this.closeAll())) return false;
-		if (this.kind === 'None') this.kind = 'File';
-		const note = this.makeNote(name, text, {
-			savedText: option.saved === false ? undefined : text,
-			external: true,
-			...(option.handle ? { handle: option.handle } : {}),
+	openText(text: string, name: string, option: { handle?: FileSystemFileHandle; keepVault?: boolean; saved?: boolean } = {}): Promise<boolean> {
+		return this.hold(async () => {
+			if (!option.keepVault && this.kind === 'Vault' && !(await this.close(true))) return false;
+			if (this.kind === 'None') this.kind = 'File';
+			const note = this.makeNote(name, text, {
+				savedText: option.saved === false ? undefined : text,
+				external: true,
+				...(option.handle ? { handle: option.handle } : {}),
+			});
+			note.saveState = this.isDirty(note) ? (this.canAutoSave(note) ? 'Unsaved' : 'Download') : 'Saved';
+			const done = await this.place(note, this.tabList.length > 0, true);
+			this.emit('Vault');
+			return done;
 		});
-		note.saveState = this.isDirty(note) ? (this.canAutoSave(note) ? 'Unsaved' : 'Download') : 'Saved';
-		const done = await this.place(note, this.tabList.length > 0, true);
-		this.emit('Vault');
-		return done;
 	}
 
 	/** A free "Untitled" name in a folder: not on disk and not a new note in another tab. */
@@ -519,7 +578,7 @@ export class Workspace {
 			note.external = false;
 			note.autoNamed = false;
 			this.setSaveState(note, 'Saved');
-			this.option.notify(`Saved into the vault as “${stemOf(path)}”.`);
+			this.option.notify(`Saved into ${this.source?.kind === 'Browser' ? 'the quick notes' : 'the vault'} as “${stemOf(path)}”.`);
 			this.emit('Rename');
 			this.emit('Tab');
 			return;
@@ -665,8 +724,17 @@ export class Workspace {
 		}
 	}
 
-	/** Deletes a file or folder: to the trash (or permanently, a setting), after asking (a setting). */
-	async trash(path: string): Promise<boolean> {
+	/** Whether deleting here is for good: notes kept in the browser have no trash, and a setting can ask for it. */
+	deletesForGood(): boolean {
+		return this.source?.kind === 'Browser' || this.option.setting('File.DeleteTo') === 'Permanent';
+	}
+
+	/**
+	 * Deletes a file or folder: to the vault's trash, or for good (see `deletesForGood`), after
+	 * asking (a setting, and always for notes kept in the browser). The message after it offers
+	 * Undo, which puts it back and shows the note again.
+	 */
+	async delete(path: string): Promise<boolean> {
 		const vault = this.vault;
 		if (!vault) return false;
 		const affected = this.tabList.filter((tab) => tab.note && !tab.note.external && isInside(tab.note.path, path));
@@ -678,21 +746,31 @@ export class Workspace {
 			this.emit('Tree');
 			return true;
 		}
-		const permanent = this.option.setting('File.DeleteTo') === 'Permanent';
-		const name = stemOf(path);
-		if (this.option.setting('File.ConfirmDelete') !== false) {
-			const folder = vault.kindOf(path) === 'Folder';
+		if (!vault.has(path)) return false;
+		const browser = this.source?.kind === 'Browser';
+		const forGood = this.deletesForGood();
+		const folder = vault.kindOf(path) === 'Folder';
+		const name = `“${isNote(path) ? stemOf(path) : baseName(path)}”`;
+		const label = folder ? `the folder ${name}` : name;
+		if (browser || this.option.setting('File.ConfirmDelete') !== false) {
+			const what = folder ? `${label} and everything in it` : label;
 			const ok = await this.option.confirm(
-				permanent
-					? `Delete ${folder ? 'the folder' : ''} “${name}”${folder ? ' and everything in it' : ''} for good? This can’t be undone.`
-					: `Move ${folder ? 'the folder' : ''} “${name}”${folder ? ' and everything in it' : ''} to the trash (.oi/Trash)? You can restore it from there.`,
-				permanent ? 'Delete' : 'Move to trash',
+				browser
+					? `Delete ${what}? Notes kept in this browser have no trash: the Undo button shown for a few seconds right after is the only way to get it back.`
+					: forGood
+						? `Delete ${what} permanently? It doesn’t go to the trash: the Undo button shown for a few seconds right after is the only way to get it back.`
+						: `Move ${what} to the trash? It goes to the vault’s .oi/Trash folder.`,
+				forGood ? 'Delete' : 'Move to trash',
 				true,
 			);
 			if (!ok) return false;
 		}
-		// save the latest text first, so the trash holds what you last saw
+		// the note in front comes back with Undo
+		const reopen = this.note && !this.note.external && this.note.path === path ? path : undefined;
+		// save the latest text first, so the trash (or the copy kept for Undo) holds what you last saw
 		for (const tab of affected) await this.save(false, tab.note);
+		let snapshot: VaultSnapshot | undefined;
+		if (forGood) snapshot = await vault.snapshot(path).catch(() => undefined);
 		for (const tab of affected) await this.dropTab(tab);
 		// a tab showing a file that goes: back to its note, or closed
 		for (const tab of this.tabList.filter((item) => item.file !== undefined && isInside(item.file, path))) {
@@ -707,12 +785,29 @@ export class Workspace {
 			} else await this.closeTab(tab.id);
 		}
 		try {
-			if (permanent) await vault.deleteForever(path);
-			else await vault.trash(path);
+			if (forGood) {
+				await vault.deleteForever(path);
+				const kept = snapshot;
+				this.option.notify(`Deleted ${label}.`, kept ? { title: 'Undo', run: () => void this.undoDelete(vault, () => vault.putBack(kept), reopen) } : undefined);
+			} else {
+				const trashPath = await vault.trash(path);
+				this.option.notify(`Moved ${label} to the trash.`, { title: 'Undo', run: () => void this.undoDelete(vault, () => vault.restore(trashPath), reopen) });
+			}
 			return true;
 		} catch {
-			this.option.notify(`Couldn’t delete “${name}”.`);
+			this.option.notify(`Couldn’t delete ${label}.`);
 			return false;
+		}
+	}
+
+	/** Undo of a delete: puts it back (while its vault is still open), and shows the note again if it was in front. */
+	private async undoDelete(vault: Vault, putBack: () => Promise<string>, reopen: string | undefined): Promise<void> {
+		if (this.vault !== vault) return;
+		try {
+			const path = await putBack();
+			if (reopen && isNote(path)) await this.openNote(path);
+		} catch {
+			this.option.notify('Couldn’t put it back.');
 		}
 	}
 

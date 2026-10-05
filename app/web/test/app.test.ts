@@ -88,11 +88,31 @@ describe('web app', () => {
 	it('starts on the start screen, like VS Code, under the black and gold mark', () => {
 		const start = document.getElementById('startScreen')!;
 		expect(start.hidden).toBe(false);
-		expect(start.textContent).toContain('Open a folder as a vault');
-		expect(start.textContent).toContain('New vault in this browser');
+		const actionList = [...start.querySelectorAll('[data-action] span')].map((span) => span.textContent);
+		expect(actionList).toEqual(['Create new vault', 'Open folder as vault', 'Quick note', 'Open file', 'Open the welcome guide']);
+		expect(start.textContent).not.toContain('New vault in this browser');
 		expect(start.querySelector('.start-logo svg rect')!.getAttribute('fill')).toBe('#0c0b09');
 		expect(document.getElementById('page')!.hidden).toBe(true);
 		expect(document.getElementById('tabBar')!.hidden).toBe(true);
+	});
+
+	it('opens the sidebar with no vault open, offering vaults to make or open', async () => {
+		const sidebar = document.getElementById('sidebar')!;
+		expect(sidebar.hidden).toBe(true);
+		command('Sidebar.Toggle');
+		await settle();
+		expect(sidebar.hidden).toBe(false);
+		expect(sidebar.querySelector('.vault-name')!.textContent).toBe('No vault open');
+		expect([...sidebar.querySelectorAll('.sidebar-empty-link span')].map((span) => span.textContent)).toEqual(['Create new vault', 'Open folder as vault', 'Quick note']);
+		expect(sidebar.querySelector<HTMLElement>('.sidebar-tool-row')!.hidden).toBe(true);
+		// the switcher has nothing to close
+		click(sidebar.querySelector('.vault-button')!);
+		await settle();
+		expect(menuItem('Close vault')).toBeUndefined();
+		expect(menuItem('Create new vault')).toBeDefined();
+		press('Escape', document.querySelector('#layer .menu')!);
+		command('Sidebar.Toggle');
+		expect(sidebar.hidden).toBe(true);
 	});
 
 	it('opens the welcome guide in a tab, with its properties on top and every guide beside it', async () => {
@@ -379,7 +399,7 @@ describe('web app', () => {
 			'Index.oi': 'See [[Lab/Titration]].\n',
 			'Lab/Titration.oi': '---\nTag: [Lab]\n---\n\npH curve #Lab\n',
 		});
-		const opening = app.openVaultWith(fs, { id: 'memory', kind: 'Browser', name: 'Chemistry', time: 0 });
+		const opening = app.openVaultWith(fs, { id: 'memory', kind: 'Folder', name: 'Chemistry', time: 0 });
 		await settle();
 		document.querySelector<HTMLButtonElement>('.dialog-modal [data-answer="Yes"]')?.click();
 		expect(await opening).toBe(true);
@@ -441,7 +461,7 @@ describe('web app', () => {
 		expect(app.workspace.vault!.has('Plan for Friday.oi')).toBe(false);
 	});
 
-	it('moves a deleted note to the trash after asking', async () => {
+	it('moves a deleted note to the trash after asking, and Undo in the message brings it back', async () => {
 		expect(app.workspace.note!.path).toBe('Plan.oi');
 		document.querySelector<HTMLButtonElement>('.ribbon [data-command="Command.Palette"]')!.click();
 		const input = document.querySelector<HTMLInputElement>('.palette-input')!;
@@ -454,6 +474,13 @@ describe('web app', () => {
 		await settle();
 		expect(app.workspace.vault!.has('Plan.oi')).toBe(false);
 		expect(app.workspace.vault!.trashList().map((entry) => entry.path)).toEqual(['.oi/Trash/Plan.oi']);
+		const toast = [...document.querySelectorAll<HTMLElement>('.toast.has-action')].at(-1)!;
+		expect(toast.firstChild!.textContent).toBe('Moved “Plan” to the trash.');
+		click(toast.querySelector('.toast-action')!);
+		await settle();
+		expect(app.workspace.vault!.has('Plan.oi')).toBe(true);
+		expect(app.workspace.note!.path).toBe('Plan.oi');
+		expect(document.contains(toast)).toBe(false);
 	});
 
 	it('shows every note in the graph view, and Back leaves it', async () => {
@@ -464,5 +491,44 @@ describe('web app', () => {
 		document.getElementById('viewBack')!.click();
 		await settle();
 		expect(document.querySelector<HTMLElement>('.graph-view')!.hidden).toBe(true);
+	});
+
+	it('switches vaults from the name at the bottom of the sidebar, as in Obsidian', async () => {
+		const button = document.querySelector<HTMLButtonElement>('.vault-button')!;
+		expect(button.querySelector('.vault-name')!.textContent).toBe('Chemistry');
+		// the name and the switcher's arrows, no folder icon
+		expect(button.querySelectorAll('svg')).toHaveLength(1);
+		click(button);
+		await settle();
+		const titleList = [...document.querySelectorAll('#layer .menu-item .menu-title')].map((title) => title.textContent);
+		expect(titleList).toEqual(['Chemistry', 'Create new vault', 'Open folder as vault', 'Close vault']);
+		expect(menuItem('Chemistry').querySelector('.menu-hint')!.textContent).toBe('✓');
+		press('Escape', document.querySelector('#layer .menu')!);
+	});
+
+	it('warns on top of the sidebar when the notes are kept in the browser, where a delete is for good', async () => {
+		const fs = new MemoryFileSystem('Quick note', { 'Idea.oi': 'Remember this\n' });
+		expect(await app.openVaultWith(fs, { id: 'quick', kind: 'Browser', name: 'Quick note', time: 0 })).toBe(true);
+		await settle();
+		const notice = document.querySelector<HTMLElement>('.vault-notice')!;
+		expect(notice.hidden).toBe(false);
+		expect(notice.textContent).toContain('Kept only in this browser');
+		expect(notice.querySelector('[data-notice="Download"]')).not.toBeNull();
+		expect(document.querySelector<HTMLElement>('.sidebar [data-action="NewFolder"]')!.hidden).toBe(true);
+		expect(document.getElementById('sidebar')!.classList.contains('in-browser')).toBe(true);
+		document.querySelector<HTMLElement>('.file-tree [data-path="Idea.oi"]')!.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true, clientX: 20, clientY: 20 }));
+		expect(menuItem('Delete')).toBeDefined();
+		expect(menuItem('Move to trash')).toBeUndefined();
+		click(menuItem('Delete'));
+		await settle();
+		expect(document.querySelector('.dialog-modal')!.textContent).toContain('Notes kept in this browser have no trash: the Undo button');
+		document.querySelector<HTMLButtonElement>('.dialog-modal [data-answer="Yes"]')!.click();
+		await settle();
+		expect(await fs.list()).not.toContainEqual({ path: 'Idea.oi', kind: 'File' });
+		// a folder vault has no such notice
+		expect(await app.openVaultWith(new MemoryFileSystem('Physics', { 'Wave.oi': 'λ\n' }), { id: 'physics', kind: 'Folder', name: 'Physics', time: 0 })).toBe(true);
+		await settle();
+		expect(document.querySelector<HTMLElement>('.vault-notice')!.hidden).toBe(true);
+		expect(document.querySelector<HTMLElement>('.sidebar [data-action="NewFolder"]')!.hidden).toBe(false);
 	});
 });

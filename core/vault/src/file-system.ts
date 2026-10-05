@@ -1,6 +1,6 @@
 // The one interface every platform implements: a folder on disk (File System Access, Tauri),
-// a vault kept in the browser (IndexedDB), or memory (tests). Paths use "/" and have no
-// leading slash; "" is the vault's root.
+// the quick notes kept in the browser (IndexedDB), or memory (tests, the guide). Paths use "/"
+// and have no leading slash; "" is the vault's root.
 
 export type EntryKind = 'File' | 'Folder';
 

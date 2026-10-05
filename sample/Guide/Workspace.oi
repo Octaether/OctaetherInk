@@ -22,6 +22,12 @@ Every note opens in a tab. `Ctrl`+click a link or a file to open it in a new tab
 
 The sidebar lists every file in the vault. Notes open as notes; pictures, videos, and sounds open in a tab of their own, as in Obsidian (try `Octahedron.svg`). Other files are listed but greyed out.
 
+Deleting asks first, then moves the file to the vault's trash, the `.oi/Trash` folder inside it. The message after it has **Undo**, which brings the file back.
+
+## Vaults and quick notes
+
+A vault is a folder on your computer. The name at the bottom of the sidebar switches between your vaults, and makes or opens another. **Quick notes** need no folder: they are kept in this browser, for something to jot down now and file later. *Move to a folder* puts them into a vault.
+
 ## Hotkeys
 
 | Action | Keys |

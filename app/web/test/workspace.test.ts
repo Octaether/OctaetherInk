@@ -1,15 +1,16 @@
 // @vitest-environment happy-dom
 // The workspace's file rules, on a vault in memory: new notes, blank notes, saving, renaming,
-// deleting to the trash, and Back / Forward.
+// deleting (to the trash, or for good) with Undo, switching vaults, and Back / Forward.
 import { insertTemplate } from '@octaether/core-edit';
 import type { PropertyValue } from '@octaether/core-format';
 import { MemoryFileSystem } from '@octaether/core-vault';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { Workspace, isBlankNote } from '../src/workspace';
+import { type NotifyAction, type VaultSource, Workspace, isBlankNote } from '../src/workspace';
 
-async function open(fileMap: Record<string, string> = {}, settingMap: Record<string, PropertyValue> = {}, answer = true) {
+async function open(fileMap: Record<string, string> = {}, settingMap: Record<string, PropertyValue> = {}, answer = true, kind: VaultSource['kind'] = 'Folder') {
 	const fs = new MemoryFileSystem('Test', fileMap);
 	const messageList: string[] = [];
+	const actionList: NotifyAction[] = [];
 	const questionList: string[] = [];
 	const workspace = new Workspace({
 		formatOption: () => ({}),
@@ -18,10 +19,18 @@ async function open(fileMap: Record<string, string> = {}, settingMap: Record<str
 			questionList.push(message);
 			return answer;
 		},
-		notify: (message) => messageList.push(message),
+		notify: (message, action) => {
+			messageList.push(message);
+			if (action) actionList.push(action);
+		},
 	});
-	await workspace.openVault(fs, { kind: 'Browser', id: 'test', name: 'Test' });
-	return { fs, workspace, vault: workspace.vault!, messageList, questionList };
+	await workspace.openVault(fs, { kind, id: 'test', name: 'Test' });
+	return { fs, workspace, vault: workspace.vault!, messageList, actionList, questionList };
+}
+
+/** Lets the promise a toast's button starts (Undo) finish. */
+async function settle(): Promise<void> {
+	for (let index = 0; index < 6; index++) await new Promise((done) => setTimeout(done, 0));
 }
 
 afterEach(() => {
@@ -109,28 +118,79 @@ describe('Workspace', () => {
 		expect(await workspace.rename('Acid base.oi', 'a/b')).toBeUndefined();
 	});
 
-	it('moves a deleted note to the trash after asking, and can restore it', async () => {
-		const { workspace, vault, questionList } = await open({ 'Lab/Titration.oi': 'pH\n', 'Keep.oi': 'x\n' });
+	it('moves a deleted note to the trash after asking, and Undo brings it back into its tab', async () => {
+		const { workspace, vault, questionList, messageList, actionList } = await open({ 'Lab/Titration.oi': 'pH\n', 'Keep.oi': 'x\n' });
 		await workspace.openNote('Lab/Titration.oi');
-		expect(await workspace.trash('Lab/Titration.oi')).toBe(true);
-		expect(questionList[0]).toMatch(/to the trash/);
+		expect(await workspace.delete('Lab/Titration.oi')).toBe(true);
+		expect(questionList[0]).toBe('Move “Titration” to the trash? It goes to the vault’s .oi/Trash folder.');
 		expect(workspace.note).toBeUndefined();
 		expect(vault.has('Lab/Titration.oi')).toBe(false);
-		const [entry] = vault.trashList();
-		expect(entry!.path).toBe('.oi/Trash/Lab/Titration.oi');
-		expect(await vault.restore(entry!.path)).toBe('Lab/Titration.oi');
+		expect(vault.trashList().map((entry) => entry.path)).toEqual(['.oi/Trash/Lab/Titration.oi']);
+		expect(messageList.at(-1)).toBe('Moved “Titration” to the trash.');
+		expect(actionList.at(-1)!.title).toBe('Undo');
+		actionList.at(-1)!.run();
+		await settle();
 		expect(await vault.read('Lab/Titration.oi')).toBe('pH\n');
+		expect(vault.trashList()).toEqual([]);
+		expect(workspace.note!.path).toBe('Lab/Titration.oi');
+		// a folder goes to the trash under its own name
+		expect(await workspace.delete('Lab')).toBe(true);
+		expect(questionList.at(-1)).toMatch(/^Move the folder “Lab” and everything in it to the trash\?/);
+		expect(vault.has('.oi/Trash/Lab/Titration.oi')).toBe(true);
 	});
 
 	it('deletes for good when set to, and does nothing when the question is cancelled', async () => {
 		const permanent = await open({ 'Old.oi': 'x\n' }, { 'File.DeleteTo': 'Permanent', 'File.ConfirmDelete': false });
-		expect(await permanent.workspace.trash('Old.oi')).toBe(true);
+		expect(await permanent.workspace.delete('Old.oi')).toBe(true);
 		expect(permanent.vault.has('Old.oi')).toBe(false);
 		expect(permanent.vault.trashList()).toEqual([]);
 		expect(permanent.questionList).toEqual([]);
+		// Undo still works right after: a copy was kept in memory
+		permanent.actionList.at(-1)!.run();
+		await settle();
+		expect(await permanent.vault.read('Old.oi')).toBe('x\n');
 		const cancelled = await open({ 'Old.oi': 'x\n' }, {}, false);
-		expect(await cancelled.workspace.trash('Old.oi')).toBe(false);
+		expect(await cancelled.workspace.delete('Old.oi')).toBe(false);
 		expect(cancelled.vault.has('Old.oi')).toBe(true);
+	});
+
+	it('deletes quick notes for good, always asking first, and Undo puts them back', async () => {
+		const { workspace, vault, questionList, messageList, actionList } = await open({ 'Idea.oi': 'Remember this\n', 'Attachment/Sketch.png': 'png' }, { 'File.ConfirmDelete': false }, true, 'Browser');
+		expect(workspace.deletesForGood()).toBe(true);
+		expect(await workspace.delete('Idea.oi')).toBe(true);
+		expect(questionList).toEqual(['Delete “Idea”? Notes kept in this browser have no trash: the Undo button shown for a few seconds right after is the only way to get it back.']);
+		expect(vault.has('Idea.oi')).toBe(false);
+		expect(vault.trashList()).toEqual([]);
+		expect(messageList.at(-1)).toBe('Deleted “Idea”.');
+		actionList.at(-1)!.run();
+		await settle();
+		expect(await vault.read('Idea.oi')).toBe('Remember this\n');
+		expect(vault.resolve('Idea')).toBe('Idea.oi');
+		// pictures and folders too
+		expect(await workspace.delete('Attachment')).toBe(true);
+		expect(questionList.at(-1)).toMatch(/^Delete the folder “Attachment” and everything in it\? Notes kept in this browser have no trash:/);
+		actionList.at(-1)!.run();
+		await settle();
+		expect(await (await vault.readBinary('Attachment/Sketch.png')).text()).toBe('png');
+	});
+
+	it('switches vaults in one step: no moment without a vault, and the tabs come back with it', async () => {
+		const first = await open({ 'A.oi': 'a\n' });
+		await first.workspace.openNote('A.oi');
+		const second = new MemoryFileSystem('Second', { 'B.oi': 'b\n', 'C.oi': 'c\n' });
+		localStorage.setItem('OctaetherInk.Tab.second', JSON.stringify({ pathList: ['B.oi', 'C.oi'], active: 'C.oi' }));
+		const seenList: string[] = [];
+		first.workspace.subscribe((event) => seenList.push(`${event}:${first.workspace.kind}:${first.workspace.tabList.length}`));
+		expect(await first.workspace.openVault(second, { kind: 'Folder', id: 'second', name: 'Second' }, { restore: true })).toBe(true);
+		// one round of events, each seeing the new vault with its tabs
+		expect(seenList).toEqual(['Vault:Vault:2', 'Tab:Vault:2', 'Note:Vault:2', 'Save:Vault:2', 'Tree:Vault:2']);
+		expect(first.workspace.note!.path).toBe('C.oi');
+		// a vault that can't be read leaves the open one as it was
+		const broken = new MemoryFileSystem('Broken');
+		broken.list = () => Promise.reject(new Error('gone'));
+		await expect(first.workspace.openVault(broken, { kind: 'Folder', id: 'broken', name: 'Broken' })).rejects.toThrow('gone');
+		expect(first.workspace.source!.id).toBe('second');
+		expect(first.workspace.tabList).toHaveLength(2);
 	});
 
 	it('asks before closing a single file whose changes can’t be saved, then shows the start', async () => {
@@ -199,7 +259,7 @@ describe('Workspace', () => {
 		expect(workspace.tabList).toHaveLength(1);
 		expect(await workspace.rename('Attachment/Cell.png', 'Plant cell')).toBe('Attachment/Plant cell.png');
 		expect(workspace.file).toBe('Attachment/Plant cell.png');
-		expect(await workspace.trash('Attachment/Plant cell.png')).toBe(true);
+		expect(await workspace.delete('Attachment/Plant cell.png')).toBe(true);
 		expect(workspace.tab!.view).toBe('Note');
 		expect(workspace.note!.path).toBe('Lab.oi');
 		// files that can't be shown are refused

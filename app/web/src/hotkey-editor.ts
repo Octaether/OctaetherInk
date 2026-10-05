@@ -141,7 +141,7 @@ export function renderHotkeyEditor(container: HTMLElement, option: HotkeyEditorO
 		const chordList: string[] = [];
 		let timer: ReturnType<typeof setTimeout> | undefined;
 		button.classList.add('recording');
-		button.textContent = 'Press keys…';
+		button.textContent = 'Press keys';
 		const finish = (): void => {
 			stop();
 			if (chordList.length === 0) return;
@@ -160,7 +160,8 @@ export function renderHotkeyEditor(container: HTMLElement, option: HotkeyEditorO
 			const chord = eventChord(event, isApplePlatform());
 			if (!chord) return;
 			chordList.push(chord);
-			button.textContent = `${chordList.map(option.keyText).join(' then ')}…`;
+			// a chord recorded, waiting for a possible second one
+			button.textContent = `${chordList.map(option.keyText).join(' then ')} then`;
 			clearTimeout(timer);
 			if (chordList.length >= 2) finish();
 			else timer = setTimeout(finish, 900);
