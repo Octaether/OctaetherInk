@@ -47,7 +47,7 @@ export interface ResolvedBlock {
  */
 export interface InlineContext {
 	theme: ThemeContext;
-	/** Theme token (`Accent`, `Color.Accent`) or raw colour → safe CSS colour, or undefined. */
+	/** Theme token (`Accent`, `Color.Accent`) or raw color → safe CSS color, or undefined. */
 	resolveColor(value: string): string | undefined;
 	/** Renders `{Type {Props}: content}` of any block type inline; undefined when the type has no inline form. */
 	renderInline(type: string, content: string, property: PropertyMap, offset: number): string | undefined;
@@ -70,7 +70,7 @@ export interface RenderContext extends InlineContext {
 export interface RenderHandle {
 	/** Update in place; return `Remount` to be re-mounted from scratch. */
 	update?(next: ResolvedBlock, context: RenderContext): 'Done' | 'Remount';
-	/** Repaint for a new theme (only needed when colours are not CSS variables). */
+	/** Repaint for a new theme (only needed when colors are not CSS variables). */
 	theme?(context: ThemeContext): void;
 	destroy?(): void;
 }
@@ -242,7 +242,9 @@ export interface HostContext {
 	extension<T>(name: string): T | undefined;
 	setting(id: string): PropertyValue | undefined;
 	theme(): ThemeContext;
+	/** Chooses the app's theme, as picking it in Setting → Appearance does (saved; `System` follows the device). */
 	applyTheme(name: string): void;
+	/** Every theme registered by the app, plugins, and modules. */
 	themeList(): readonly ThemeDefinition[];
 }
 

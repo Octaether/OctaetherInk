@@ -354,7 +354,7 @@ export class RenderHost {
 			`<pre>${escapeHtml(lineList.join('\n').replace(/^\t+/gm, ''))}</pre></div>`;
 	}
 
-	/** A block that can't render as intended gets an outline in a warning colour, with its text still shown. */
+	/** A block that can't render as intended gets an outline in a warning color, with its text still shown. */
 	private markBroken(record: FrameRecord): void {
 		const { element, content } = record;
 		const placeholder = content.querySelector<HTMLElement>(':scope > .oi-placeholder');

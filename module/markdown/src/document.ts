@@ -7,7 +7,7 @@ import { escapeHtml } from '@octaether/core-sdk';
 import { type MarkdownOption, headingLevel, listShape, renderInline, renderMarkdown } from '@octaether/module-text';
 
 export interface DocumentOption extends MarkdownOption {
-	/** Colours fenced code (the Code module's highlighter); `offset` is where the code starts. */
+	/** Colors fenced code (the Code module's highlighter); `offset` is where the code starts. */
 	highlight?(code: string, language: string | undefined, offset: number): string;
 }
 

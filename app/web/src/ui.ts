@@ -21,7 +21,7 @@ export interface MenuItem {
 export interface MenuOption {
 	x: number;
 	y: number;
-	/** Show a search field at the top (block menu, colour list). */
+	/** Show a search field at the top (block menu, color list). */
 	search?: boolean;
 	/** The query is typed somewhere else (the "/" menu types into the block editor). */
 	externalQuery?: boolean;

@@ -18,7 +18,7 @@ export const lightTheme: ThemeDefinition = {
 		'Color.Surface2': '#efede8',
 		'Color.Surface3': '#e4e1da',
 		'Color.Border': '#dbd6cc',
-		// Octaether gold: the brand colour, dark enough for links on white
+		// Octaether gold: the brand color, dark enough for links on white
 		'Color.Accent': '#8a6a1c',
 		'Color.AccentSoft': '#f8f3e7',
 		'Color.Danger': '#c4302b',
@@ -93,8 +93,8 @@ export function sanitizeTokenValue(token: string, value: string): string | undef
 }
 
 /**
- * Colour property value → CSS colour. `Accent` and `Color.Accent` are theme tokens (only known
- * ones), raw colours are validated; anything else returns undefined.
+ * Color property value → CSS color. `Accent` and `Color.Accent` are theme tokens (only known
+ * ones), raw colors are validated; anything else returns undefined.
  */
 export function resolveColor(value: string, isKnownToken: (token: string) => boolean): string | undefined {
 	const text = value.trim();
@@ -133,7 +133,7 @@ export class ThemeRegistry {
 	]);
 	private currentName = lightTheme.name;
 	private readonly listenerSet = new Set<(theme: ThemeDefinition) => void>();
-	/** Tokens you choose yourself (an accent colour), laid over whichever theme is active. */
+	/** Tokens you choose yourself (an accent color), laid over whichever theme is active. */
 	private overrideOf: ((theme: ThemeDefinition) => Readonly<Record<string, string>>) | undefined;
 
 	/** Lays your own tokens over every theme (undefined removes them); they may depend on the theme (light or dark). */

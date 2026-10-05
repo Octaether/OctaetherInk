@@ -80,9 +80,9 @@ const appSettingList: SettingDefinition[] = [
 	{ id: 'Editor.ReadableWidth', title: 'Readable line length', type: 'Toggle', default: true, explain: 'Keeps lines about 750 px wide on a big screen. Off: text uses the whole window.' },
 	{ id: 'Editor.BlockOutline', title: 'Outline the block being edited', type: 'Toggle', default: true, explain: 'A soft outline (and the block’s type) shows which block you’re editing, and a dashed one the block around it.' },
 	{ id: 'Appearance.FontSize', title: 'Text size', type: 'Choice', choiceList: ['14px', '15px', '16px', '17px', '18px', '20px'], default: '16px', explain: 'The size of the note’s text; math, chemistry, and diagrams grow with it.' },
-	{ id: 'Appearance.AccentColor', title: 'Accent colour', type: 'Color', default: '', explain: 'The colour of links, buttons, outlines, and tags. Pick one or type a hex code; ↺ goes back to the theme’s own (Octaether gold).' },
+	{ id: 'Appearance.AccentColor', title: 'Accent color', type: 'Color', default: '', explain: 'The color of links, buttons, outlines, and tags. Pick one or type a hex code; ↺ goes back to the theme’s own (Octaether gold).' },
 	{ id: 'Appearance.HoverHighlight', title: 'Highlight what the pointer is over', type: 'Toggle', default: true, explain: 'In the Edit view, the character (or the piece of an equation or drawing) under the pointer lights up, so you see where a click will land.' },
-	{ id: 'Appearance.HoverColor', title: 'Hover highlight colour', type: 'Color', default: '', explain: 'The colour of that highlight, drawn see-through over the text. Default: the accent colour.' },
+	{ id: 'Appearance.HoverColor', title: 'Hover highlight color', type: 'Color', default: '', explain: 'The color of that highlight, drawn see-through over the text. Default: the accent color.' },
 	{ id: 'File.OpenLast', title: 'Reopen what was open', type: 'Toggle', default: true, explain: 'Opens the last vault (with its tabs) or file when the app starts. In a browser tab, a folder may need one click to allow access again.' },
 	{ id: 'File.NewNoteLocation', title: 'Where a new note goes', type: 'Choice', choiceList: ['VaultRoot', 'CurrentFolder'], default: 'VaultRoot', explain: 'VaultRoot: the top of the vault. CurrentFolder: the folder of the note you are in.' },
 	{
@@ -98,8 +98,23 @@ const appSettingList: SettingDefinition[] = [
 	{ id: 'File.AttachmentFolder', title: 'Folder for pasted pictures', type: 'Text', default: 'Attachment', explain: 'A picture or video pasted or dropped on a note is saved in this folder of the vault, and an Image or Video block shows it. Empty: next to the note.' },
 ];
 
+/**
+ * The theme. The app owns this choice (Setting → Appearance, Switch theme); plugins and modules
+ * only add themes, and its list follows every theme registered. `Theme.Active` is the ID vault
+ * setting files already use.
+ */
+const themeSetting: SettingDefinition = {
+	id: 'Theme.Active',
+	title: 'Theme',
+	type: 'Choice',
+	choiceList: ['System', 'Light', 'Dark'],
+	default: 'System',
+	scopeList: ['Profile', 'Vault', 'Device'],
+	explain: 'The color set of the whole app and every block. System follows your device: Light by day, Dark when the device is dark. Plugins and modules can add themes; they all show here.',
+};
+
 const setting = new SettingStore();
-setting.define(appSettingList);
+setting.define([...appSettingList, themeSetting]);
 
 // ---------------------------------------------------------------- core
 
@@ -133,43 +148,54 @@ const service: HostService = {
 	registerTheme: (theme) => themeRegistry.register(theme),
 	setting: (id) => setting.get(id),
 	theme: () => themeContext(themeRegistry.current()),
-	applyTheme: (name) => void themeRegistry.apply(name),
+	// a plugin choosing a theme chooses it as you would: saved, and shown in Appearance
+	applyTheme: (name) => chooseTheme(name),
 	themeList: () => themeRegistry.list(),
 };
+
+// The setting is the one source of truth: whatever sets Theme.Active (Appearance, Switch theme,
+// a macro, a vault's Setting.oi, a plugin) shows that theme at once. System follows the device's
+// light or dark appearance, as on phones and in Obsidian's "Adapt to system".
+const systemDark = typeof window.matchMedia === 'function' ? window.matchMedia('(prefers-color-scheme: dark)') : undefined;
+
+/** The theme the setting asks for; one whose plugin is off falls back to Light or Dark as the device is. */
+function wantedTheme(): string {
+	const saved = String(setting.get('Theme.Active') ?? 'System');
+	return saved !== 'System' && themeRegistry.get(saved) ? saved : systemDark?.matches ? 'Dark' : 'Light';
+}
+
+/** Shows the theme the setting names (after the setting, the device, or the list of themes changes). */
+function applySavedTheme(): void {
+	const wanted = wantedTheme();
+	if (themeRegistry.current().name !== wanted) themeRegistry.apply(wanted);
+}
+
+/** Chooses a theme (or System) and keeps it. */
+function chooseTheme(name: string): void {
+	if (name !== 'System' && !themeRegistry.get(name)) {
+		toast(`No theme “${name}”. The themes are: ${themeRegistry.list().map((theme) => theme.name).join(', ')}.`);
+		return;
+	}
+	setting.set('Theme.Active', name);
+	applySavedTheme();
+}
+
+themeRegistry.subscribe(() => {
+	// the setting's list is every theme there is now; a theme just added that the setting names shows
+	themeSetting.choiceList = ['System', ...themeRegistry.list().map((theme) => theme.name)];
+	applySavedTheme();
+	applyChromeTheme();
+});
 registry.attach(service);
 
-// Theme.Active = System follows the device's light or dark appearance (as on phones and in
-// Obsidian's "Adapt to system"). Picking a theme stops that; picking System brings it back.
-const systemDark = typeof window.matchMedia === 'function' ? window.matchMedia('(prefers-color-scheme: dark)') : undefined;
-let applyingSystemTheme = false;
-
-function applySystemTheme(): void {
-	if (setting.get('Theme.Active') !== 'System') return;
-	applyingSystemTheme = true;
-	themeRegistry.apply(systemDark?.matches ? 'Dark' : 'Light');
-	applyingSystemTheme = false;
-}
-
-function chooseTheme(name: string): void {
-	setting.set('Theme.Active', name);
-	if (name === 'System') applySystemTheme();
-	else themeRegistry.apply(name);
-}
-
-function applySavedTheme(): void {
-	const saved = setting.get('Theme.Active');
-	if (saved === 'System') applySystemTheme();
-	else if (typeof saved === 'string') themeRegistry.apply(saved);
-}
-
-/** Your accent colour is laid over every theme (with a soft version mixed for light or dark). */
+/** Your accent color is laid over every theme (with a soft version mixed for light or dark). */
 function applyAccentColor(): void {
 	const hex = normalizeHex(String(setting.get('Appearance.AccentColor') ?? ''));
 	themeRegistry.setOverride(hex ? (theme) => accentToken(hex, theme) : undefined);
 }
 applyAccentColor();
 applySavedTheme();
-systemDark?.addEventListener('change', applySystemTheme);
+systemDark?.addEventListener('change', applySavedTheme);
 
 const noteElement = element<HTMLDivElement>('note');
 const host = new RenderHost(noteElement, registry, themeRegistry);
@@ -1164,6 +1190,25 @@ async function openVaultMenu(x: number, y: number): Promise<void> {
 	menu.place(x, Math.max(8, y - rect.height), y);
 }
 
+/** Switch theme without a name: every theme there is (from the app, plugins, and modules), and System. */
+function openThemePicker(): void {
+	const saved = String(setting.get('Theme.Active') ?? 'System');
+	const itemList = [
+		{ name: 'System', hint: systemDark?.matches ? 'follows the device: Dark now' : 'follows the device: Light now' },
+		...themeRegistry.list().map((theme) => ({ name: theme.name, hint: theme.mode })),
+	];
+	openPicker({
+		placeholder: 'Switch to a theme',
+		emptyText: 'No theme matches',
+		itemList: (query) =>
+			itemList
+				.map((item) => ({ item, score: bestFuzzyScore(query, [[item.name, 0]]) }))
+				.filter((entry) => entry.score >= 0)
+				.sort((left, right) => left.score - right.score)
+				.map(({ item }) => ({ title: item.name, hint: item.name === saved ? `✓ ${item.hint}` : item.hint, run: () => chooseTheme(item.name) })),
+	});
+}
+
 /** The vault switcher from the keyboard (command palette: Switch vault). */
 async function switchVault(): Promise<void> {
 	const list = (await vaultEntryList()).filter((entry) => entry.id !== workspace.source?.id);
@@ -1461,14 +1506,14 @@ function colorItemList(): MenuItem[] {
 	const swatch = (color: string): string => `<svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><circle cx="8" cy="8" r="6" fill="${color}"/></svg>`;
 	return [
 		...['Accent', 'Danger', 'Success', 'Warning', 'TextMuted'].map((color) => ({ title: color === 'TextMuted' ? 'Muted' : color, icon: swatch(`var(--oi-color-${color === 'TextMuted' ? 'text-muted' : color.toLowerCase()})`), run: () => applyColor(color) })),
-		// colours of your own: the last few you used, and any hex code
+		// colors of your own: the last few you used, and any hex code
 		...recentColorList().map((hex, index) => ({ title: hex, icon: swatch(hex), separatorBefore: index === 0, run: () => applyColor(hex) })),
-		{ title: 'Custom colour', icon: '#', separatorBefore: recentColorList().length === 0, run: () => void pickCustomColor() },
-		{ title: 'No colour', separatorBefore: true, run: () => applyColor(undefined) },
+		{ title: 'Custom color', icon: '#', separatorBefore: recentColorList().length === 0, run: () => void pickCustomColor() },
+		{ title: 'No color', separatorBefore: true, run: () => applyColor(undefined) },
 	];
 }
 
-/** Asks for a colour (a picker and a hex code) for the selected text. */
+/** Asks for a color (a picker and a hex code) for the selected text. */
 async function pickCustomColor(): Promise<void> {
 	const range = session.textRange();
 	const hex = await new Promise<string | undefined>((resolve) => {
@@ -1478,9 +1523,9 @@ async function pickCustomColor(): Promise<void> {
 			(modal, close) => {
 				const start = recentColorList()[0] ?? '#b5452c';
 				modal.innerHTML =
-					'<p class="dialog-text">A colour for the selected text: pick it, or type a hex code.</p>' +
-					`<div class="color-control color-dialog"><input type="color" class="color-pick" value="${start}" aria-label="Pick a colour"><input class="dialog-input color-hex" value="${start}" maxlength="7" spellcheck="false" aria-label="Hex code"></div>` +
-					'<div class="dialog-row"><button type="button" class="dialog-button" data-answer="No">Cancel</button><button type="button" class="dialog-button primary" data-answer="Yes">Colour it</button></div>';
+					'<p class="dialog-text">A color for the selected text: pick it, or type a hex code.</p>' +
+					`<div class="color-control color-dialog"><input type="color" class="color-pick" value="${start}" aria-label="Pick a color"><input class="dialog-input color-hex" value="${start}" maxlength="7" spellcheck="false" aria-label="Hex code"></div>` +
+					'<div class="dialog-row"><button type="button" class="dialog-button" data-answer="No">Cancel</button><button type="button" class="dialog-button primary" data-answer="Yes">Color it</button></div>';
 				const picker = modal.querySelector<HTMLInputElement>('.color-pick')!;
 				const text = modal.querySelector<HTMLInputElement>('.color-hex')!;
 				picker.addEventListener('input', () => {
@@ -1538,7 +1583,7 @@ function blockMenu(key: string, x: number, y: number): void {
 	const hasText = range !== undefined && range.key === key && range.start !== range.end && node.type === 'Text';
 	const container = registry.blockType(node.type)?.layout !== undefined;
 	const itemList: MenuItem[] = [];
-	if (hasText) itemList.push({ title: 'Format', itemList: formatItemList() }, { title: 'Colour', itemList: colorItemList() });
+	if (hasText) itemList.push({ title: 'Format', itemList: formatItemList() }, { title: 'Color', itemList: colorItemList() });
 	if (!container) {
 		itemList.push({
 			title: 'Turn into',
@@ -1733,6 +1778,26 @@ const commandList: CommandDefinition[] = [
 	{ id: 'Trash.Open', title: 'Open the trash', run: () => openTrash() },
 	{ id: 'Command.Palette', title: 'Open the command palette', run: () => openCommandPalette(commandRegistry, hotkeyText) },
 	{ id: 'Setting.Open', title: 'Open Setting', run: () => openSetting() },
+	{
+		id: 'Theme.Switch',
+		title: 'Switch theme',
+		explain: 'Argument: a theme name (Dark) or System. Without one, pick from the list',
+		run: (argument) => {
+			const name = typeof argument === 'string' ? argument : argument instanceof Map ? argument.get('Name') : (argument as { Name?: unknown } | undefined)?.Name;
+			if (typeof name === 'string' && name.trim() !== '') chooseTheme(name.trim());
+			else openThemePicker();
+		},
+	},
+	{
+		id: 'Theme.Cycle',
+		title: 'Next theme',
+		run: () => {
+			const list = themeRegistry.list();
+			const next = list[(list.findIndex((theme) => theme.name === themeRegistry.current().name) + 1) % list.length]!.name;
+			chooseTheme(next);
+			toast(`Theme: ${next}`);
+		},
+	},
 	{ id: 'Setting.Toggle', title: 'Toggle a setting', explain: 'Argument: the setting’s ID, e.g. Code.LineNumber', run: toggleSetting },
 	{ id: 'Sidebar.Toggle', title: 'Show or hide the sidebar', run: () => setSidebar(!sidebar.isOpen()) },
 	{ id: 'Property.Add', title: 'Add a property', run: () => addProperty() },
@@ -1933,22 +1998,13 @@ function openSetting(): void {
 			applyTip();
 		},
 		keyText,
-		// a colour left at its default shows the theme's accent in its swatch
+		// a color left at its default shows the theme's accent in its swatch
 		defaultColor: () => normalizeHex(themeRegistry.current().token['Color.Accent'] ?? '') ?? '#8a6a1c',
 		storageText: () => (workspace.vault && workspace.source?.kind === 'Folder' ? `this browser and in the vault (${workspace.source.name}/.oi/Setting.oi, .oi/Hotkey.oi)` : 'this browser'),
 		version: appVersion,
 		formatName,
 	});
 }
-
-let shownThemeName = themeRegistry.current().name;
-themeRegistry.subscribe((theme) => {
-	// a theme picked by hand (menu, Theme.Cycle) sticks; one applied for System doesn't, and neither
-	// does the same theme drawn again (a new accent colour), or System would quietly become Light
-	if (!applyingSystemTheme && theme.name !== shownThemeName && setting.get('Theme.Active') !== theme.name) setting.set('Theme.Active', theme.name);
-	shownThemeName = theme.name;
-	applyChromeTheme();
-});
 
 /** Settings the app itself reads: text size, line length, the edit outline, the hover highlight. */
 function applyEditorSetting(): void {
@@ -1957,7 +2013,7 @@ function applyEditorSetting(): void {
 	root.setProperty('--app-note-size', String(setting.get('Appearance.FontSize') ?? '16px'));
 	pageElement.classList.toggle('readable', setting.get('Editor.ReadableWidth') !== false);
 	document.body.classList.toggle('no-block-outline', setting.get('Editor.BlockOutline') === false);
-	// one colour for every hover highlight (text, code, math, chemistry, diagrams), drawn see-through
+	// one color for every hover highlight (text, code, math, chemistry, diagrams), drawn see-through
 	const hover = normalizeHex(String(setting.get('Appearance.HoverColor') ?? ''));
 	root.setProperty('--oi-hover', setting.get('Appearance.HoverHighlight') === false ? 'transparent' : `color-mix(in srgb, ${hover ?? 'var(--oi-color-accent)'} ${hover ? 40 : 32}%, transparent)`);
 }
@@ -1971,6 +2027,7 @@ setting.subscribe((id) => {
 	}
 	if (id === '*' || moduleSettingSet.has(id)) registry.touch();
 	if (id === '*' || id === 'Appearance.AccentColor') applyAccentColor();
+	if (id === '*' || id === 'Theme.Active') applySavedTheme();
 	if (id === '*' || id.startsWith('Editor.') || id.startsWith('Appearance.')) {
 		applyEditorSetting();
 		noteHead.refresh();

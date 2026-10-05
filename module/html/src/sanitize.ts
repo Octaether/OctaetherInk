@@ -65,7 +65,7 @@ export function cleanStyle(style: string): string {
 }
 
 export interface CleanOption {
-	/** Keep `style` attributes (colours, sizes, spacing). */
+	/** Keep `style` attributes (colors, sizes, spacing). */
 	keepStyle?: boolean;
 }
 

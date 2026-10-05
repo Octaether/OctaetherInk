@@ -32,7 +32,7 @@ describe('sanitizeHtml', () => {
 		expect(sanitizeHtml('<custom-tag>kept <b>bold</b></custom-tag><center>mid</center>')).toBe('kept <b>bold</b><div style="text-align: center">mid</div>');
 	});
 
-	it('keeps colours and spacing, never positions or pictures in style', () => {
+	it('keeps colors and spacing, never positions or pictures in style', () => {
 		expect(cleanStyle('color: var(--oi-color-accent); position: fixed; top: 0; background: url(https://evil.example/x.png); padding: 4px; z-index: 99')).toBe('color: var(--oi-color-accent); padding: 4px');
 		expect(cleanStyle('color: var(--app-secret)')).toBe('');
 		expect(sanitizeHtml('<span style="color: red; position: absolute">x</span>', { keepStyle: false })).toBe('<span>x</span>');

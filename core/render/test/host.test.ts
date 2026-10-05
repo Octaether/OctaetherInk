@@ -174,7 +174,7 @@ describe('RenderHost', () => {
 });
 
 describe('theme safety', () => {
-	it('accepts colours and tokens, rejects injection', () => {
+	it('accepts colors and tokens, rejects injection', () => {
 		const known = (token: string): boolean => token === 'Color.Accent';
 		expect(resolveColor('Accent', known)).toBe('var(--oi-color-accent)');
 		expect(resolveColor('Unknown', known)).toBeUndefined();

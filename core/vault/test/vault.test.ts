@@ -143,7 +143,7 @@ describe('link and tag syntax', () => {
 		]);
 	});
 
-	it('reads tags but not headings, numbers, colours, or code', () => {
+	it('reads tags but not headings, numbers, colors, or code', () => {
 		expect(tagList('# Heading\n#Chem and #[Lecture 05], #123, &#39; x#no\n```\n#code\n```')).toEqual(['Chem', 'Lecture 05']);
 	});
 

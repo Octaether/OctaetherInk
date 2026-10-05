@@ -6,7 +6,7 @@
 //   		…
 //   	Column:
 //   		…
-//   Callout {Kind: Tip}: Title  ← a coloured box around blocks, like Obsidian's callouts
+//   Callout {Kind: Tip}: Title  ← a colored box around blocks, like Obsidian's callouts
 //   	…
 
 import type { BlockTypeDefinition, ModuleDefinition, RenderContext, ResolvedBlock } from '@octaether/core-sdk';
@@ -41,7 +41,7 @@ export const calloutIcon: Readonly<Record<CalloutKind, string>> = {
 	Quote: icon('<path d="M3 21c3 0 7-1 7-8V5c0-1.25-.76-2-2-2H4c-1.25 0-2 .75-2 1.97V11c0 1.25.75 2 2 2 1 0 1 0 1 1v1c0 1-1 2-2 2s-1 .01-1 1.03V20c0 1 0 1 1 1z"/><path d="M15 21c3 0 7-1 7-8V5c0-1.25-.76-2-2-2h-4c-1.25 0-2 .75-2 1.97V11c0 1.25.75 2 2 2h.75c0 2.25.25 4-2.75 4v3c0 1 0 1 1 1z"/>'),
 };
 
-/** The colour of each kind, as a theme token (so callouts follow Light, Dark, and custom themes). */
+/** The color of each kind, as a theme token (so callouts follow Light, Dark, and custom themes). */
 export const calloutColor: Readonly<Record<CalloutKind, string>> = {
 	Note: 'var(--oi-color-accent)',
 	Info: 'var(--oi-color-accent)',
@@ -123,7 +123,7 @@ function drawCallout(frame: HTMLElement, block: ResolvedBlock, context: RenderCo
 	frame.querySelector('.oi-callout-fold')!.addEventListener('click', () => context.setProperty('Collapsed', collapsed ? undefined : true));
 }
 
-/** A coloured box around blocks (Note, Tip, Warning, …), like Obsidian's callouts; its text is the title. */
+/** A colored box around blocks (Note, Tip, Warning, …), like Obsidian's callouts; its text is the title. */
 const calloutType: BlockTypeDefinition = {
 	name: 'Callout',
 	content: 'Item',
@@ -142,7 +142,7 @@ const calloutType: BlockTypeDefinition = {
 	layout: flowArrange,
 	frameClassList: (block) => [`oi-callout-${calloutKind(block.property.get('Kind')).toLowerCase()}`, ...(block.property.get('Collapsed') === true ? ['oi-callout-collapsed'] : [])],
 	templateList: [
-		{ title: 'Callout', icon: '❗', source: 'Callout {Kind: Note}:\n\tWrite inside the callout.', keywordList: ['box', 'note', 'admonition', 'container', 'group'], explain: 'A coloured box around blocks, like Obsidian’s callouts' },
+		{ title: 'Callout', icon: '❗', source: 'Callout {Kind: Note}:\n\tWrite inside the callout.', keywordList: ['box', 'note', 'admonition', 'container', 'group'], explain: 'A colored box around blocks, like Obsidian’s callouts' },
 		{ title: 'Callout: Tip', icon: '💡', source: 'Callout {Kind: Tip}:\n\t', keywordList: ['hint', 'box'] },
 		{ title: 'Callout: Warning', icon: '⚠', source: 'Callout {Kind: Warning}:\n\t', keywordList: ['caution', 'box'] },
 	],
@@ -197,7 +197,7 @@ export const layoutModule: ModuleDefinition = {
 	publisher: 'Octaether',
 	version: '1.0.0',
 	title: 'Layout',
-	explain: 'Blocks that hold blocks: Grid with Columns (side by side, stacks on narrow screens) and Callout (a coloured box with a title, like Obsidian’s callouts). Always on.',
+	explain: 'Blocks that hold blocks: Grid with Columns (side by side, stacks on narrow screens) and Callout (a colored box with a title, like Obsidian’s callouts). Always on.',
 	core: true,
 	settingList: [
 		{

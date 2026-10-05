@@ -1,6 +1,6 @@
 // The Source view: the whole note as text, like a code editor. Line numbers, the current line,
-// colours for the OI syntax (properties, block headers, aliases, Markdown marks), Tab / Shift+Tab
-// and auto-indent, and Find highlights. A transparent textarea sits exactly over the coloured
+// colors for the OI syntax (properties, block headers, aliases, Markdown marks), Tab / Shift+Tab
+// and auto-indent, and Find highlights. A transparent textarea sits exactly over the colored
 // lines, so typing, selection, IME, and undo are the browser's own.
 
 import { type AliasMatch, type BlockAlias, matchAlias } from '@octaether/core-format';
@@ -9,7 +9,7 @@ export interface SourceEditorOption {
 	/** The text changed (called a moment after typing stops, and on blur). */
 	onChange(text: string): void;
 	onCursor?(line: number, column: number): void;
-	/** Types whose indented body is raw text (Math, Code, Chem…), coloured as such. */
+	/** Types whose indented body is raw text (Math, Code, Chem…), colored as such. */
 	isRawType?(type: string): boolean;
 	/** Types whose text after the colon is properties (`Code: Python`), not the body. */
 	takesArgument?(type: string): boolean;
@@ -59,7 +59,7 @@ function inlineClass(text: string): string {
 	return 's-span';
 }
 
-/** Colours one line; `state` carries alias blocks and front matter across lines. */
+/** Colors one line; `state` carries alias blocks and front matter across lines. */
 function tokenize(line: string, state: TokenState, syntax: Syntax): Token[] {
 	const whole = (className: string): Token[] => (line === '' ? [] : [{ from: 0, to: line.length, className }]);
 	const indent = /^\t*/.exec(line)![0].length;
@@ -160,7 +160,7 @@ function tokenize(line: string, state: TokenState, syntax: Syntax): Token[] {
 	return tokenList.sort((left, right) => left.from - right.from).filter((token, index, list) => index === 0 || token.from >= list[index - 1]!.to);
 }
 
-/** HTML for one line: token colours, with find matches wrapped in <mark>. */
+/** HTML for one line: token colors, with find matches wrapped in <mark>. */
 function lineHtml(line: string, tokenList: readonly Token[], matchList: readonly TextMatch[], currentIndex: number, lineStart: number, matchOffset: number): string {
 	// class per character is simplest and fast enough for notes
 	const classList: string[] = new Array(line.length).fill('');

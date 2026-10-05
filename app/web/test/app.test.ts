@@ -360,8 +360,38 @@ describe('web app', () => {
 		settingSection('Appearance');
 		// the theme follows the device until you pick one
 		expect(document.querySelector<HTMLSelectElement>('.setting-body [data-theme]')!.value).toBe('System');
+		// every theme in one list, the Theme plugin's included
+		expect([...document.querySelectorAll('.setting-body [data-theme] option')].map((option) => option.textContent)).toEqual(['Match system', 'Light', 'Dark', 'Paper', 'HighContrast']);
 		press('Escape');
 		expect(document.querySelector('.modal-backdrop')).toBeNull();
+	});
+
+	it('switches the theme from the palette (a list when no name is given), and whatever sets it shows it at once', async () => {
+		const root = document.documentElement;
+		document.querySelector<HTMLButtonElement>('.ribbon [data-command="Command.Palette"]')!.click();
+		let input = document.querySelector<HTMLInputElement>('.palette-input')!;
+		type(input, 'Switch theme');
+		press('Enter', input);
+		await settle();
+		input = document.querySelector<HTMLInputElement>('.palette-input')!;
+		expect([...document.querySelectorAll('.palette-list .palette-title, .palette-list [role="option"]')].length).toBeGreaterThan(0);
+		type(input, 'Paper');
+		press('Enter', input);
+		await settle();
+		expect(root.dataset.oiTheme).toBe('Paper');
+		expect(app.setting.get('Theme.Active')).toBe('Paper');
+		// the Theme plugin only adds themes: its page has no theme setting of its own
+		document.querySelector<HTMLButtonElement>('[data-command="Setting.Open"]')!.click();
+		settingSection('Plugin');
+		document.querySelector<HTMLButtonElement>('.setting-body [data-open="Theme"]')!.click();
+		expect(document.querySelector('.setting-body [data-setting="Theme.Active"]')).toBeNull();
+		press('Escape');
+		// set from anywhere else (a macro, a vault's Setting.oi), it shows without a reload
+		app.setting.set('Theme.Active', 'Dark');
+		expect(root.dataset.oiTheme).toBe('Dark');
+		app.commandRegistry.run('Theme.Switch', 'System');
+		expect(app.setting.get('Theme.Active')).toBe('System');
+		expect(['Light', 'Dark']).toContain(root.dataset.oiTheme);
 	});
 
 	it('rebinds a hotkey like the controls screen of a game', () => {

@@ -75,7 +75,7 @@ const colorMap: Readonly<Record<string, string>> = {
 
 const widthMap: Readonly<Record<string, number>> = { 'ultra thin': 0.1, 'very thin': 0.2, thin: 0.4, semithick: 0.6, thick: 0.8, 'very thick': 1.2, 'ultra thick': 1.6 };
 
-/** `red`, `red!40`, `red!40!blue`, a theme token (`Accent`), or a hex colour. */
+/** `red`, `red!40`, `red!40!blue`, a theme token (`Accent`), or a hex color. */
 export function tikzColor(text: string): string | undefined {
 	const trimmed = text.trim();
 	if (/^[A-Z][A-Za-z0-9.]*$/.test(trimmed) || /^#[0-9a-fA-F]{3,8}$/.test(trimmed)) return trimmed;

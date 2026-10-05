@@ -107,9 +107,9 @@ describe('inline format', () => {
 		expect(toggleFormat('x', 0, 1, 'Link').text).toBe('[x](https://)');
 	});
 
-	it('colours with theme tokens and removes the colour again', () => {
-		const coloured = colorRange('a hot day', 2, 5, 'Danger');
-		expect(coloured.text).toBe('a [hot]{Color: Danger} day');
-		expect(colorRange(coloured.text, 2, 22, undefined).text).toBe('a hot day');
+	it('colors with theme tokens and removes the color again', () => {
+		const colored = colorRange('a hot day', 2, 5, 'Danger');
+		expect(colored.text).toBe('a [hot]{Color: Danger} day');
+		expect(colorRange(colored.text, 2, 22, undefined).text).toBe('a hot day');
 	});
 });

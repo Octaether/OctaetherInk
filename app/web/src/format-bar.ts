@@ -19,7 +19,7 @@ const buttonList: readonly { kind: FormatKind | 'Color'; label: string; title: s
 	{ kind: 'Code', label: '<code>&lt;/&gt;</code>', title: 'Inline code', command: 'Format.Code' },
 	{ kind: 'Math', label: '∑', title: 'Inline math', command: 'Format.Math' },
 	{ kind: 'Link', label: '🔗', title: 'Link', command: 'Format.Link' },
-	{ kind: 'Color', label: '<span class="format-color">A</span>', title: 'Colour', command: 'Format.Color' },
+	{ kind: 'Color', label: '<span class="format-color">A</span>', title: 'Color', command: 'Format.Color' },
 ];
 
 export function setupFormatBar(option: FormatBarOption): () => void {

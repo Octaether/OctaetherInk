@@ -43,4 +43,4 @@ Every key can be changed in Setting → Hotkey, and a macro runs several command
 
 ## Setting
 
-`Ctrl+,` opens Setting. Every module has a page of its own there, and Appearance holds the theme, the accent colour, the text size, and the hover highlight.
+`Ctrl+,` opens Setting. Every module has a page of its own there, and Appearance holds the theme, the accent color, the text size, and the hover highlight.

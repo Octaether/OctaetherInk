@@ -11,7 +11,7 @@ The **Text** module draws your writing. Every Markdown paragraph, heading, list 
 
 ## Styles
 
-**Bold**, *italic*, ~~strikethrough~~, ==highlight==, `inline code`, and [coloured words]{Color: Accent}. A colour can be a theme name ([danger]{Color: Danger}, [success]{Color: Success}) or any hex code ([rust]{Color: #b5452c}). Select text for the format bar, or press `Ctrl+B` and `Ctrl+I`.
+**Bold**, *italic*, ~~strikethrough~~, ==highlight==, `inline code`, and [colored words]{Color: Accent}. A color can be a theme name ([danger]{Color: Danger}, [success]{Color: Success}) or any hex code ([rust]{Color: #b5452c}). Select text for the format bar, or press `Ctrl+B` and `Ctrl+I`.
 
 ## Links and tags
 

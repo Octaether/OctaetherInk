@@ -12,7 +12,7 @@ import { highlight, languageName, resolveLanguage } from './highlight';
 export { highlight, languageMap, languageName, languageRule, resolveLanguage } from './highlight';
 
 // Module tokens: Light and Dark defaults (theme protocol); any theme file may override them.
-// Warm colours that sit with the gold accent: rust keywords, olive strings, amber numbers.
+// Warm colors that sit with the gold accent: rust keywords, olive strings, amber numbers.
 const codeToken = {
 	'Code.Background': { Light: '#f7f5f0', Dark: '#1b1a18' },
 	'Code.Keyword': { Light: '#a8412c', Dark: '#ec8e6f' },
@@ -58,12 +58,12 @@ function draw(frame: HTMLElement, block: ResolvedBlock, context: RenderContext):
 	};
 	const lineNumber = own('LineNumber', 'Code.LineNumber');
 	const wrap = own('Wrap', 'Code.Wrap') && !lineNumber;
-	const colour = context.setting('Code.Highlight') !== false;
+	const color = context.setting('Code.Highlight') !== false;
 	const tabSize = Number(context.setting('Code.TabSize') ?? 4);
 	const output = block.property.get('Output');
 	// the language as its community writes it: python → Python, cpp → C++
 	const label = languageName(language) ?? '';
-	const code = colour ? highlight(block.body, language) : highlight(block.body, undefined);
+	const code = color ? highlight(block.body, language) : highlight(block.body, undefined);
 	const lineCount = block.body.split('\n').length;
 	frame.innerHTML =
 		`<div class="oi-code${wrap ? ' oi-code-wrap' : ''}"${Number.isFinite(tabSize) && tabSize > 0 && tabSize <= 16 ? ` style="--oi-code-tab: ${tabSize}"` : ''}>` +
@@ -136,7 +136,7 @@ export const codeModule: ModuleDefinition = {
 		{ id: 'Code.CopyButton', title: 'Copy button', type: 'Toggle', default: true, explain: 'A Copy button appears when the pointer is over a code block.' },
 		{ id: 'Code.LineNumber', title: 'Line numbers', type: 'Toggle', default: false, explain: 'Numbers every line. Long lines then scroll sideways instead of wrapping.' },
 		{ id: 'Code.Wrap', title: 'Wrap long lines', type: 'Toggle', default: false, explain: 'Long lines continue on the next line instead of scrolling sideways.' },
-		{ id: 'Code.Highlight', title: 'Syntax colours', type: 'Toggle', default: true, explain: 'Colours keywords, strings, numbers, comments, and function names.' },
+		{ id: 'Code.Highlight', title: 'Syntax colors', type: 'Toggle', default: true, explain: 'Colors keywords, strings, numbers, comments, and function names.' },
 		{ id: 'Code.TabSize', title: 'Tab width', type: 'Choice', choiceList: ['2', '4', '8'], default: '4', explain: 'How many spaces a tab takes in code blocks.' },
 	],
 	blockTypeList: [codeBlockType],

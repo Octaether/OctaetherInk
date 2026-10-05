@@ -111,7 +111,7 @@ export const mathModule: ModuleDefinition = {
 	version: '1.0.0',
 	title: 'Math',
 	explain:
-		'Math blocks ("Math:", or $$ … $$ as in Obsidian) and inline math ({Math: …}), written in TeX. Our own parser and macro engine turn it into MathML that the browser lays out, so colours, fonts, and themes follow the rest of the note, and clicking any rendered piece jumps to that exact spot in the source.',
+		'Math blocks ("Math:", or $$ … $$ as in Obsidian) and inline math ({Math: …}), written in TeX. Our own parser and macro engine turn it into MathML that the browser lays out, so colors, fonts, and themes follow the rest of the note, and clicking any rendered piece jumps to that exact spot in the source.',
 	settingList: [
 		{
 			id: 'Math.Font',

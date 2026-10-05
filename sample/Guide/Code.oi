@@ -7,7 +7,7 @@ Property:
 	Tag: [Guide, Module]
 	Module: Code
 
-The **Code** module shows code with colours. A block starts with `Code:` and the language, and the code goes on the indented lines below it. The label in the corner gives the language its proper name. Back to [[Welcome]].
+The **Code** module shows code with colors. A block starts with `Code:` and the language, and the code goes on the indented lines below it. The label in the corner gives the language its proper name. Back to [[Welcome]].
 
 Code: Python
 	def rate(k, a, b):
@@ -38,6 +38,6 @@ The fences (three backticks, or `~~~`) can be switched off or changed in Setting
 
 ## In a sentence
 
-Backticks make `inline code`. With a language, `{Code {Language: Python}: len("ink")}` colours it too: {Code {Language: Python}: len("ink")}.
+Backticks make `inline code`. With a language, `{Code {Language: Python}: len("ink")}` colors it too: {Code {Language: Python}: len("ink")}.
 
 Line numbers, wrapping, tab width, and the copy button for every block are in Setting → Module → Code.

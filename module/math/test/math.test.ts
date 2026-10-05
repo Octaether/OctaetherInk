@@ -84,7 +84,7 @@ describe('renderMath', () => {
 		expect(bare('\\mathcal{L}')).toContain('ℒ');
 	});
 
-	it('applies theme colours safely', () => {
+	it('applies theme colors safely', () => {
 		expect(bare('\\textcolor{Accent}{k}')).toContain('<mrow style="color: var(--oi-color-accent)"><mi>k</mi></mrow>');
 		expect(bare('\\color{#ff0000} x')).toContain('style="color: #ff0000"');
 		expect(bare('\\textcolor{red;background:url(x)}{k}')).not.toContain('style=');

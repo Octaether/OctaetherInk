@@ -145,7 +145,7 @@ export const textModule: ModuleDefinition = {
 	core: true,
 	settingList: [
 		{ id: 'Text.TaskToggle', title: 'Tick to-dos by clicking', type: 'Toggle', default: true, explain: 'Clicking a to-do’s box ticks it (in every view). Off: boxes only change when you edit the text.' },
-		{ id: 'Text.TagPill', title: 'Tags as pills', type: 'Toggle', default: true, explain: 'Shows #tags as small rounded labels. Off: tags are coloured words.' },
+		{ id: 'Text.TagPill', title: 'Tags as pills', type: 'Toggle', default: true, explain: 'Shows #tags as small rounded labels. Off: tags are colored words.' },
 		{ id: 'Text.SpellCheck', title: 'Spell check', type: 'Toggle', default: true, explain: 'Underlines misspelled words while you type in a text block.' },
 	],
 	statusItemList: [

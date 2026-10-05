@@ -1,6 +1,6 @@
 // Graph view: every note as a dot, every [[link]] as a line (tags and unresolved links on
 // request), laid out by a small force simulation. Drag dots, drag the background to pan, wheel or
-// pinch to zoom, click a note to open it. Colours come from the theme.
+// pinch to zoom, click a note to open it. Colors come from the theme.
 
 import type { GraphNode, Vault } from '@octaether/core-vault';
 import { icon } from './icon';

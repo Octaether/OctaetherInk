@@ -42,7 +42,7 @@ export const icon = {
 	Fit: svg('<path d="M3 9V5a2 2 0 0 1 2-2h4M15 3h4a2 2 0 0 1 2 2v4M21 15v4a2 2 0 0 1-2 2h-4M9 21H5a2 2 0 0 1-2-2v-4"/>'),
 } as const;
 
-/** The app's mark (an ink drop in an octagon, as in public/icon.svg), white for a coloured tile. */
+/** The app's mark (an ink drop in an octagon, as in public/icon.svg), white for a colored tile. */
 /** The app's mark (as public/icon.svg, on its black tile): the octahedron of octaether.com, whose lower half is a pen nib. */
 export const logoMark =
 	'<svg viewBox="0 0 512 512" width="58" height="58" aria-hidden="true"><defs>' +

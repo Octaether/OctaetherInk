@@ -1,6 +1,6 @@
 // chemfig-compatible molecule parser + layout, written from zero.
 //   bonds   - = ~  > <  >: <:  >| <|         options [angle, length, from, to, style]
-//   style   dashed / dotted (partial bonds), a colour name or theme colour: -[,,,,dashed]
+//   style   dashed / dotted (partial bonds), a color name or theme color: -[,,,,dashed]
 //   angle   [2] (×45°)  [:30] (absolute)  [::30] (relative to the previous bond)
 //   branch  (…)   ring *6(…)  aromatic **6(…)   name @{name}   ring closure ?[a]
 // Geometry is in bond units with y pointing up; every atom and bond keeps its source span.
@@ -61,7 +61,7 @@ export interface Bond {
 	dash?: 'Dashed' | 'Dotted';
 	/** `draw=none`: keeps two fragments where they are without drawing a bond. */
 	hidden?: boolean;
-	/** A CSS colour name or a theme colour (Accent, Danger, …). */
+	/** A CSS color name or a theme color (Accent, Danger, …). */
 	color?: string;
 }
 

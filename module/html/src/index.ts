@@ -1,4 +1,4 @@
-// A block of HTML, for what Markdown can't say: a coloured table, <kbd> keys, a <details> fold.
+// A block of HTML, for what Markdown can't say: a colored table, <kbd> keys, a <details> fold.
 //
 //   HTML:
 //   	<details><summary>Answer</summary>The rate doubles.</details>
@@ -75,7 +75,7 @@ export const htmlModule: ModuleDefinition = {
 	explain:
 		'A block of HTML ("HTML:" with the HTML on the lines below), or inline as {HTML: <kbd>Ctrl</kbd>}. It is cleaned first: scripts, forms, frames, event handlers, and anything that could leave the block are removed, and links open in a new tab.',
 	settingList: [
-		{ id: 'HTML.Style', title: 'Keep style attributes', type: 'Toggle', default: true, explain: 'Keeps the colours, sizes, and spacing written in style="…" (never positions or pictures from style). Off: plain HTML only.' },
+		{ id: 'HTML.Style', title: 'Keep style attributes', type: 'Toggle', default: true, explain: 'Keeps the colors, sizes, and spacing written in style="…" (never positions or pictures from style). Off: plain HTML only.' },
 	],
 	blockTypeList: [htmlBlockType],
 };

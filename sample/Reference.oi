@@ -10,7 +10,7 @@ Format: Oi 1
 
 Everything is a **block**. Click anywhere in a block to edit it at exactly that spot, and press `Esc` when done. Press `Enter` at the end of a line for a new block, type `/` in an empty line to pick a block type, and drag the ⋮⋮ handle to move a block.
 
-Text holds *italic*, ==highlight==, `code`, [links](https://octaether.com), [[Another Note]], tags like #Guide and #[Start Here], inline math {Math: e^{i\pi} + 1 = 0}, inline chemistry {Chem: 2H_2 + O_2 -> 2H_2O}, and [coloured words]{Color: Accent}. Select text, then right-click or use `Ctrl+B` / `Ctrl+I` to format it.
+Text holds *italic*, ==highlight==, `code`, [links](https://octaether.com), [[Another Note]], tags like #Guide and #[Start Here], inline math {Math: e^{i\pi} + 1 = 0}, inline chemistry {Chem: 2H_2 + O_2 -> 2H_2O}, and [colored words]{Color: Accent}. Select text, then right-click or use `Ctrl+B` / `Ctrl+I` to format it.
 
 ## Blocks hold blocks
 

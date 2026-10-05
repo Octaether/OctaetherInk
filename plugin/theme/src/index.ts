@@ -1,5 +1,7 @@
-// Theme plugin: extra theme presets, theme files (`.oi/Theme/*.oi`), and theme commands.
-// The Light/Dark protocol itself lives in the render layer, so it works even with this plugin off.
+// Theme plugin: extra themes (Paper, HighContrast) and theme files (`.oi/Theme/*.oi`). It only
+// contributes themes, as any plugin or module may: choosing one is the app's job (Setting →
+// Appearance, the Theme.Switch and Theme.Cycle commands), so every theme shows in one list. The
+// Light/Dark protocol itself lives in the render layer, so it works even with this plugin off.
 
 import { type PropertyValue, parseDocument, sectionToMap } from '@octaether/core-format';
 import type { PluginDefinition, ThemeDefinition, ThemeMode } from '@octaether/core-sdk';
@@ -93,38 +95,9 @@ export const themePlugin: PluginDefinition = {
 	publisher: 'Octaether',
 	version: '0.1.0',
 	title: 'Theme',
-	explain: 'Adds the Paper and HighContrast themes, theme files, and the Theme.Switch / Theme.Cycle commands. Light and Dark are built in and always available.',
-	settingList: [
-		{
-			id: 'Theme.Active',
-			title: 'Active theme',
-			type: 'Choice',
-			choiceList: ['System', 'Light', 'Dark', 'Paper', 'HighContrast'],
-			default: 'System',
-			scopeList: ['Profile', 'Vault', 'Device'],
-			explain: 'The colour set every block uses. System follows your device: Light by day, Dark when the device is dark. Blocks styled with theme tokens (Accent, Surface2…) follow it instantly without re-rendering.',
-		},
-	],
+	explain: 'Adds the Paper and HighContrast themes (and, next, theme files from the vault). Pick a theme in Setting → Appearance or with Switch theme in the command palette; Light and Dark are built in and always there.',
 	activate(context) {
 		context.registerTheme(paperTheme);
 		context.registerTheme(highContrastTheme);
-		context.registerCommand({
-			id: 'Theme.Switch',
-			title: 'Switch theme',
-			explain: 'Argument: a theme name (Dark), or {Name: Dark}',
-			run(argument) {
-				const name = typeof argument === 'string' ? argument : argument instanceof Map ? argument.get('Name') : (argument as { Name?: unknown } | undefined)?.Name;
-				if (typeof name === 'string') context.applyTheme(name);
-			},
-		});
-		context.registerCommand({
-			id: 'Theme.Cycle',
-			title: 'Next theme',
-			run() {
-				const list = context.themeList();
-				const index = list.findIndex((theme) => theme.name === context.theme().name);
-				context.applyTheme(list[(index + 1) % list.length]!.name);
-			},
-		});
 	},
 };

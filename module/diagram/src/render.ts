@@ -1,5 +1,5 @@
 // Diagram → SVG (+ HTML node labels). 1 cm = 2.36 em, so drawings scale with the block's font
-// size. Default colour is currentColor (follows the theme). Every item carries its source span.
+// size. Default color is currentColor (follows the theme). Every item carries its source span.
 
 import type { Diagram, DiagramNode, DiagramPath, PathCommand, Point, Style } from './tikz';
 

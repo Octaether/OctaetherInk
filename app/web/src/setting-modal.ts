@@ -22,7 +22,7 @@ export interface SettingModalOption {
 	statusItemList(): StatusItemDefinition[];
 	onHotkeyChange(): void;
 	keyText(key: string): string;
-	/** The colour a Color setting shows while it is left at its default (the theme's accent…). */
+	/** The color a Color setting shows while it is left at its default (the theme's accent…). */
 	defaultColor(id: string): string;
 	/** Where settings are saved, e.g. "this browser and Chemistry/.oi/Setting.oi". */
 	storageText(): string;
@@ -82,14 +82,14 @@ export function openSettingModal(option: SettingModalOption, start: SettingSecti
 						value = hex === '' ? undefined : hex;
 					} else value = field.value;
 					option.setting.set(id, value);
-					// a colour shows its reset; an alias change may clash with another module's
+					// a color shows its reset; an alias change may clash with another module's
 					if (definition?.type === 'Color' || /\.Alias(?:Marker)?$/.test(id)) show(shown);
 				});
 			}
 			for (const picker of body.querySelectorAll<HTMLInputElement>('[data-color-pick]')) {
 				const id = picker.dataset.colorPick!;
 				const hexField = body.querySelector<HTMLInputElement>(`.color-hex[data-setting="${id}"]`);
-				// the colour follows the picker live; the page settles when the picker closes
+				// the color follows the picker live; the page settles when the picker closes
 				picker.addEventListener('input', () => {
 					if (hexField) hexField.value = picker.value;
 					option.setting.set(id, picker.value);
@@ -147,7 +147,7 @@ export function openSettingModal(option: SettingModalOption, start: SettingSecti
 				const choiceList = ['System', ...option.themeRegistry.list().map((theme) => theme.name)];
 				html =
 					'<h2>Appearance</h2>' +
-					`<div class="setting-row"><div class="setting-text"><div class="setting-name">Theme</div><div class="setting-explain">The colour set every block uses. Match system follows your device's light or dark mode.</div></div><div class="setting-control"><select data-theme aria-label="Theme">${choiceList.map((item) => `<option value="${escapeHtml(item)}"${item === current ? ' selected' : ''}>${item === 'System' ? 'Match system' : escapeHtml(item)}</option>`).join('')}</select></div></div>` +
+					`<div class="setting-row"><div class="setting-text"><div class="setting-name">Theme</div><div class="setting-explain">The color set every block uses. Match system follows your device's light or dark mode.</div></div><div class="setting-control"><select data-theme aria-label="Theme">${choiceList.map((item) => `<option value="${escapeHtml(item)}"${item === current ? ' selected' : ''}>${item === 'System' ? 'Match system' : escapeHtml(item)}</option>`).join('')}</select></div></div>` +
 					option.appSettingList
 						.filter((item) => item.id.startsWith('Appearance.'))
 						.map(row)

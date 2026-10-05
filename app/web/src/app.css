@@ -1,5 +1,5 @@
 /* App chrome in the spirit of Obsidian: a ribbon, a file sidebar, a quiet view header, the note
-   in a readable column, and a small status bar. Every colour is a theme token (set on :root by
+   in a readable column, and a small status bar. Every color is a theme token (set on :root by
    the theme), so Light, Dark, and custom themes restyle the whole app. */
 
 *,
@@ -1262,7 +1262,7 @@ body.dragging * {
 	counter-reset: source-line;
 }
 
-/* the coloured lines and the textarea over them must wrap the same way, character for character */
+/* the colored lines and the textarea over them must wrap the same way, character for character */
 .source-lines,
 .source-input {
 	margin: 0;
@@ -2340,7 +2340,7 @@ mark.s-find-current span {
 	line-height: 1.45;
 }
 
-/* a colour: its swatch (opens the picker), its hex code, and ↺ back to the default */
+/* a color: its swatch (opens the picker), its hex code, and ↺ back to the default */
 .color-control {
 	display: inline-flex;
 	align-items: center;

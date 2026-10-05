@@ -50,11 +50,11 @@ function draw(frame: HTMLElement, body: string, context: RenderContext): void {
 		frame.innerHTML = '<div class="oi-markdown oi-markdown-empty" data-oi-s="0">Write or paste Markdown on the lines below “Markdown:”.</div>';
 		return;
 	}
-	const colour = context.setting('Code.Highlight') !== false;
+	const color = context.setting('Code.Highlight') !== false;
 	frame.innerHTML = `<div class="oi-markdown">${renderDocument(body, {
 		resolveColor: context.resolveColor,
 		renderInline: context.renderInline,
-		highlight: (code, language, offset) => highlight(code, colour ? language : undefined, offset),
+		highlight: (code, language, offset) => highlight(code, color ? language : undefined, offset),
 	})}</div>`;
 	loadAssetImage(frame, context);
 }

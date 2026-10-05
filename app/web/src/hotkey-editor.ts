@@ -26,7 +26,7 @@ function argumentChoiceList(command: string, option: HotkeyEditorOption): { valu
 			.filter((setting) => setting.type === 'Toggle' || setting.type === 'Choice')
 			.map((setting) => ({ value: setting.id, label: `${setting.title} (${setting.id})` }));
 	}
-	if (command === 'Theme.Switch') return option.themeList().map((name) => ({ value: name, label: name }));
+	if (command === 'Theme.Switch') return ['System', ...option.themeList()].map((name) => ({ value: name, label: name }));
 	if (command === 'View.Set') return ['Source', 'Edit', 'Read'].map((name) => ({ value: name, label: name }));
 	return undefined;
 }

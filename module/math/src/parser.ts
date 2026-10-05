@@ -141,7 +141,7 @@ export class Parser {
 		return this.tokenList[this.position - 1]?.end ?? fallback;
 	}
 
-	/** `{abc}` → "abc" (raw text, for names, colours, and \text). */
+	/** `{abc}` → "abc" (raw text, for names, colors, and \text). */
 	private readText(at: Token): string {
 		this.skipSpace();
 		const open = this.next();

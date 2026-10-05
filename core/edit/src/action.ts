@@ -260,7 +260,7 @@ export function toggleFormat(text: string, start: number, end: number, kind: For
 	return { text: text.slice(0, start) + open + inner + close + text.slice(end), start: start + open.length, end: end + open.length };
 }
 
-/** Colours the range with a styled span `[text]{Color: Token}` (or removes the colour with `undefined`). */
+/** Colors the range with a styled span `[text]{Color: Token}` (or removes the color with `undefined`). */
 export function colorRange(text: string, start: number, end: number, color: string | undefined): { text: string; start: number; end: number } {
 	const inner = text.slice(start, end);
 	const existing = /^\[([^\]]*)\]\{Color: [A-Za-z0-9.#]+\}$/.exec(inner);

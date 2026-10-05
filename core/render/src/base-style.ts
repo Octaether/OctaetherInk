@@ -16,7 +16,7 @@ export const baseStyle = `
 .oi-child { margin-top: 0.75em; }
 .oi-frame[data-oi-type="Text"] > .oi-child { margin-top: 0.3em; padding-inline-start: 1.5em; }
 .oi-frame.oi-list-item + .oi-frame.oi-list-item { margin-top: -0.5em; }
-/* a block that can't render as intended: a dashed outline in a warning colour, its text still shown */
+/* a block that can't render as intended: a dashed outline in a warning color, its text still shown */
 .oi-frame.oi-broken { outline: 1.5px dashed var(--oi-color-warning); outline-offset: 3px; border-radius: 6px; }
 .oi-frame.oi-broken[data-oi-broken="Error"] { outline-color: var(--oi-color-danger); }
 .oi-frame.oi-has-problem { outline: 1.5px dashed color-mix(in srgb, var(--oi-color-danger) 65%, transparent); outline-offset: 3px; border-radius: 6px; }

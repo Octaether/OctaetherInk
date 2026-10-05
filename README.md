@@ -53,7 +53,7 @@
 - **Markdown's symbols still work.** Three backticks around code and `$$` around math are *aliases* of `Code:` and `Math:`, so notes from Obsidian open as they are. Every module can have aliases, and each can be switched off or changed.
 - **Everything is a block.** Paragraphs, list items, math, code, chemical mechanisms, diagrams, pictures, videos, callouts, columns, and properties are blocks, and blocks hold blocks. Any block type also works inline in a sentence: `{Chem: 2H_2 + O_2 -> 2H_2O}`.
 - **Obsidian‑style app, VS Code‑style start.** A vault is a folder on your disk: create one or open one, and switch between them from the bottom of the sidebar. Tabs, a file sidebar (pictures, videos, and sounds open in a tab of their own), search, graph view, backlinks through `[[links]]`, and, when a note wants fields of its own, an optional Property block. No folder at hand? A **quick note** is kept in the browser until you move it into a vault.
-- **Three views.** *Source* shows the whole note as text, with line numbers and colours, like a code editor. *Edit* lets you click anywhere in a rendered block and type exactly there, in the block's own source, header included. *Read* never changes anything by accident.
+- **Three views.** *Source* shows the whole note as text, with line numbers and colors, like a code editor. *Edit* lets you click anywhere in a rendered block and type exactly there, in the block's own source, header included. *Read* never changes anything by accident.
 - **Own renderers.** Our own TeX → MathML engine, chemfig parser (with electron‑pushing arrows and lone pairs), TikZ subset, Markdown, HTML cleaner, and code highlighter. Themes, fonts, and "click this part to edit it" work the same in all of them.
 - **A drawing tool for structures,** like the ALEKS or ChemDraw editor. Draw a molecule and it becomes chemfig text in your note.
 - **Every key is yours.** Rebind any command, like a game's controls screen, with chords and conflict warnings. Macros chain commands and toggle settings. `Ctrl+Z` works everywhere, renames included.
@@ -68,7 +68,7 @@
 ```bash
 npm install
 npm run dev       # web app at http://localhost:5173
-npm test          # 228 tests: format round trip and aliases, model, vault, edit actions, every module, render host, app
+npm test          # 229 tests: format round trip and aliases, model, vault, edit actions, every module, render host, app
 npm run check     # TypeScript type-check of every package
 npm run build     # production build of the web app → app/web/dist
 npm run preview   # serve the production build locally
@@ -127,7 +127,7 @@ The three buttons at the top right switch views (`Ctrl+E` toggles Edit and Read,
 
 | View | What you see | Use it for |
 |---|---|---|
-| **Source** | The whole `.oi` file as text, like VS Code: line numbers, the current line, colours for properties, block headers, aliases, and Markdown marks. `Tab`/`Shift+Tab` indent selected lines, `Enter` keeps the indentation. The status bar shows `Ln, Col` | Big edits, repairs, pasting from elsewhere |
+| **Source** | The whole `.oi` file as text, like VS Code: line numbers, the current line, colors for properties, block headers, aliases, and Markdown marks. `Tab`/`Shift+Tab` indent selected lines, `Enter` keeps the indentation. The status bar shows `Ln, Col` | Big edits, repairs, pasting from elsewhere |
 | **Edit** (default) | Rendered blocks. Click anywhere to edit **at exactly that spot**: the block turns into its own source in place. A paragraph shows its Markdown; any other block shows its header too (`Math: x^2`, ```` ```Python ````), so its type and settings change right there. The block is outlined, and the block around it gets a dashed outline | Writing |
 | **Read** | Rendered blocks that never turn into text. Links, tags, and to‑do boxes still work | Reading and presenting |
 
@@ -142,10 +142,10 @@ The three buttons at the top right switch views (`Ctrl+E` toggles Edit and Read,
 - **`/` on an empty line** opens the block menu: Math, Code, Chemistry (write or draw), Diagram, Image, Video, Markdown, HTML, Callout, Columns, Property, headings, lists, to‑dos, quotes, and tables. Each entry says what it makes.
 - **Hover a block** for `+` (add below) and `⋮⋮` in the left margin. Drag `⋮⋮` to move the block: every block shows its outline, a line shows exactly where it will land (right away, as you move up or down), and moving right over a block drops it inside. The page scrolls near the edges. The handle stays put while you reach for it, so blocks in a right‑hand column can be dragged too.
 - **Right‑click** (long‑press on touch) for the block menu: *Turn into*, *Add block below*, *Add column left/right*, *Duplicate*, *Move up/down*, *Nest*, *Move out*, *Copy as OI text*, *Delete*.
-- **Select text** for the format bar: bold, italic, strikethrough, highlight, code, inline math, link, and colour (a theme colour, or any hex code). The same actions have hotkeys. With text selected on the page, `Delete` or `Backspace` removes it and typing replaces it; the block that was selected is left alone.
+- **Select text** for the format bar: bold, italic, strikethrough, highlight, code, inline math, link, and color (a theme color, or any hex code). The same actions have hotkeys. With text selected on the page, `Delete` or `Backspace` removes it and typing replaces it; the block that was selected is left alone.
 - **Undo and redo work everywhere** (`Ctrl+Z`, `Ctrl+Shift+Z` or `Ctrl+Y`): while typing in a block, on the page, and in the note's name. They step through the whole note's history, including splits, merges, moves, type changes, and renames.
 - **Code** is `Code: Python` with the code indented below it (`Code {Wrap: True}: Python` for one block's settings). **Display math** is a `Math:` block. **Aliases:** a Markdown fence (```` ```Python ```` … ```` ``` ````) is a Code block and `$$ … $$` a Math block, as in Obsidian; *Setting → Module → Code* (or *Math*) switches them off or changes the symbols. **Callouts** are `Callout {Kind: Tip}: Title`, and Obsidian's `> [!tip] Title` works too.
-- **The pointer shows where a click lands:** in the Edit view, the character (or the piece of an equation or drawing) under the pointer is highlighted (*Setting → Appearance*: on or off, and its colour).
+- **The pointer shows where a click lands:** in the Edit view, the character (or the piece of an equation or drawing) under the pointer is highlighted (*Setting → Appearance*: on or off, and its color).
 
 ### Pictures, videos, Markdown, and HTML
 
@@ -155,7 +155,7 @@ The three buttons at the top right switch views (`Ctrl+E` toggles Edit and Read,
 - **Pictures in text:** `![a caption](Cell.png)` as in Markdown, or `![[Cell.png|300]]` as in Obsidian (the number is a width).
 - **Drag a file from the sidebar onto a note** to use it there: a picture or a video gets its block, any other file a link.
 - **Markdown:** a `Markdown:` block keeps a whole Markdown document in one block (a README, a page from elsewhere), drawn like the rest of the note, with nested lists, to‑dos you can tick, tables, and code.
-- **HTML:** an `HTML:` block (or `{HTML: <kbd>Ctrl</kbd>}` in a sentence) shows HTML for what Markdown can't say. It is cleaned first: scripts, forms, frames, and event handlers are removed, `class` and `id` are dropped, and `style` keeps only colours, sizes, and spacing.
+- **HTML:** an `HTML:` block (or `{HTML: <kbd>Ctrl</kbd>}` in a sentence) shows HTML for what Markdown can't say. It is cleaned first: scripts, forms, frames, and event handlers are removed, `class` and `id` are dropped, and `style` keeps only colors, sizes, and spacing.
 
 ### The top of a note: name and properties
 
@@ -240,10 +240,10 @@ Macro:
 | `Editor.ReadableWidth` | On, Off | Keeps lines about 750 px wide |
 | `Editor.BlockOutline` | On, Off | Outlines the block being edited (with its type) and, dashed, the block around it |
 | `Appearance.FontSize` | 16px, 14–20px | Text size of the note |
-| `Appearance.AccentColor` | Octaether gold, or any colour | The colour of links, buttons, outlines, and tags: pick it or type a hex code; ↺ goes back to the theme's own |
+| `Appearance.AccentColor` | Octaether gold, or any color | The color of links, buttons, outlines, and tags: pick it or type a hex code; ↺ goes back to the theme's own |
 | `Appearance.HoverHighlight` | On, Off | Lights up the character (or equation piece) under the pointer in the Edit view |
-| `Appearance.HoverColor` | The accent, or any colour | The colour of that highlight |
-| `Theme.Active` | System, Light, Dark, Paper, HighContrast | System follows the device's light or dark mode |
+| `Appearance.HoverColor` | The accent, or any color | The color of that highlight |
+| `Theme.Active` | System, then every theme there is (Light, Dark, and those plugins and modules add, such as Paper and HighContrast) | The theme of the whole app, shown as *Theme* at the top of *Appearance*. System follows the device's light or dark mode. Whatever sets it (this list, *Switch theme*, a macro, a vault's `Setting.oi`) shows at once |
 | `File.OpenLast` | On, Off | Reopens the last vault (with its tabs) or file |
 | `File.NewNoteLocation` | VaultRoot, CurrentFolder | Where new notes go |
 | `File.DeleteTo` | Trash, Permanent | Deleted files go to the vault's `.oi/Trash`, or are deleted with no trash to restore from (either way, Undo works for a few seconds right after; quick notes have no trash) |
@@ -263,9 +263,9 @@ Macro:
 | Diagram | `Diagram.Scale` (75–150%), `Diagram.ShowProblem` |
 | Image | `Image.Align` (Center, Left, Right), `Image.Zoom` (a click in the Read view shows it full size) |
 | Video | `Video.Width` (100%, 75%, 50%) |
-| HTML | `HTML.Style` (keep colours and spacing written in `style`) |
+| HTML | `HTML.Style` (keep colors and spacing written in `style`) |
 | Layout | `Layout.StackWidth` (columns stack below 480px, 640px, 800px, or Never) |
-| Theme (plugin) | `Theme.Active` |
+| Theme (plugin) | None: it adds the Paper and HighContrast themes, which you pick in *Appearance* like any other |
 
 A changed module setting re‑renders every block of that type (inline ones too) at once, and a changed alias reads open notes again. `.oi/Setting.oi` may be written flat or nested:
 
@@ -323,7 +323,7 @@ Format: Oi 1
 ---
 
 A paragraph is a Text block. **Bold**, *italic*, ==highlight==, `code`, [[Another Note]], #Tag,
-inline math {Math: e^{i\pi} + 1 = 0}, any block inline {Chem: 2H_2 + O_2 -> 2H_2O}, [coloured]{Color: Accent}.
+inline math {Math: e^{i\pi} + 1 = 0}, any block inline {Chem: 2H_2 + O_2 -> 2H_2O}, [colored]{Color: Accent}.
 
 - A list item is a block.
 	- A deeper line is a child of the block above:
@@ -448,11 +448,11 @@ This checklist is the project's to‑do list. Tick items in the same change that
 - [x] Find and replace in the note (highlights inside the rendered blocks), search across the vault, quick switcher, command palette, and graph view
 - [x] Hotkeys: everything rebindable, chords, conflicts, reset, and macros, saved to `.oi/Hotkey.oi`. `Ctrl+Z` works everywhere: while typing, on the page, in the name, and for renames
 - [x] Setting: Editor, File, Appearance, Hotkey, Module, Plugin, About, with a page per module (every label singular)
-- [x] Appearance: the accent colour (any hex code, ↺ for Octaether gold), the hover highlight (on or off, its colour), and hex colours for text
+- [x] Appearance: the accent color (any hex code, ↺ for Octaether gold), the hover highlight (on or off, its color), and hex colors for text
 - [x] Pictures and videos pasted or dropped on a note go into the vault's `Attachment` folder, in an Image or Video block (quick notes store the bytes so that private windows in Safari and Firefox take them too)
 - [x] Status bar: cursor, word and character counts (selection‑aware), and save state; modules add items
 - [x] Editing visuals: an outline and type badge on the block being edited, a dashed outline on the block around it, a gutter outline, block outlines while dragging, a drop line that shows at once, and dragging from right‑hand columns
-- [x] Look: the Octaether mark (a gold octahedron whose lower half is a pen nib, on black), warm greys, and no blue or purple anywhere, code colours included
+- [x] Look: the Octaether mark (a gold octahedron whose lower half is a pen nib, on black), warm greys, and no blue or purple anywhere, code colors included
 - [x] Deployment files for Vercel, a PWA (offline, installable, opens `.oi` files), and app icons
 - [x] Live at ink.octaether.com on Vercel; the app opens from its cached copy at once and offers Reload when a new version is ready
 - [x] Development: the dev server doesn't reload the page when the app saves notes into `sample/`
@@ -468,10 +468,10 @@ This checklist is the project's to‑do list. Tick items in the same change that
 - [x] Image and Video: from the vault or the web, captions, width and alignment, a full‑size view, and YouTube (privacy‑enhanced) and Vimeo players
 - [x] Markdown: a whole Markdown document in one block (nested lists, to‑dos, tables, code)
 - [x] HTML: a block (or inline) of HTML, through an own whitelist cleaner
-- [x] Theme plugin: Paper and HighContrast, `Theme.Switch`, `Theme.Cycle`, and System following the device
+- [x] Themes: one choice, owned by the app (*Appearance → Theme*, `Theme.Switch` with a list when no name is given, `Theme.Cycle`), System following the device, and every theme from the app, plugins, and modules in the same list. The Theme plugin adds Paper and HighContrast
 
 **Quality**
-- [x] 228 unit and app tests. Strict TypeScript 7 (unused code refused). Build: 486 KB JS (158 KB gzipped) + 40 KB CSS
+- [x] 229 unit and app tests. Strict TypeScript 7 (unused code refused). Build: 486 KB JS (158 KB gzipped) + 40 KB CSS
 - [x] Checked in Chromium, WebKit (Safari, iPad, iPhone), and Firefox, at desktop and phone sizes, covering every view, find, undo while typing, dragging (including from a right column), settings, the palette, the drawing tool, browser and folder vaults, trash, graph, reopening, the phone layout, and the review‑5 and review‑6 features (the block source editor, aliases and their clashes, selection delete, pictures pasted and in text, the sample video, files opened on their own, the new modules, renames undone, tabs reopened): 66 checks, all passing. For review 7, 70 more: vaults made, opened, and switched with no frame of the start screen between, delete and Undo on a real folder handle, quick notes in all three engines (kept across a reload, deleted with the warning, undone, downloaded as a `.zip`, moved into a folder), and the service worker served with Vercel's headers (offline, instant with an 8‑second page delay, a new version offered with Reload)
 
 ### Next (version 1.x)
@@ -486,6 +486,8 @@ This checklist is the project's to‑do list. Tick items in the same change that
 - [ ] Renaming or moving a picture or a video rewrites the `Image:`/`Video:` blocks and `![[…]]` links that name it, as notes' links are; PDF files open on their own
 - [ ] Video and audio recorded in the app
 - [ ] Theme files from the vault (`.oi/Theme/*.oi`; the parser exists in the Theme plugin) and macro files (`.oi/Macro/*.tex`)
+- [ ] Themes for one module, added by plugins and picked on the module's page (§11.3)
+- [ ] Layouts as contributions: Obsidian‑style by default, others (OneNote‑style) from plugins, picked in *Appearance* (§11.3)
 - [ ] Reload a note when it changes on disk (VS Code, git, sync tools)
 - [ ] Cross‑block text selection
 - [ ] Inspector panel (every block property, with explanations)
@@ -564,7 +566,7 @@ The rest of this README is the design: the format, the layers, the platform, and
 - **No IDs in the file unless something links to a block.** The app tracks blocks with in‑memory keys, so the text stays as clean as Markdown (§5.3).
 - **Three layers.** Data (text ⇄ block tree) → Render (a render engine per block type, re‑rendering only what changed, with a mandatory Light/Dark theme protocol) → Edit (blocks show their rendered output; click anywhere to edit the block's own source at exactly that spot).
 - **Module vs plugin.** A **module** adds a kind of content, i.e. a block type such as `Math`, `Chem`, `Table`, or a third‑party `Sheet`; it implements storage, render, and edit. A **plugin** adds a system function such as `Transfer`, `History`, `Graph`, `Search`, or an exporter; plugins can also extend modules. Almost everything can be switched on and off.
-- **We own the renderers where control matters:** our own TeX parser and macro engine (native MathML with source maps), and our own chemistry, plot, diagram, and ink renderers, so fonts, colours, themes, and "edit just this part" work the same everywhere.
+- **We own the renderers where control matters:** our own TeX parser and macro engine (native MathML with source maps), and our own chemistry, plot, diagram, and ink renderers, so fonts, colors, themes, and "edit just this part" work the same everywhere.
 - **Transfer needs no server.** A QR code pairs devices, then an encrypted LAN connection carries the data. Bluetooth LE handles discovery and small notes. Bundles are plain `.zip` files.
 - **Collaboration and a git‑like version tree are first‑class goals.** Every edit is an operation that can be merged.
 
@@ -578,7 +580,7 @@ The rest of this README is the design: the format, the layers, the platform, and
 |---|---|
 | R1 | One block‑based note can mix text, handwriting, math, chemistry, plots (2D, 3D, Desmos‑like sliders), tables, code cells (Jupyter‑like), images, audio, video, PDF pages, HTML, slides (PPT‑like), canvas (Canva‑like), and events. It replaces the Notability + Obsidian + Notion split. |
 | R2 | Portable. Plain text is the source of truth, with a readable indentation hierarchy, git‑friendly, and large data stored by reference. |
-| R3 | Each block carries metadata: type, placement (flow/fixed), font, colours, size, format, and an optional per‑block theme. |
+| R3 | Each block carries metadata: type, placement (flow/fixed), font, colors, size, format, and an optional per‑block theme. |
 | R4 | A render engine per block type reads the tree and re‑renders only what changed. Every engine supports at least Light and Dark. |
 | R5 | Inline editing. Styles can be set explicitly (hotkeys, buttons, menus). Blocks can be resized with content auto‑aligned, and you can select and edit part of a rendered equation or mechanism. |
 | R6 | Export to PDF (primary) and a lossless `.zip` bundle. Themes (presets + custom palettes). Redesignable UI, editable toolbars, user hotkeys and keymap presets. |
@@ -606,7 +608,7 @@ The rest of this README is the design: the format, the layers, the platform, and
 4. **Local‑first.** No account. The network is optional.
 5. **Small core, lazy everything.** A feature costs nothing until it is switched on and used.
 6. **Commands, not hard‑wired buttons.** Buttons, menus, hotkeys, gestures, and macros all point at command names.
-7. **Tokens, not raw colours.** Every renderer takes theme tokens, so any block type follows Light/Dark and custom themes.
+7. **Tokens, not raw colors.** Every renderer takes theme tokens, so any block type follows Light/Dark and custom themes.
 8. **One naming convention, no exceptions except tool‑mandated ones** (§2).
 
 ---
@@ -712,9 +714,9 @@ vercel.json deployment (see Deploy)
 | Native shell | **Tauri 2** (desktop + iOS + Android) | Small binaries (~5–15 MB). The Rust side handles the LAN server, crypto, zip, BLE, and print. Capacitor is plan B for mobile |
 | Block surface | **Own keyed reconciler, no framework** | Per‑block updates. Modules don't depend on any UI framework |
 | App chrome | Plain DOM (v1) → **SolidJS** once split panes and tabs land | Fine‑grained reactivity, ~7 KB |
-| Source editing | Own Source view: a transparent textarea over coloured lines (v1) → **CodeMirror 6** (MIT) if we need folding or multiple cursors | Native typing, selection, IME, and undo; no dependency |
+| Source editing | Own Source view: a transparent textarea over colored lines (v1) → **CodeMirror 6** (MIT) if we need folding or multiple cursors | Native typing, selection, IME, and undo; no dependency |
 | Build & test | npm workspaces, Vite, Vitest, happy‑dom; Playwright for engine checks | Standard, fast, no global installs |
-| Math | **Own TeX parser + macro engine → MathML Core** (a web standard, so the browser lays it out) with a source map on every node | Full control of macros, fonts, colours, themes, and partial selection (§6.5). An own box layout engine can replace MathML behind the same tree if quality differs between engines |
+| Math | **Own TeX parser + macro engine → MathML Core** (a web standard, so the browser lays it out) with a source map on every node | Full control of macros, fonts, colors, themes, and partial selection (§6.5). An own box layout engine can replace MathML behind the same tree if quality differs between engines |
 | Chemistry, plot, diagram, ink | **Own** (SVG/Canvas) | Consistent styling, per‑part editing, themes |
 | PDF view | pdf.js (Apache‑2.0), lazy‑loaded inside the `PDF` module | The de‑facto standard |
 | PDF export | Platform print‑to‑PDF → own writer later | Vector output for free |
@@ -898,7 +900,7 @@ Early builds wrote an ID on every block. It wasn't needed, and it cluttered the 
 | Keyword | `True`, `False`, `None` (case‑sensitive; `true` is just a string) |
 | Number | `12`, `-3.5`, `1e-3` (a leading zero such as `05` stays a string) |
 | Length | `12pt`, `55%`, `20mm`, `320px`, `1.2em` |
-| Colour | `#e6e6e6`, `oklch(0.7 0.14 250)`, or a theme token such as `Accent` or `Color.Text` |
+| Color | `#e6e6e6`, `oklch(0.7 0.14 250)`, or a theme token such as `Accent` or `Color.Text` |
 | Date/time | `2026-09-29`, `2026-09-29 10:02 -04:00` |
 | String | Plain `Lecture 05`, or quoted `"SN1, SN2"` (quotes needed only for `,` `{}` `[]` inside a list or map, or leading/trailing spaces) |
 | List | `[Chem, Lecture 05]`, or one `- item` per indented line |
@@ -917,7 +919,7 @@ Early builds wrote an ID on every block. It wasn't needed, and it cluttered the 
 | `{Math: x^2}` | Inline math. `$` is always a plain dollar sign |
 | `{Chem: 2H_2 + O_2 -> 2H_2O}` | An inline block of any type that supports inline rendering (`Math`, `Chem`, `Code`, `HTML`, third‑party types) |
 | `{Code {Language: Python}: print(1)}` | The same, with properties |
-| `[coloured words]{Color: Accent}` · `[words]{Color: #b5452c}` | A styled span (`Color`, `Background`, `Weight`, `Italic`, …), with a theme token or any hex colour |
+| `[colored words]{Color: Accent}` · `[words]{Color: #b5452c}` | A styled span (`Color`, `Background`, `Weight`, `Italic`, …), with a theme token or any hex color |
 | `![a caption](Cell.png)` · `![[Cell.png\|300]]` | A picture, from the vault (found as in §5.8) or the web |
 | `> [!tip]- Title` | An Obsidian callout inside a quote (`+`/`-` open or folded) |
 
@@ -961,10 +963,10 @@ A module can start its blocks with envelope values of its own (`defaultProperty`
 
 ### 5.7 Style, preset, per-block theme
 
-- **Tokens.** Colours and fonts are theme tokens: `Color.Text`, `Color.TextMuted`, `Color.Background`, `Color.Surface1…3`, `Color.Accent`, `Color.Danger`, `Color.Warning`, `Color.Success`, `Color.Border`, `Color.Ink1…12`, `Font.Body`, `Font.Math`, `Font.Code`.
-  - Inside a colour property the short form works: `Color: Accent`.
+- **Tokens.** Colors and fonts are theme tokens: `Color.Text`, `Color.TextMuted`, `Color.Background`, `Color.Surface1…3`, `Color.Accent`, `Color.Danger`, `Color.Warning`, `Color.Success`, `Color.Border`, `Color.Ink1…12`, `Font.Body`, `Font.Math`, `Font.Code`.
+  - Inside a color property the short form works: `Color: Accent`.
   - A block styled with tokens follows Light, Dark, and any custom theme with no re‑render (CSS variables).
-- **Raw colours** (`#e11d48`) are allowed. With `Theme.AdaptColor: True` (default), they get a lightness remap in dark themes so black ink or text stays readable.
+- **Raw colors** (`#e11d48`) are allowed. With `Theme.AdaptColor: True` (default), they get a lightness remap in dark themes so black ink or text stays readable.
 - **Module tokens.** A module can define its own tokens with Light and Dark defaults, for example `Table.HeaderBackground`. Themes, and plugins that add themes, can override them.
 - **Per‑block theme.** `Theme: Midnight` on a block re‑themes just that block and its children, for example a single table.
 - **Cascade** (low → high): theme → module default → `Preset` (in order) → note `Default` → block properties → inline span `[text]{Color: Danger}`. The inspector shows where each final value comes from.
@@ -1112,7 +1114,7 @@ interface RenderHandle { update(next: ResolvedBlock): void; theme?(context: Them
 - **Every renderer must look right in at least `Light` and `Dark`.** The conformance kit renders each sample in both and checks the contrast of text and strokes against the background.
 - **Two ways to comply:**
   1. Use CSS variables (`var(--oi-color-text)`). This follows themes automatically with no re‑render.
-  2. Implement `theme(context)` to repaint Canvas or baked‑in SVG colours.
+  2. Implement `theme(context)` to repaint Canvas or baked‑in SVG colors.
 - **Module tokens:** a module declares its own tokens with Light and Dark defaults (for example `Table.HeaderBackground`) and can ship extra theme variants for its block type.
 - **Per‑block `Theme`:** the host scopes the tokens on that frame and passes the scoped context to the module.
 - **Plugins** can add theme variants to any module (§8.5).
@@ -1124,7 +1126,7 @@ interface RenderHandle { update(next: ResolvedBlock): void; theme?(context: Them
 3. **Emit MathML Core** (a web standard that Chromium, WebKit, and Gecko lay out natively), with `data-oi-s`/`data-oi-e` source offsets on each element.
 
 Why this answers the compatibility worry:
-- **Colour and themes:** `\color{Accent}` and `\textcolor` resolve theme tokens, and everything else inherits `currentColor`, so Light/Dark just works.
+- **Color and themes:** `\color{Accent}` and `\textcolor` resolve theme tokens, and everything else inherits `currentColor`, so Light/Dark just works.
 - **Size:** follows the block's `Size` and the app's text size.
 - **Fonts:** math glyphs need a font with an OpenType MATH table (Latin Modern Math, STIX Two Math, Libertinus Math, Cambria Math, Noto Sans Math), chosen by the `Math.Font` setting, per block, or per theme. `\text{…}` can use any font.
 - **Edit part of an equation:** click a rendered piece, and its source range is selected. Styling it rewrites only that range, for example wrapping it in `\textcolor{Danger}{…}`.
@@ -1150,7 +1152,7 @@ Chem:
 
 | Part | Syntax |
 |---|---|
-| Molecule | `\chemfig{…}`: bonds `- = ~`, wedges `> <`, hashed `>: <:`, hollow `>\| <\|`. Angles `[2]` (× 45°), `[:30]` (absolute), `[::30]` (relative). Length `[,1.5]`. Bond style `[,,,,dashed]`, `dotted`, `draw=none` (an invisible bond that still places atoms), or a colour (`red`, `Accent`); a dashed double bond is solid + dashed. Branches `( )`, rings `*6(…)`, aromatic `**6(…)`, ring closure `?` with a bond type (`?[a,{=}]`), charges `O^{-}`, `\oplus`. Names `@{c}` on atoms and bonds; `@{x}{}` names an empty vertex |
+| Molecule | `\chemfig{…}`: bonds `- = ~`, wedges `> <`, hashed `>: <:`, hollow `>\| <\|`. Angles `[2]` (× 45°), `[:30]` (absolute), `[::30]` (relative). Length `[,1.5]`. Bond style `[,,,,dashed]`, `dotted`, `draw=none` (an invisible bond that still places atoms), or a color (`red`, `Accent`); a dashed double bond is solid + dashed. Branches `( )`, rings `*6(…)`, aromatic `**6(…)`, ring closure `?` with a bond type (`?[a,{=}]`), charges `O^{-}`, `\oplus`. Names `@{c}` on atoms and bonds; `@{x}{}` names an empty vertex |
 | Lone pairs, radicals | `\lewis{0:2.4\|,O}` around an atom: a position (× 45°) followed by `:` (pair), `.` (one electron), or `\|` (a bar), as in chemfig |
 | Scheme | `\schemestart … \schemestop`, `\arrow{->[above][below]}[angle,length]` with `->` `<-` `<->` `<=>` `-/>` `--`, `\+`, and space with `\quad`, `\qquad`, `\hspace{2em}`. An arrow angle turns the scheme (`[-90]` goes down) |
 | Formula text | `H_2O`, `SO_4^{2-}`, `Br^{-}` anywhere in a row |
@@ -1192,7 +1194,7 @@ Diagram:
 | Command | `\draw`, `\fill`, `\filldraw`, `\path`, `\node`, `\coordinate`, `\foreach \x in {0,...,4} {…}`, `\begin{tikzpicture}[scale=2]` |
 | Path | `--`, `-\|`, `\|-`, `.. controls … ..`, `rectangle`, `circle`, `ellipse`, `arc (start:end:radius)`, `grid`, `to[out=90,in=180]`, `cycle`, `plot[domain=a:b] (\x, {…})`, `node`, `coordinate` |
 | Coordinate | `(x,y)`, `(angle:radius)`, named nodes and anchors (`(a.north)`), `+(dx,dy)`, `++(dx,dy)`, and maths anywhere (`sin`, `cos`, `sqrt`, `^`, degrees by default, `r` for radians) |
-| Style | Arrow tips (`->`, `<->`, `stealth`), `thin` … `ultra thick`, `line width`, `dashed`, `dotted`, `opacity`, colours (`red`, `blue!30`, `red!40!blue`, theme tokens like `Accent`), `fill`, `draw`, `text`, node shapes and placement (`above right`, `anchor=north`) |
+| Style | Arrow tips (`->`, `<->`, `stealth`), `thin` … `ultra thick`, `line width`, `dashed`, `dotted`, `opacity`, colors (`red`, `blue!30`, `red!40!blue`, theme tokens like `Accent`), `fill`, `draw`, `text`, node shapes and placement (`above right`, `anchor=north`) |
 
 - Lines between named nodes stop at the node edges. Unknown commands are reported with their position instead of breaking the drawing (setting `Diagram.ShowProblem`). `Diagram.Scale` sizes every diagram.
 - **Next:** presets for geometry, graphs/networks, commutative diagrams, flowcharts, and circuits, in that order.
@@ -1246,7 +1248,7 @@ Diagram:
 ### 7.1 Interaction model
 
 - **Three views** (built; `Editor.DefaultView` picks the one notes open in):
-  - **Source:** the whole `.oi` file as text, like a code editor: line numbers, the current line, syntax colours for properties, block headers, IDs, props, header arguments, aliases, and Markdown marks, find highlights, `Tab`/`Shift+Tab` on selected lines, and auto‑indent after a block header. It is a transparent `<textarea>` over coloured lines that wrap identically, so typing, selection, IME, and the browser's undo all stay native. Edits reach the note as `Note.Text.Set` operations (merged while you type), so undo in the Edit view covers them too.
+  - **Source:** the whole `.oi` file as text, like a code editor: line numbers, the current line, syntax colors for properties, block headers, IDs, props, header arguments, aliases, and Markdown marks, find highlights, `Tab`/`Shift+Tab` on selected lines, and auto‑indent after a block header. It is a transparent `<textarea>` over colored lines that wrap identically, so typing, selection, IME, and the browser's undo all stay native. Edits reach the note as `Note.Text.Set` operations (merged while you type), so undo in the Edit view covers them too.
   - **Edit** (default): click anywhere in a block to edit it **at exactly that spot**. The caret lands on the character you clicked, in text, code, and equations alike (§7.8).
   - **Read:** everything rendered, nothing editable, links and to‑dos still work.
 - **Editing a block's own source** (built): a paragraph turns into its Markdown in place, with the same font and size and no box to resize, so nothing jumps. Any other block opens as **its own source, header included**, on a soft panel in the code font: `Math {Numbered: True}: x^2`, `Code: Python` and its lines, a fence with its ```` ``` ```` lines, `$$ … $$`. So its type, settings, and alias change right there: typing `Chem:` over `Math:` makes it a Chem block on the spot (one `Block.Source.Set` operation, one undo step, the block keeps its place and key). Text that no longer reads as one block (a paragraph, several blocks, nothing) becomes that when the editor closes, and the blocks it held stay where they were. Math, Chem, and Diagram keep their live preview below. A soft accent outline (setting `Editor.BlockOutline`) marks the block, with its type as a small badge, and the block around it gets a dashed one.
@@ -1276,8 +1278,8 @@ Whatever the kind, the host edits a block's own source the same way (header, ali
 
 ### 7.3 Styling: four entry points, one command system
 
-1. **Format bar** (built): select text and a small bar floats above it with bold, italic, strikethrough, highlight, code, inline math, link, and colour.
-2. **Right‑click (or long‑press) menu** (built), always a pop‑up, never part of the page: Format and Colour when text is selected, then Turn into, Add block below, Add column left/right (inside a column), Duplicate, Move up/down, Nest/Move out, Copy as OI text, and Delete.
+1. **Format bar** (built): select text and a small bar floats above it with bold, italic, strikethrough, highlight, code, inline math, link, and color.
+2. **Right‑click (or long‑press) menu** (built), always a pop‑up, never part of the page: Format and Color when text is selected, then Turn into, Add block below, Add column left/right (inside a column), Duplicate, Move up/down, Nest/Move out, Copy as OI text, and Delete.
 3. **Hotkeys after selecting text** (built): `Mod+B` bold, `Mod+I` italic, `Mod+Shift+X` strikethrough, `Mod+Shift+H` highlight, `Mod+Shift+C` code, `Mod+Shift+M` math, `Mod+K` link. Every action is a command, so every key can be rebound.
 4. **Inspector** (side panel, next): every envelope and module property, generated from schemas, each with its explanation.
 
@@ -1303,7 +1305,7 @@ Whatever the kind, the host edits a block's own source the same way (header, ali
 
 ### 7.6 Handwriting (the Notability replacement)
 
-- **Tools:** pen, highlighter, eraser (whole stroke or partial), lasso (move, scale, recolour, convert), shape snap, ruler, and paper templates (blank, lined, grid, dot).
+- **Tools:** pen, highlighter, eraser (whole stroke or partial), lasso (move, scale, recolor, convert), shape snap, ruler, and paper templates (blank, lined, grid, dot).
 - **Input:** Pointer Events with pressure, tilt, and coalesced and predicted points. **Pen‑only mode** for palm rejection. Gestures are configurable (two‑finger tap = undo).
 - **Where ink lives:** `Ink.DefaultSurface` is a setting: `Page` (default), `InkBlock` (an ink box inside typed notes), or `Canvas`.
   - Ink never floats over reflowing text, because it would drift out of place.
@@ -1332,7 +1334,7 @@ Whatever the kind, the host edits a block's own source the same way (header, ali
 - **Clicking** asks the browser which character is under the pointer (`caretPositionFromPoint`, or `caretRangeFromPoint` on WebKit), then maps it through the tags to the exact source offset. Text and code land on the exact character. Hidden syntax such as `**`, `[[…]]`, or `\frac` lands on the nearer edge of the piece.
 - **Selecting** rendered text maps both ends the same way, so the format bar and hotkeys wrap exactly the selected source.
 - **Find** maps matches in the source back onto the rendered pieces, so a match inside bold text or a table cell is highlighted exactly there.
-- **Style commands** rewrite only that range, for example recolouring one arrow of a mechanism or one term of an equation.
+- **Style commands** rewrite only that range, for example recoloring one arrow of a mechanism or one term of an equation.
 - **Module side:** nothing to implement beyond the tags. A module may add `locate(point) → span` for pieces without DOM text (canvas, ink).
 
 ---
@@ -1663,11 +1665,15 @@ Macro:
 
 ### 11.3 Theme & palette
 
-- **Presets:** `Light`, `Dark`, `Paper`, `HighContrast`. The default, `System`, follows the device's light or dark appearance live (built), until you pick a theme. Light and Dark are Octaether's: warm greys around the gold of octaether.com (`#8a6a1c` on light, `#d4a84b` on dark), with no blue or purple, code colours included.
-- **Accent colour** (built): `Appearance.AccentColor` lays your colour over every theme (pick it or type a hex code; a soft version is mixed for light or dark), and ↺ returns to Octaether gold. The hover highlight has its own colour (`Appearance.HoverColor`).
-- **Custom palette:** pick 1–3 seed colours, and the app generates every token in OKLCH with WCAG contrast checks. Any token can also be edited by hand.
+- **Who does what** (built): **choosing** a theme is the app's job, in one place: *Setting → Appearance → Theme*, or *Switch theme* in the command palette (a list when it has no name; a macro can give one). **Adding** themes is open to everyone: the app has Light and Dark, the Theme plugin adds Paper and HighContrast, and any plugin or module can add more (`registerTheme`), which then show in the same list. The choice is the setting `Theme.Active`, the one source of truth: whatever sets it shows at once, and a plugin that calls `applyTheme` chooses it as you would. A theme whose plugin is switched off falls back to Light or Dark as the device is, and comes back when the plugin does.
+- **Presets:** `Light`, `Dark`, `Paper`, `HighContrast`. The default, `System`, follows the device's light or dark appearance live (built), until you pick a theme. Light and Dark are Octaether's: warm greys around the gold of octaether.com (`#8a6a1c` on light, `#d4a84b` on dark), with no blue or purple, code colors included.
+- **Accent color** (built): `Appearance.AccentColor` lays your color over every theme (pick it or type a hex code; a soft version is mixed for light or dark), and ↺ returns to Octaether gold. The hover highlight has its own color (`Appearance.HoverColor`).
+- **Custom palette:** pick 1–3 seed colors, and the app generates every token in OKLCH with WCAG contrast checks. Any token can also be edited by hand.
 - **Theme files** live in `.oi/Theme/`: shareable, diffable, and able to override module tokens. Switching is instant. (The Theme plugin parses them; loading them from the vault is next.)
 - **Also:** an optional "dark PDF" view (smart invert), and CSS snippets for experts. Snippets can break on updates, so tokens come first.
+- **Next, the same pattern for more of the look** (the app chooses, anyone contributes, one list in *Appearance*):
+  - **Module themes:** a theme can already set a module's own tokens (`Module:` in a theme file). Next, a plugin can add a theme for one module only (a code color scheme, a chemistry style), picked on that module's page, over the app's theme.
+  - **Layouts:** the shell's arrangement as a contribution too: Obsidian‑style (ribbon, file sidebar, tabs; the default) or, from a plugin, another (such as OneNote‑style notebooks, sections, and pages). A layout places the same parts (sidebar panes, tabs, the note view) and is picked in *Appearance → Layout* (`Appearance.Layout`).
 
 ```text
 Kind: Theme
@@ -1688,7 +1694,7 @@ Module:
 
 ### 11.4 Setting: every setting explains itself
 
-- **Setting UI** (built): sections on the left (Editor, File, Appearance, Hotkey, Module, Plugin, About; every label singular), details on the right. Every setting has a title and an explanation. Module and Plugin list each one with its switch and explanation, and each opens its **own page** with its settings, its alias settings, and any alias clash. Appearance holds the theme, the accent and hover colours (a swatch, a hex code, and ↺), the text size, and the status‑bar items. The footer says where values are saved.
+- **Setting UI** (built): sections on the left (Editor, File, Appearance, Hotkey, Module, Plugin, About; every label singular), details on the right. Every setting has a title and an explanation. Module and Plugin list each one with its switch and explanation, and each opens its **own page** with its settings, its alias settings, and any alias clash. Appearance holds the theme, the accent and hover colors (a swatch, a hex code, and ↺), the text size, and the status‑bar items. The footer says where values are saved.
 - **Next:** search across everything, a badge showing where each value comes from (default, profile, vault, device, note), a "changed" filter, and per‑item reset.
 - **Schemas ship with the app and with every module and plugin** (in v1 as `settingList` in the definition; as property documents in packages):
 
@@ -1789,7 +1795,7 @@ Unavailable features appear **disabled with a one‑line reason**, never silentl
 - **Local‑first:** no account, no telemetry, and crash reports only if you opt in. No note encryption (decided). Your disk's own encryption applies. The web app never uploads notes: they stay in your folder or in the browser's storage.
 - **The web app's headers** (`vercel.json`): a strict Content‑Security‑Policy (scripts only from the site, no `eval`, no plugins, `connect-src 'self'`, frames only for the YouTube and Vimeo players, pictures and videos from the web or the vault), `nosniff`, a strict referrer policy, and no camera, microphone, or location.
 - **Untrusted input:** notes and bundles from others are untrusted.
-  - HTML (the `HTML` module) goes through our own whitelist cleaner: only listed tags and attributes are rebuilt into fresh nodes; scripts, forms, frames, event handlers, `class`, and `id` are dropped; `style` keeps only colours, sizes, and spacing (no `url()`, no positions); and the result is appended as nodes, never parsed again from text. Links open only `http(s)`, `mailto`, and relative targets (never `javascript:`), in a new tab.
+  - HTML (the `HTML` module) goes through our own whitelist cleaner: only listed tags and attributes are rebuilt into fresh nodes; scripts, forms, frames, event handlers, `class`, and `id` are dropped; `style` keeps only colors, sizes, and spacing (no `url()`, no positions); and the result is appended as nodes, never parsed again from text. Links open only `http(s)`, `mailto`, and relative targets (never `javascript:`), in a new tab.
   - Pictures shown on their own, SVG included, load through `<img>`, where scripts never run. Videos from YouTube and Vimeo play in sandboxed frames.
   - Code doesn't auto‑run.
   - Macro limits apply (§5.9).
@@ -1862,7 +1868,7 @@ Your answers to the first review, folded into this design:
 | 12 | PDF | Imported as `Page` blocks with the PDF page as background (keeps full fidelity), writable with ink. Text extraction is an optional action |
 | 13 | Audio | `Audio` is a core module. Writing‑synced replay is optional and later |
 | 14 | Recognition | Features inside `Math`, `Chem`, and `Ink`, off by default, with cost shown |
-| 15–17 | Renderer compatibility | Own parsers and renderers with source maps (math → MathML). Fonts, colours, themes, and partial editing behave the same across all block types |
+| 15–17 | Renderer compatibility | Own parsers and renderers with source maps (math → MathML). Fonts, colors, themes, and partial editing behave the same across all block types |
 | 18 | Plot | 2D + Desmos‑like sliders first, 3D later |
 | 19 | Diagram | All kinds: geometry, graph, commutative, flowchart, circuit, in that order |
 | 20 | Extending modules | Plugins extend modules: themes, actions, formulas (§8.5) |
@@ -1908,7 +1914,7 @@ Your third review (towards version 1):
 | Hosting | The web app lives at ink.octaether.com on Vercel ([Deploy](#deploy)) |
 | Views | Three: Source (the whole note as text, like VS Code), Edit, and Read. The text box under the note is gone (§7.1) |
 | Hotkeys | `Ctrl+F` and the other common keys. Every key can be rebound like a game's controls, with macros that run commands or toggle settings (§11.2). `Ctrl+Z` works while typing |
-| Broken blocks | Outlined with a dashed line in a warning colour, with their text still shown (§6.2) |
+| Broken blocks | Outlined with a dashed line in a warning color, with their text still shown (§6.2) |
 | Note top | The title (the file name) and the properties, shown and editable at the top, as in Obsidian |
 | "Group" | *Group* was a plain box around blocks, with no title. It is replaced by **Callout**, Obsidian‑style: a title, a kind (Tip, Warning, …), and any blocks inside; Obsidian's `> [!tip]` syntax works too (§5.6) |
 | Everything is a block | Inline items are blocks of their type, rendered by the same module; settings and themes cascade to them (§5.4) |
@@ -1925,9 +1931,9 @@ Your fourth review:
 | Labels | Singular everywhere: Module, File, Setting, Hotkey, Property… (§2) |
 | Undo | `Ctrl+Z` works everywhere, and renaming a note is a step in its history (§7.5) |
 | Properties | Fields of your own are an optional **Property** block (tags as pills edited in place and dragged, a **+** to add, YAML's basic types); the note's own header (`Created`, `Id`, `Format`) shows only in the Source view (§5.4) |
-| Logo and colour | A logo in the Octaether style, and an accent colour of your own (any hex code, ↺ back to gold); text can take hex colours (§11.3) |
+| Logo and color | A logo in the Octaether style, and an accent color of your own (any hex code, ↺ back to gold); text can take hex colors (§11.3) |
 | Guide | One note per module plus a Welcome overview, linked so the graph draws them; the graph's Back button works ([First launch](#first-launch-a-vault-a-quick-note-or-a-file)) |
-| Hover | The character under the pointer is highlighted, in a stronger colour that can be changed or switched off (`Appearance.HoverHighlight`, `Appearance.HoverColor`) |
+| Hover | The character under the pointer is highlighted, in a stronger color that can be changed or switched off (`Appearance.HoverHighlight`, `Appearance.HoverColor`) |
 | Tabs | Notes open in tabs, each with its own Back and Forward ([Tabs](#tabs)) |
 | Autosave | Saving must not disturb editing: the dev server no longer reloads the page when notes are written ([Quick start](#quick-start)) |
 | Inline | Every inline block is `{Name: text}`, math included; `$`/`$$` inline math is gone. The block around the one being edited gets a dashed outline (§5.4, §7.1) |
@@ -1960,6 +1966,8 @@ Your seventh review (after going live):
 | Switching | The vault's name at the bottom of the sidebar opens a switcher, as in Obsidian: the vaults you use, create, open, close. The folder icon in front of the name is gone. Switching shows no start screen in between (§7.5). The sidebar button works with no vault open too: the sidebar then offers vaults to make or open (§11.1) |
 | Browser storage | No more vaults in the browser. Each browser keeps **quick notes** instead: a few loose notes for jotting down, under a warning that can't be missed, which move into a folder vault or download as a `.zip` (and, later, go to another device) |
 | Trash | A web page can't reach the computer's recycle bin, so a folder vault's trash stays its own `.oi/Trash` folder (visible in the file manager), with no button of its own: **Undo** in the message after a delete, and *Open the trash* in the command palette. Quick notes have no trash: deleting one always warns that only the Undo button shown for a few seconds right after can bring it back. A deleted folder no longer turns into `Name.oi` in the trash, and *New folder* no longer makes `Untitled.oi` |
+| Themes | One place chooses the theme: *Appearance → Theme* and *Switch theme* (which shows a list when given no name; it did nothing from the palette before). The Theme plugin's own *Active theme* setting, which only took effect after a reload, is gone: plugins and modules add themes, the app chooses, and every theme shows in one list. Module themes and whole layouts (OneNote‑style) follow the same pattern next (§11.3) |
+| Spelling | American: *color* everywhere |
 | Loading | The slow first load was the network (about 3 s for the page from Vercel on a cold connection), not the vault or cookies; the old service worker waited on the network every time. Now the app opens from its cached copy at once and updates in the background, offering Reload |
 
 **Still open (defaults are in use until you say otherwise):**

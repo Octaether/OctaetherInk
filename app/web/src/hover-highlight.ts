@@ -1,7 +1,7 @@
 // Shows where a click will land before you click: the character under the pointer in text and
 // code gets a small highlight (math, chemistry, and diagrams light up their own pieces through
-// the same colour, `--oi-hover`). Only in the Edit view; Setting → Appearance switches it off
-// or changes the colour.
+// the same color, `--oi-hover`). Only in the Edit view; Setting → Appearance switches it off
+// or changes the color.
 
 import type { RenderHost } from '@octaether/core-render';
 
