@@ -7,7 +7,7 @@ Property:
 	Tag: [Guide, Module]
 	Module: Chemistry
 
-The **Chemistry** module draws chemfig: molecules, reactions, and mechanisms with electron-pushing arrows. Hover a molecule and click ✎ to change it with the drawing tool. Back to [[Welcome]]; equations are in [[Math]].
+The **Chemistry** module draws chemfig: molecules, reactions, and mechanisms with electron-pushing arrows. Hover a drawing and click *Edit drawing* to change all of it in the drawing tool, with its text below, or ✎ on one molecule to change just that one. Back to [[Welcome]]; equations are in [[Math]].
 
 ## A mechanism
 

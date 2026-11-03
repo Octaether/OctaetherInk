@@ -27,6 +27,8 @@ export interface DrawAtom {
 	label?: string;
 	/** `@{name}`, used by Arrow and Label lines. */
 	name?: string;
+	/** Which `\chemfig` of the block the atom belongs to, in the drawing tool (see drawing.ts). */
+	part?: number;
 }
 
 export interface DrawBond {

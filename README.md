@@ -191,7 +191,7 @@ Chem:
 - **Lone pairs and radicals:** `\lewis{0:2:6:,HO}` puts electron pairs at 0°, 90°, and 270° (the number × 45°; `:` a pair, `.` one electron, `|` a bar).
 - **Electron‑pushing arrows** start from a lone pair (`o.lp`, or `o.lp2` for the second pair), an atom, a bond's middle (a named bond such as `cb`), a point between two atoms (`a!0.5!b`), or coordinates. `Kind: Pair` (full arrowhead) or `Fishhook` (one electron). Without `Curve`, the arrow bows away from the molecule by itself. chemfig's `\chemmove{\draw[->](a) .. controls … .. (b);}`, `to[out=…,in=…]`, and `bend left` work too.
 - **Labels** are Text blocks placed in the drawing (Markdown and `{Math: …}` inside), and they step away from atoms, bonds, and arrows so they never overlap.
-- **Drawing tool:** hover a molecule and click ✎ to edit it, or *+ Structure* / *Draw a structure* for a new one. Pick a tool (select, erase, single/double/triple bond, wedge, hash, rings, charges, lone pair, radical, elements) and click or drag on the canvas: bonds snap to 30°, and rings fuse onto bonds. Keys work on what the pointer is over: `C` `H` `N` `O` `S` `P` `F` `I` `L` (Cl) `B` (Br) set the element, `1`–`3` the bond order, `+`/`-` the charge, and `Delete` removes. The wheel zooms, `Ctrl+Z` undoes, and `Enter` places the result into the note as chemfig text.
+- **Drawing tool:** *Edit drawing* (top right of the block) opens the whole block in one panel, like ChemDraw: every structure can be changed, and arrows, text, and labels show where the block draws them. ✎ on a molecule opens just that one, with the rest of the block faded (*Edit whole block* unlocks the rest). The block's text sits under the canvas and changes as you draw; type in it for arrows, labels, and anything else, and the drawing follows. A structure drawn apart from the others becomes its own `\chemfig`. Pick a tool (select, erase, single/double/triple bond, wedge, hash, rings, charges, lone pair, radical, elements) and click or drag on the canvas: bonds snap to 30°, and rings fuse onto bonds. Keys work on what the pointer is over: `C` `H` `N` `O` `S` `P` `F` `I` `L` (Cl) `B` (Br) set the element, `1`–`3` the bond order, `+`/`-` the charge, and `Delete` removes. The wheel or two fingers zoom, `Ctrl+Z` undoes, and `Enter` (`Ctrl+Enter` in the text) puts the result into the note.
 
 ![The structure drawing tool](doc/Draw.png)
 
@@ -471,7 +471,7 @@ This checklist is the project's to‑do list. Tick items in the same change that
 - [x] Themes: one choice, owned by the app (*Appearance → Theme*, `Theme.Switch` with a list when no name is given, `Theme.Cycle`), System following the device, and every theme from the app, plugins, and modules in the same list. The Theme plugin adds Paper and HighContrast
 
 **Quality**
-- [x] 229 unit and app tests. Strict TypeScript 7 (unused code refused). Build: 486 KB JS (158 KB gzipped) + 40 KB CSS
+- [x] 246 unit and app tests. Strict TypeScript 7 (unused code refused). Build: 495 KB JS (161 KB gzipped) + 41 KB CSS
 - [x] Checked in Chromium, WebKit (Safari, iPad, iPhone), and Firefox, at desktop and phone sizes, covering every view, find, undo while typing, dragging (including from a right column), settings, the palette, the drawing tool, browser and folder vaults, trash, graph, reopening, the phone layout, and the review‑5 and review‑6 features (the block source editor, aliases and their clashes, selection delete, pictures pasted and in text, the sample video, files opened on their own, the new modules, renames undone, tabs reopened): 66 checks, all passing. For review 7, 70 more: vaults made, opened, and switched with no frame of the start screen between, delete and Undo on a real folder handle, quick notes in all three engines (kept across a reload, deleted with the warning, undone, downloaded as a `.zip`, moved into a folder), and the service worker served with Vercel's headers (offline, instant with an 8‑second page delay, a new version offered with Reload)
 
 ### Next (version 1.x)
@@ -1162,12 +1162,16 @@ Chem:
 - **Layout:** chemfig geometry is explicit, so there is no layout solver. A plain row lines molecules up on their first atom, as chemfig does in running text; a scheme centres them.
 - **Labels never land on the drawing.** A label starts next to its target and steps outward until it clears every atom, bond, arrow, and earlier label (setting `Chem.LabelAvoid`). Each row's labels are placed before the next row, so a caption never runs into the step below. `Avoid: False` or `Side: Center` pins a label exactly.
 - **Per‑part editing:** every atom, bond, arrow, and label keeps its source span. Clicking one opens the source at that spot.
-- **Drawing tool** (built, like ALEKS or ChemDraw): ✎ on a molecule, *+ Structure*, or the *Draw a structure* template opens a canvas.
+- **Drawing tool** (built, like ALEKS or ChemDraw): one panel for the whole block (*Edit drawing*, or the *Draw a structure* template), or for one structure (✎ on a molecule).
   - The structure is a graph of atoms and bonds (`structure.ts`: chemfig ⇄ graph, valence, implicit hydrogens, ring fusion with alternating double bonds for aromatic rings).
+  - **The whole block at once** (`drawing.ts`): every `\chemfig` of the block goes into one graph, placed where the block draws it, and each atom knows which `\chemfig` it belongs to. After every edit the block's text is written and the block is laid out again, so the panel always shows the block as the note will. The structure under the pointer stays put while the rest moves around it.
+  - **Only what changed is rewritten:** a structure that still gives the same chemfig keeps its text as you wrote it (`*6(=-=-=-)` stays). A bond between two structures makes them one. A structure drawn apart becomes a new `\chemfig` after the last row (on a new line when drawn below the drawing). An erased one is taken out.
+  - **Text stays text:** arrows, scheme text, and labels are drawn faded and edited in the block's text under the canvas, which wraps and can be hidden (*Source*). Typing there redraws the canvas; mistakes show in the line above it. A structure's place comes from the rows, so dragging a whole structure puts it back (move its `\chemfig` in the text instead).
+  - **One structure:** ✎ edits only that `\chemfig`, with the others faded. Fragments drawn apart stay in it (joined by invisible bonds), and erasing it all takes it out of the block on Done.
   - **Tools:** select, erase, single/double/triple bonds, wedge, hash, 3‑ to 6‑membered rings, benzene, charge +/−, lone pair, radical, and elements (C H N O S P F Cl Br I, others by typing).
   - Bonds snap to 30°, and clicks on atoms grow chains in the free direction. Keys act on the atom or bond under the pointer.
-  - Undo/redo, zoom, and pan.
-  - **Done** writes chemfig back into the block, replacing just that molecule's text.
+  - Undo/redo (of the block's text), zoom and pan with the wheel or two fingers. Labels, gaps, and dots scale with the zoom, so a long chain fits without its labels running together.
+  - **Done** (or `Enter`) writes the block; Cancel or `Esc` leaves it as it was. The panel always fits the window: a long chemfig wraps in the text below instead of pushing Done off the screen.
 - **Settings:** `Chem.BondLength` (`Short` fits big mechanisms on a phone, `Long` reads well in lectures), `Chem.LabelAvoid`, `Chem.ShowProblem`.
 - **Themes:** strokes and text use `currentColor`, so Light and Dark just work, and `Color` takes theme tokens.
 - **Inline:** `{Chem: 2H_2 + O_2 -> 2H_2O}` renders a formula, and `{Chem: \chemfig{…}}` a small structure.
@@ -1969,6 +1973,7 @@ Your seventh review (after going live):
 | Themes | One place chooses the theme: *Appearance → Theme* and *Switch theme* (which shows a list when given no name; it did nothing from the palette before). The Theme plugin's own *Active theme* setting, which only took effect after a reload, is gone: plugins and modules add themes, the app chooses, and every theme shows in one list. Module themes and whole layouts (OneNote‑style) follow the same pattern next (§11.3) |
 | Spelling | American: *color* everywhere |
 | Loading | The slow first load was the network (about 3 s for the page from Vercel on a cold connection), not the vault or cookies; the old service worker waited on the network every time. Now the app opens from its cached copy at once and updates in the background, offering Reload |
+| Drawing tool | One panel edits the whole Chem block, like ChemDraw, and ✎ still opens one structure alone. The block's text sits under the canvas, wraps, and redraws the canvas as you type, so arrows, labels, and text stay text. The panel always fits the window: a long chemfig used to stretch it and push Done off the screen ([issue #3](https://github.com/Octaether/OctaetherInk/issues/3), §6.6) |
 
 **Still open (defaults are in use until you say otherwise):**
 1. Licence: MIT (default) or AGPL‑3.0.
