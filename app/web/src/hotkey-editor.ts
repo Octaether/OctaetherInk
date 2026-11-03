@@ -5,6 +5,7 @@
 
 import { type CommandRegistry, eventChord, isApplePlatform, parseHotkey } from '@octaether/core-edit';
 import type { SettingDefinition } from '@octaether/core-sdk';
+import { markIcon } from './icon';
 import type { Macro, MacroStep, SettingStore } from './setting-store';
 import { confirmDialog, escapeHtml, openModal } from './ui';
 
@@ -67,7 +68,7 @@ export function renderHotkeyEditor(container: HTMLElement, option: HotkeyEditorO
 		container.innerHTML =
 			'<div class="hotkey-head"><input class="hotkey-search" placeholder="Filter by name or key" aria-label="Filter hotkeys" spellcheck="false"><button type="button" class="setting-button" data-action="ResetAll">Reset all to default</button></div>' +
 			'<p class="setting-explain">Click <b>+</b> and press the keys you want; <kbd>Esc</kbd> cancels. Two chords in a row work too (<kbd>Ctrl+K</kbd> then <kbd>Ctrl+C</kbd>). A red key is used by more than one command. A browser tab can’t use a few keys the browser keeps for itself (<kbd>Ctrl+N</kbd>, <kbd>Ctrl+T</kbd>, <kbd>Ctrl+W</kbd>).</p>' +
-			'<div class="macro-section"><div class="setting-subhead"><h3>Macro</h3><button type="button" class="setting-button" data-action="NewMacro">+ New macro</button></div>' +
+			`<div class="macro-section"><div class="setting-subhead"><h3>Macro</h3><button type="button" class="setting-button" data-action="NewMacro">${markIcon.Plus}<span>New macro</span></button></div>` +
 			(macroList.length === 0
 				? '<p class="setting-explain">A macro runs several commands in a row, or toggles a setting, from one key. It shows up below and in the command palette.</p>'
 				: macroList
@@ -84,12 +85,12 @@ export function renderHotkeyEditor(container: HTMLElement, option: HotkeyEditorO
 					const chipList = keyList
 						.map((key) => {
 							const clash = (conflict.get(`${(parseHotkey(key) ?? [key]).join(' ')}|${when}`) ?? []).filter((other) => other !== command.id);
-							return `<span class="key-chip${clash.length ? ' conflict' : ''}"${clash.length ? ` title="Also used by: ${escapeHtml(clash.map((other) => option.commandRegistry.get(other)?.title ?? other).join(', '))}"` : ''}><kbd>${escapeHtml(option.keyText(key))}</kbd><button type="button" data-remove-key="${escapeHtml(key)}" data-command="${escapeHtml(command.id)}" aria-label="Remove ${escapeHtml(option.keyText(key))}">×</button></span>`;
+							return `<span class="key-chip${clash.length ? ' conflict' : ''}"${clash.length ? ` title="Also used by: ${escapeHtml(clash.map((other) => option.commandRegistry.get(other)?.title ?? other).join(', '))}"` : ''}><kbd>${escapeHtml(option.keyText(key))}</kbd><button type="button" data-remove-key="${escapeHtml(key)}" data-command="${escapeHtml(command.id)}" aria-label="Remove ${escapeHtml(option.keyText(key))}">${markIcon.Cross}</button></span>`;
 						})
 						.join('');
 					return (
 						`<div class="hotkey-row"><div class="hotkey-command"><span>${escapeHtml(command.title)}</span><small>${escapeHtml(command.id)}</small></div>` +
-						`<div class="hotkey-key-list">${chipList}<button type="button" class="key-add" data-record="${escapeHtml(command.id)}" title="Add a key" aria-label="Add a key for ${escapeHtml(command.title)}">+</button></div>` +
+						`<div class="hotkey-key-list">${chipList}<button type="button" class="key-add" data-record="${escapeHtml(command.id)}" title="Add a key" aria-label="Add a key for ${escapeHtml(command.title)}">${markIcon.Plus}</button></div>` +
 						`${option.setting.isCustomized(command.id) ? `<button type="button" class="key-reset" data-reset="${escapeHtml(command.id)}" title="Back to the default keys" aria-label="Back to the default keys">↺</button>` : '<span class="key-reset-space"></span>'}</div>`
 					);
 				})
@@ -193,10 +194,10 @@ function openMacroEditor(option: HotkeyEditorOption, macro: Macro | undefined, a
 						const argument = choiceList
 							? `<select data-argument="${index}" aria-label="What">${choiceList.map((choice) => `<option value="${escapeHtml(choice.value)}"${choice.value === step.argument ? ' selected' : ''}>${escapeHtml(choice.label)}</option>`).join('')}</select>`
 							: `<input data-argument="${index}" value="${escapeHtml(step.argument ?? '')}" placeholder="(no value)" aria-label="Value" spellcheck="false">`;
-						return `<div class="macro-step"><span class="macro-number">${index + 1}</span><select data-command="${index}" aria-label="Command">${commandList.map((command) => `<option value="${escapeHtml(command.id)}"${command.id === step.command ? ' selected' : ''}>${escapeHtml(command.title)}</option>`).join('')}</select>${argument}<button type="button" data-remove-step="${index}" aria-label="Remove step">×</button></div>`;
+						return `<div class="macro-step"><span class="macro-number">${index + 1}</span><select data-command="${index}" aria-label="Command">${commandList.map((command) => `<option value="${escapeHtml(command.id)}"${command.id === step.command ? ' selected' : ''}>${escapeHtml(command.title)}</option>`).join('')}</select>${argument}<button type="button" data-remove-step="${index}" aria-label="Remove step">${markIcon.CrossLarge}</button></div>`;
 					})
 					.join('') +
-				'</div><button type="button" class="setting-button" data-action="AddStep">+ Add step</button>' +
+				`</div><button type="button" class="setting-button" data-action="AddStep">${markIcon.Plus}<span>Add step</span></button>` +
 				`<div class="dialog-row">${macro ? '<button type="button" class="dialog-button danger" data-action="Delete">Delete</button><span class="dialog-space"></span>' : ''}<button type="button" class="dialog-button" data-action="Cancel">Cancel</button><button type="button" class="dialog-button primary" data-action="Save">Save</button></div>`;
 			const title = modal.querySelector<HTMLInputElement>('.macro-title')!;
 			for (const select of modal.querySelectorAll<HTMLSelectElement>('[data-command]')) {

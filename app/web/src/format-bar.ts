@@ -8,6 +8,8 @@ export interface FormatBarOption {
 	model(): NoteModel | undefined;
 	format(kind: FormatKind): void;
 	color(x: number, y: number): void;
+	/** Whether there is a color menu (the Palette plugin is on). */
+	hasColor(): boolean;
 	hotkey(command: string): string;
 }
 
@@ -55,6 +57,7 @@ export function setupFormatBar(option: FormatBarOption): () => void {
 			bar.hidden = true;
 			return;
 		}
+		bar.querySelector<HTMLElement>('[data-kind="Color"]')!.hidden = !option.hasColor();
 		let rect: DOMRect | undefined;
 		if (range.source === 'View') {
 			const selection = document.getSelection();

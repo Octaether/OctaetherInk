@@ -191,6 +191,11 @@ export class SettingStore {
 		this.saveHotkey();
 	}
 
+	/** The default keys changed (a module came or went): everything that shows keys catches up. */
+	defaultBindingChanged(): void {
+		for (const listener of this.hotkeyListenerSet) listener();
+	}
+
 	private saveHotkey(): void {
 		writeJson(storageKey.Hotkey, this.hotkey);
 		if (this.vault) {

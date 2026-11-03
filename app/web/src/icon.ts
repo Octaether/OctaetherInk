@@ -1,6 +1,16 @@
 // Minimal line icons (24×24, stroke = currentColor), drawn for this app so they look the same on
 // every device.
 
+/** A small mark (× or +) for a button, drawn so it sits in the middle of its box. */
+const mark = (body: string, size: number): string =>
+	`<svg class="mark" viewBox="0 0 16 16" width="${size}" height="${size}" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true">${body}</svg>`;
+
+export const markIcon = {
+	Cross: mark('<path d="M4.5 4.5l7 7M11.5 4.5l-7 7"/>', 10),
+	CrossLarge: mark('<path d="M4 4l8 8M12 4l-8 8"/>', 14),
+	Plus: mark('<path d="M8 3.5v9M3.5 8h9"/>', 11),
+} as const;
+
 const svg = (body: string): string =>
 	`<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${body}</svg>`;
 

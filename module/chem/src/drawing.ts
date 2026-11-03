@@ -1,29 +1,27 @@
-// The drawing tool edits a whole Chem block at once. Every \chemfig of the block becomes part of
-// one graph, placed where the block draws it, and each edit goes back into the block's text:
+// What the drawing tool edits, and how it goes back into the note.
 //
-//   - Each atom remembers its structure (`part`: the index of its \chemfig in the block).
-//   - A structure that still gives the same chemfig keeps its text as written (`*6(…)` stays).
-//   - A bond between two structures makes them one. A structure drawn apart from the others becomes
-//     a new \chemfig after the last row (on a new line when it was drawn below the drawing).
-//   - Arrows, text, and labels stay text. The block is laid out again after every edit, so the tool
-//     always shows the block as it will look.
+//   Structure  one Chem block: our own syntax (path.ts), a new block, or a block that is one \chemfig
+//              and nothing else (written in our syntax once it changes)
+//   Board      the blocks of a Board, each at its X/Y in px: every Chem block's atoms are in one graph
+//              (`part` = the block's number), so bonds can join them; arrows, text, and other blocks
+//              are kept as blocks. Nothing is laid out again: things stay where they're drawn.
 //
-// With `focus`, only that \chemfig is in the graph; the rest of the block is left alone.
+// The graph is in bond lengths with y up. On a Board, 1px is 1 / (bond length in em × emPx) of that, and
+// a Chem block's top left is the top left of its drawing, so its X/Y follows from where its atoms are.
 
-import type { Span } from './molecule';
-import { type Scene, type SceneOption, buildScene, defaultBondLength } from './scene';
-import { type DrawAtom, type DrawGraph, type Point, addAtom, addBond, emptyGraph, fromMolecule, toChemfig } from './structure';
-
-export interface BlockDrawing {
-	body: string;
-	scene: Scene;
-	/** The structures being edited, in bond lengths, where the block draws them. */
-	graph: DrawGraph;
-	/** Each structure's chemfig as the graph gave it when last read or written. */
-	baseline: (string | undefined)[];
-}
+import { type BlockNode, type PropertyMap, createBlockNode, createTextNode, defaultItemTypeSet, parseNote, relevel, serializeNode } from '@octaether/core-format';
+import type { BoardItem } from '@octaether/core-sdk';
+import { isStructureText, writeStructure } from './path';
+import { type Scene, type SceneOption, buildScene, defaultBondLength, structureScene } from './scene';
+import { type DrawAtom, type DrawGraph, type Point, addAtom, addBond, cloneGraph, emptyGraph, fromMolecule } from './structure';
 
 const unitOf = (option: SceneOption): number => option.bondLength ?? defaultBondLength;
+
+function centroid(pointList: readonly Point[]): Point {
+	const x = pointList.reduce((sum, point) => sum + point.x, 0) / pointList.length;
+	const y = pointList.reduce((sum, point) => sum + point.y, 0) / pointList.length;
+	return { x, y };
+}
 
 /** The atoms and bonds of one structure (sharing the graph's objects). */
 export function partGraph(graph: DrawGraph, part: number): DrawGraph {
@@ -32,20 +30,149 @@ export function partGraph(graph: DrawGraph, part: number): DrawGraph {
 	return { atomList, bondList: graph.bondList.filter((bond) => idSet.has(bond.from) && idSet.has(bond.to)), nextId: graph.nextId };
 }
 
-export function loadDrawing(body: string, option: SceneOption = {}, focus?: number): BlockDrawing {
+/** Copies a structure's atoms and bonds into the graph as structure `part`, each atom placed by `at`. */
+function addPart(graph: DrawGraph, part: DrawGraph, index: number, at: (atom: DrawAtom) => Point): void {
+	const idMap = new Map<number, number>();
+	for (const atom of part.atomList) {
+		const { id, x, y, ...rest } = atom;
+		const point = at(atom);
+		idMap.set(id, addAtom(graph, point.x, point.y, rest.element, { ...rest, part: index }).id);
+	}
+	for (const { id, from, to, order, ...rest } of part.bondList) addBond(graph, idMap.get(from)!, idMap.get(to)!, order, rest);
+}
+
+/** True when a chemfig body is one \chemfig and nothing else. */
+function isSingleChemfig(body: string, scene: Scene): boolean {
+	const placed = scene.moleculeList[0];
+	if (!placed || scene.moleculeList.length > 1 || scene.textList.length + scene.arrowList.length + scene.curveList.length + scene.labelList.length > 0) return false;
+	return body.slice(0, placed.span.start).trim() === '' && body.slice(placed.span.end).trim() === '';
+}
+
+/** True when a Chem block is one structure the drawing tool can edit (a new block too). */
+export function isOneStructure(body: string, option: SceneOption = {}): boolean {
+	if (body.trim() === '' || isStructureText(body)) return true;
+	return /\\[A-Za-z]/.test(body) && isSingleChemfig(body, buildScene(body, option));
+}
+
+/** A one-structure Chem block's scene and its graph (atom i of the graph is atom i of the scene's molecule). */
+function readStructure(body: string, option: SceneOption): { scene: Scene; part: DrawGraph | undefined } {
+	if (/\\[A-Za-z]/.test(body)) {
+		const scene = buildScene(body, option);
+		const placed = scene.moleculeList[0];
+		return { scene, part: placed ? fromMolecule(placed.molecule) : undefined };
+	}
+	const scene = structureScene(body, option);
+	return { scene, part: scene.graph };
+}
+
+// ---------------------------------------------------------------- one structure
+
+export interface StructureDrawing {
+	kind: 'Structure';
+	body: string;
+	scene: Scene;
+	graph: DrawGraph;
+	/** The graph's text when it was read or last written: a block whose drawing still gives it keeps its text. */
+	baseline: string;
+}
+
+export function loadStructure(body: string, option: SceneOption = {}): StructureDrawing {
 	const unit = unitOf(option);
-	const scene = buildScene(body, option);
 	const graph = emptyGraph();
-	const baseline: (string | undefined)[] = [];
-	scene.moleculeList.forEach((placed, index) => {
-		if (focus !== undefined && index !== focus) return;
-		const part = fromMolecule(placed.molecule);
-		const idMap = new Map<number, number>();
-		for (const { id, x, y, ...rest } of part.atomList) idMap.set(id, addAtom(graph, x + placed.dx / unit, y + placed.dy / unit, rest.element, { ...rest, part: index }).id);
-		for (const { id, from, to, order, ...rest } of part.bondList) addBond(graph, idMap.get(from)!, idMap.get(to)!, order, rest);
-		baseline[index] = toChemfig(partGraph(graph, index));
-	});
-	return { body, scene, graph, baseline };
+	const { scene, part } = readStructure(body, option);
+	const placed = scene.moleculeList[0];
+	if (placed && part) addPart(graph, part, 0, (atom) => ({ x: atom.x + placed.dx / unit, y: atom.y + placed.dy / unit }));
+	return { kind: 'Structure', body, scene, graph, baseline: writeStructure(graph) };
+}
+
+/** Writes the structure: everything drawn belongs to it (fragments are joined by invisible bonds). */
+export function syncStructure(drawing: StructureDrawing, option: SceneOption = {}): StructureDrawing {
+	const { graph } = drawing;
+	for (const atom of graph.atomList) atom.part = 0;
+	const text = writeStructure(graph);
+	// a block still in chemfig stays as it is until its drawing changes
+	const body = text === drawing.baseline ? drawing.body : text;
+	const scene = body === drawing.body ? drawing.scene : structureScene(body, option);
+	return { kind: 'Structure', body, scene, graph, baseline: text };
+}
+
+// ---------------------------------------------------------------- Board
+
+/** A block on the Board as the tool keeps it. */
+export interface BoardBlock {
+	/** The tool's own number for it (a Chem block's atoms have it as `part`). */
+	id: number;
+	type: string;
+	property: PropertyMap;
+	body: string;
+	blockId?: string;
+	childList: BoardBlock[];
+	/** A Chem block drawn in the graph: its structure's text when read or last written. */
+	baseline?: string;
+}
+
+export interface BoardDrawing {
+	kind: 'Board';
+	/** The Board's own properties. */
+	property: PropertyMap;
+	blockList: BoardBlock[];
+	graph: DrawGraph;
+	nextId: number;
+}
+
+/** How big things are where the Board is drawn: 1em in px, and the Chem bond length. */
+export interface BoardMetric {
+	emPx: number;
+	option: SceneOption;
+}
+
+/** px on the Board per bond length of the graph. */
+export function boardScale(metric: BoardMetric): number {
+	return unitOf(metric.option) * metric.emPx;
+}
+
+export function numberOf(value: unknown): number {
+	return typeof value === 'number' && Number.isFinite(value) ? value : 0;
+}
+
+/** A Chem block the graph holds (one structure); other Chem blocks (a whole chemfig scheme) stay blocks. */
+export function isDrawnChem(block: { type: string; body: string }, option: SceneOption): boolean {
+	return block.type === 'Chem' && isOneStructure(block.body, option);
+}
+
+export function loadBoard(property: PropertyMap, itemList: readonly BoardItem[], metric: BoardMetric): BoardDrawing {
+	const graph = emptyGraph();
+	const scale = boardScale(metric);
+	const unit = unitOf(metric.option);
+	let nextId = 1;
+	const read = (item: BoardItem): BoardBlock => {
+		const block: BoardBlock = { id: nextId++, type: item.type, property: new Map(item.property), body: item.body, ...(item.id ? { blockId: item.id } : {}), childList: item.childList.map(read) };
+		if (isDrawnChem(item, metric.option)) {
+			block.baseline = '';
+			const { scene, part } = readStructure(item.body, metric.option);
+			const placed = scene.moleculeList[0];
+			if (item.body.trim() !== '' && placed && part) {
+				const left = numberOf(block.property.get('X'));
+				const top = numberOf(block.property.get('Y'));
+				// atom i of the graph is atom i of the molecule the block draws
+				const atomIndex = new Map(part.atomList.map((atom, index) => [atom.id, index]));
+				addPart(graph, part, block.id, (atom) => {
+					const drawn = placed.molecule.atomList[atomIndex.get(atom.id)!]!;
+					const px = { x: left + (drawn.x * unit + placed.dx - scene.box.minX) * metric.emPx, y: top + (scene.box.maxY - (drawn.y * unit + placed.dy)) * metric.emPx };
+					return { x: px.x / scale, y: -px.y / scale };
+				});
+				block.baseline = writeStructure(partGraph(graph, block.id));
+			}
+		}
+		return block;
+	};
+	const blockList = itemList.map(read);
+	return { kind: 'Board', property: new Map(property), blockList, graph, nextId };
+}
+
+export function cloneBoard(drawing: BoardDrawing): BoardDrawing {
+	const copy = (block: BoardBlock): BoardBlock => ({ ...block, property: new Map(block.property), childList: block.childList.map(copy) });
+	return { ...drawing, property: new Map(drawing.property), blockList: drawing.blockList.map(copy), graph: cloneGraph(drawing.graph) };
 }
 
 /** Atoms that bonds (drawn or invisible) hold together. */
@@ -71,104 +198,83 @@ function componentList(graph: DrawGraph): DrawAtom[][] {
 	return [...groupMap.values()];
 }
 
-/** Takes a piece of text out of a line, with the space around it. */
-export function removeSpan(body: string, span: Span): string {
-	const before = body.slice(0, span.start).replace(/[ \t]+$/, '');
-	const after = body.slice(span.end).replace(/^[ \t]+/, '');
-	if (before === '' || before.endsWith('\n')) return before + (after.startsWith('\n') ? after.slice(1) : after);
-	return after === '' || after.startsWith('\n') ? before + after : `${before} ${after}`;
-}
+const round = (value: number): number => Math.round(value * 10) / 10;
 
-/** The end of the last row of the block (before Arrow and Label lines and comments); -1 when there is none. */
-export function rowEnd(body: string): number {
-	const lineList = body.split('\n');
-	let start = body.length;
-	for (let index = lineList.length - 1; index >= 0; index--) {
-		const line = lineList[index]!;
-		start -= line.length;
-		const code = line.replace(/(^|[^\\])%.*$/, '$1');
-		const trimmed = code.trim();
-		if (trimmed !== '' && !/^(?:Arrow|Label)\b/.test(trimmed)) return start + code.replace(/\s+$/, '').length;
-		start -= 1;
-	}
-	return -1;
-}
-
-function centroid(pointList: readonly Point[]): Point {
-	const x = pointList.reduce((sum, point) => sum + point.x, 0) / pointList.length;
-	const y = pointList.reduce((sum, point) => sum + point.y, 0) / pointList.length;
-	return { x, y };
-}
-
-/** Writes the graph into the block's text and lays the block out again. The graph is updated in place
- * (structures joined, numbered, and moved to where the block now draws them) unless the text can't be
- * matched to it, when it is read again from the text. */
-export function syncDrawing(drawing: BlockDrawing, option: SceneOption = {}, focus?: number): BlockDrawing {
-	const unit = unitOf(option);
-	const { graph, scene } = drawing;
-	const count = scene.moleculeList.length;
-	// structures joined by a bond become one (the first); a fragment of its own is a new structure
-	let fresh = count;
+/**
+ * After an edit: structures a bond joined become one, a fragment drawn on its own becomes a new
+ * Chem block, an erased one goes, and each Chem block's text and X/Y follow its atoms.
+ */
+export function syncBoard(drawing: BoardDrawing, metric: BoardMetric): BoardDrawing {
+	const { graph } = drawing;
+	const scale = boardScale(metric);
+	const unit = unitOf(metric.option);
+	const chemIdSet = new Set(drawing.blockList.filter((block) => block.baseline !== undefined).map((block) => block.id));
+	let nextId = drawing.nextId;
+	const newIdList: number[] = [];
 	for (const atomList of componentList(graph)) {
-		const partList = atomList.flatMap((atom) => (atom.part === undefined ? [] : [atom.part]));
-		const part = partList.length > 0 ? Math.min(...partList) : (focus ?? fresh++);
+		const partList = atomList.flatMap((atom) => (atom.part !== undefined && chemIdSet.has(atom.part) ? [atom.part] : []));
+		let part: number;
+		if (partList.length > 0) part = Math.min(...partList);
+		else {
+			part = nextId++;
+			newIdList.push(part);
+		}
 		for (const atom of atomList) atom.part = part;
 	}
-	// the structures that changed, last first so the earlier spans stay valid
-	let body = drawing.body;
-	const textMap = new Map<number, string>();
-	const removedSet = new Set<number>();
-	for (let index = count - 1; index >= 0; index--) {
-		if (focus !== undefined && index !== focus) continue;
-		const text = toChemfig(partGraph(graph, index));
-		if (text === drawing.baseline[index]) continue;
-		const span = scene.moleculeList[index]!.span;
-		// a structure edited alone keeps its place while it is empty, so it can be drawn again
-		if (text === '' && focus === undefined) {
-			body = removeSpan(body, span);
-			removedSet.add(index);
-		} else body = `${body.slice(0, span.start)}\\chemfig{${text}}${body.slice(span.end)}`;
-		textMap.set(index, text);
-	}
-	for (let part = count; part < fresh; part++) {
-		const atomList = graph.atomList.filter((atom) => atom.part === part);
-		const text = toChemfig(partGraph(graph, part));
-		const piece = `\\chemfig{${text}}`;
-		const end = rowEnd(body);
-		if (end < 0) body = body.trim() === '' ? piece : `${piece}\n${body.replace(/^\s*\n/, '')}`;
-		else {
-			const below = Math.max(...atomList.map((atom) => atom.y)) * unit < scene.box.minY;
-			body = `${body.slice(0, end)}${below ? '\n' : ' '}${piece}${body.slice(end)}`;
+	const place = (block: BoardBlock): BoardBlock | undefined => {
+		const atomList = graph.atomList.filter((atom) => atom.part === block.id);
+		// a Chem block that never had atoms (empty, or text that doesn't read) stays; one whose atoms were all erased goes
+		if (atomList.length === 0) return block.baseline === '' ? block : undefined;
+		const text = writeStructure(partGraph(graph, block.id));
+		const body = text === block.baseline ? block.body : text;
+		const { scene } = readStructure(body, metric.option);
+		const placed = scene.moleculeList[0];
+		const property = new Map(block.property);
+		if (placed && placed.molecule.atomList.length === atomList.length) {
+			// the block's top left, so that its drawing's atoms land where the graph has them
+			const drawn = centroid(placed.molecule.atomList.map((atom) => ({ x: (atom.x * unit + placed.dx - scene.box.minX) * metric.emPx, y: (scene.box.maxY - (atom.y * unit + placed.dy)) * metric.emPx })));
+			const here = centroid(atomList.map((atom) => ({ x: atom.x * scale, y: -atom.y * scale })));
+			const x = round(here.x - drawn.x);
+			const y = round(here.y - drawn.y);
+			if (!property.has('X') || Math.abs(x - numberOf(property.get('X'))) > 0.05) property.set('X', x);
+			if (!property.has('Y') || Math.abs(y - numberOf(property.get('Y'))) > 0.05) property.set('Y', y);
 		}
-		textMap.set(part, text);
+		return { ...block, property, body, baseline: text };
+	};
+	const blockList = drawing.blockList.flatMap((block) => (block.baseline === undefined ? [block] : (place(block) ?? [])));
+	for (const id of newIdList) {
+		const block = place({ id, type: 'Chem', property: new Map(), body: '', childList: [], baseline: '\u0000' });
+		if (block) blockList.push(block);
 	}
-	// lay the block out again and move each structure to where it is drawn now
-	const next = buildScene(body, option);
-	const indexMap = new Map<number, number>();
-	for (let part = 0; part < fresh; part++) if (!removedSet.has(part)) indexMap.set(part, indexMap.size);
-	if (next.moleculeList.length !== indexMap.size) return loadDrawing(body, option, focus);
-	for (const atom of graph.atomList) atom.part = indexMap.get(atom.part!);
-	const baseline: (string | undefined)[] = [];
-	for (const [part, index] of indexMap) {
-		if (focus !== undefined && part !== focus) continue;
-		baseline[index] = textMap.get(part) ?? drawing.baseline[part];
-		const atomList = graph.atomList.filter((atom) => atom.part === index);
-		const placed = next.moleculeList[index]!;
-		if (atomList.length !== placed.molecule.atomList.length) return loadDrawing(body, option, focus);
-		if (atomList.length === 0) continue;
-		const target = centroid(placed.molecule.atomList.map((atom) => ({ x: atom.x + placed.dx / unit, y: atom.y + placed.dy / unit })));
-		const current = centroid(atomList);
-		for (const atom of atomList) {
-			atom.x += target.x - current.x;
-			atom.y += target.y - current.y;
-		}
-	}
-	return { body, scene: next, graph, baseline };
+	return { ...drawing, blockList, nextId };
 }
 
-/** The block's text when the tool closes: a structure that was edited alone and erased is taken out. */
-export function finishDrawing(drawing: BlockDrawing, focus?: number): string {
-	if (focus === undefined || drawing.graph.atomList.length > 0) return drawing.body;
-	const placed = drawing.scene.moleculeList[focus];
-	return placed ? removeSpan(drawing.body, placed.span) : drawing.body;
+function toNode(block: BoardBlock): BlockNode {
+	const property = new Map(block.property);
+	for (const key of ['X', 'Y', 'Length']) if (typeof property.get(key) === 'number') property.set(key, round(numberOf(property.get(key))));
+	const childList = block.childList.map(toNode);
+	const id = block.blockId;
+	if (block.type === 'Text') return createTextNode(block.body, { property, childList, ...(id ? { id } : {}) });
+	return createBlockNode(block.type, { property, body: block.body, childList, content: defaultItemTypeSet.has(block.type) ? 'Item' : 'Raw', ...(id ? { id } : {}) });
+}
+
+/** The Board as OI text. */
+export function writeBoard(drawing: BoardDrawing): string {
+	const node = createBlockNode('Board', { property: drawing.property, content: 'Item', childList: drawing.blockList.map(toNode) });
+	// new nodes start at level 0; the Board's blocks are one level in
+	relevel(node, 0);
+	return serializeNode(node).join('\n');
+}
+
+/** The blocks of a Board as the SDK hands them over. */
+export function boardItemOf(node: BlockNode): BoardItem {
+	return { type: node.type, property: node.property, body: node.body, ...(node.id ? { id: node.id } : {}), childList: node.childList.map(boardItemOf) };
+}
+
+/** Reads a Board back from its OI text (typed in the tool); undefined when it isn't one Board. */
+export function readBoardText(text: string, metric: BoardMetric): BoardDrawing | undefined {
+	const note = parseNote(text);
+	const board = note.itemList.find((node) => node.type === 'Board');
+	if (!board) return undefined;
+	return loadBoard(board.property, board.childList.map(boardItemOf), metric);
 }

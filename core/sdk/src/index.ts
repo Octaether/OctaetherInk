@@ -63,13 +63,29 @@ export interface RenderContext extends InlineContext {
 	setProperty(name: string, value: PropertyValue | undefined): void;
 	/** Replaces this block's body as one undo step (e.g. ticking a checkbox, a drawing tool). */
 	setBody(body: string): void;
+	/** Replaces this block, children included, with the blocks written in `source` (OI text), as one undo step. */
+	replaceWith(source: string): void;
+	/** True when a module's feature is on and every module it needs is on (`Chem.Board`). */
+	feature(id: string): boolean;
 	/** True in the Read view: hide editing affordances (buttons, handles). */
 	readOnly(): boolean;
+}
+
+/** A point on screen (CSS px from the viewport's top left, as getBoundingClientRect gives). */
+export interface Point {
+	x: number;
+	y: number;
 }
 
 export interface RenderHandle {
 	/** Update in place; return `Remount` to be re-mounted from scratch. */
 	update?(next: ResolvedBlock, context: RenderContext): 'Done' | 'Remount';
+	/**
+	 * A named point inside the block, for arrows and placement in a Board (`Anchor`): Chem answers for
+	 * atoms (`c`), lone pairs (`o.lp`), and bonds (`cb`). With `toward`, the point moves to the edge
+	 * of what it names on that side, so an arrow stops short of a label. Undefined for unknown names.
+	 */
+	anchor?(name: string, toward?: Point): Point | undefined;
 	/** Repaint for a new theme (only needed when colors are not CSS variables). */
 	theme?(context: ThemeContext): void;
 	destroy?(): void;
@@ -95,12 +111,18 @@ export interface ChildFrame {
 	element: HTMLElement;
 	property: PropertyMap;
 	type: string;
+	/** The block's `^id`, when it has one. */
+	id: string | undefined;
+	/** The block's own named points (RenderHandle.anchor), in screen px. */
+	anchor(name: string, toward?: Point): Point | undefined;
 }
 
 export interface LayoutContext {
 	theme: ThemeContext;
 	/** Number → px; validated CSS length text → as-is; otherwise undefined. */
 	resolveLength(value: PropertyValue | undefined): string | undefined;
+	/** Theme token (`Accent`) or raw color → safe CSS color, or undefined. */
+	resolveColor(value: string): string | undefined;
 	/** A setting's value (or its default), e.g. `Layout.StackWidth`. */
 	setting(id: string): PropertyValue | undefined;
 }
@@ -137,6 +159,8 @@ export interface BlockTemplate {
 	icon?: string;
 	keywordList?: readonly string[];
 	explain?: string;
+	/** Offered only while this feature is on (`Chem.Board`). */
+	feature?: string;
 }
 
 /**
@@ -185,6 +209,11 @@ export interface BlockTypeDefinition {
 	plainText?(block: ResolvedBlock): string;
 }
 
+/**
+ * A part of a module that can be switched on and off by itself, with its own settings, and that may
+ * need other modules: Chem's drawing on Boards (`Chem.Board`) needs the Board module, while Chem's
+ * formulas and structures don't. Its switch is a setting with its id.
+ */
 export interface FeatureDefinition {
 	/** Full name, e.g. `Code.Run`. */
 	id: string;
@@ -192,6 +221,10 @@ export interface FeatureDefinition {
 	explain: string;
 	default: boolean;
 	cost?: 'Low' | 'Medium' | 'High';
+	/** Modules it needs besides its own (by name); it is off while any of them is off. */
+	use?: readonly string[];
+	/** Its own settings, shown under it on the module's page. */
+	settingList?: readonly SettingDefinition[];
 }
 
 export type SettingDemo = { kind: 'Live'; note: string; compareList?: readonly PropertyValue[] } | { kind: 'Clip'; source: string };
@@ -233,12 +266,33 @@ export interface CommandDefinition {
 	title: string;
 	explain?: string;
 	run(argument?: unknown): void;
+	/** Default keys (`V`, `Shift+W`, `Mod+K Mod+C`); you change them in Setting → Hotkey. */
+	key?: readonly string[];
+	/**
+	 * Where the keys work: a context the module handles itself, such as `Drawing` (the drawing tool).
+	 * Such commands are listed in Setting → Hotkey but not in the command palette, and the app never runs
+	 * them from a key itself; the module asks for them (`HotkeyLookup`).
+	 */
+	when?: string;
+}
+
+/** The name of the extension the app registers for keys of your own: `context.extension<HotkeyLookup>(hotkeyExtension)`. */
+export const hotkeyExtension = 'Hotkey';
+
+export interface HotkeyLookup {
+	/** The command whose key (yours, or its default) this keydown is, among those of a context (`Drawing`). */
+	commandFor(event: KeyboardEvent, when: string): string | undefined;
+	/** The keys of a command as shown (`⇧W`, `Ctrl+K`), for titles. */
+	keyText(command: string): string;
 }
 
 export interface HostContext {
 	registerCommand(command: CommandDefinition): () => void;
 	registerTheme(theme: ThemeDefinition): () => void;
-	registerExtension<T>(name: string, value: T): () => void;
+	/** An extension; with `feature`, it is there only while that feature is on. */
+	registerExtension<T>(name: string, value: T, feature?: string): () => void;
+	/** True when a feature is on and every module it needs is on. */
+	feature(id: string): boolean;
 	extension<T>(name: string): T | undefined;
 	setting(id: string): PropertyValue | undefined;
 	theme(): ThemeContext;
@@ -255,6 +309,9 @@ interface DefinitionBase {
 	title: string;
 	explain: string;
 	featureList?: readonly FeatureDefinition[];
+	/** Abilities this module or plugin gives others (`Anchor`), and those it relies on, for a view of which needs which. */
+	provide?: readonly string[];
+	use?: readonly string[];
 	/** The module's or plugin's own settings, shown on its page in Setting. */
 	settingList?: readonly SettingDefinition[];
 	statusItemList?: readonly StatusItemDefinition[];
@@ -283,6 +340,50 @@ export function fullName(definition: Definition): string {
 /** Escapes text for HTML. Every renderer should use it (or its own) for user text. */
 export function escapeHtml(text: string): string {
 	return text.replace(/[&<>"']/g, (character) => `&#${character.charCodeAt(0)};`);
+}
+
+/** `#abc` or `#aabbcc` (any case) → `#aabbcc`; anything else → undefined. */
+export function normalizeHex(text: string): string | undefined {
+	const match = /^#?([0-9a-f]{3}|[0-9a-f]{6})$/i.exec(text.trim());
+	if (!match) return undefined;
+	const hex = match[1]!.toLowerCase();
+	return `#${hex.length === 3 ? [...hex].map((digit) => digit + digit).join('') : hex}`;
+}
+
+// ---------------------------------------------------------------- choosing a color
+
+/** The name of the extension that lets you choose a color (the Palette plugin gives one). */
+export const colorPickerExtension = 'ColorPicker';
+
+export interface ColorPicker {
+	/**
+	 * Opens the picker at a point on screen (client px). `onPick` gets a theme color's name (`Accent`),
+	 * a hex code (`#c0392b`), or undefined for no color; closing it without a choice calls nothing.
+	 */
+	open(option: { x: number; y: number; current?: string; title?: string; onPick(color: string | undefined): void }): void;
+	close(): void;
+}
+
+// ---------------------------------------------------------------- the Board editor
+
+/** The name of the extension that edits a Board in a panel (the Chem module gives one, with its drawing tools). */
+export const boardEditorExtension = 'Board.Editor';
+
+/** A block on a Board, as the Board editor reads and writes it. */
+export interface BoardItem {
+	type: string;
+	property: PropertyMap;
+	body: string;
+	id?: string;
+	childList: BoardItem[];
+}
+
+export interface BoardEditor {
+	/**
+	 * Opens the editor on a Board's blocks (`property` is the Board's own). `emPx` is the size of 1em
+	 * where the Board is drawn, so drawings keep their size. Done gives the Board's new OI text.
+	 */
+	open(option: { property: PropertyMap; itemList: BoardItem[]; emPx: number; context: RenderContext; onDone(source: string): void }): void;
 }
 
 // ---------------------------------------------------------------- files a note shows (images, videos)

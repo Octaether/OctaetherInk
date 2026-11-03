@@ -34,4 +34,22 @@ Grid {Gap: 16px}:
 		print("side by side")
 		```
 
-Right-click a block in a column for *Add column to the left* or *to the right*.
+Alt + drag a block onto the left or right edge of another to put the two side by side; drop it on a column's edge for a new column. A column you empty goes away, and a grid down to one column becomes its blocks again. Alt + the scroll wheel picks a whole column to move. Right-click a block in a column for *Add column to the left* or *to the right* as well.
+
+## Masonry
+
+A Board with `Arrange: Masonry` is a wall of cards, Pinterest style: each block is a card, and each card goes to the shortest column. `ColumnWidth` and `Gap` set the columns. Alt + drag a card to put it somewhere else in the order.
+
+Board {Arrange: Masonry, ColumnWidth: 12em}:
+	**Cards** of any block: text, math, code, pictures. (Each list item is a block, so each would be a card of its own.)
+
+	A short one.
+
+	$$E = mc^2$$
+
+	Code: Python
+		print("a card of code")
+
+	The next card goes under the shortest column.
+
+A whole note can be a wall like this: a new, empty note offers *Document* or *Masonry* under its name, and *Page layout* in the note's ⋯ menu changes it later. It writes `Layout: Board {Arrange: Masonry}` in the note's header, and the page uses the window's width.

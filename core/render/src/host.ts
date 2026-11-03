@@ -7,7 +7,7 @@
 //     <div class="oi-child">…child frames…</div>
 //   </div>
 
-import { type BlockNode, type PropertyMap, type PropertyValue, serializeNode } from '@octaether/core-format';
+import { type BlockNode, type PropertyMap, type PropertyValue, parseFlowMapText, serializeNode } from '@octaether/core-format';
 import type { Change, NoteModel } from '@octaether/core-model';
 import { type BlockTypeDefinition, type ChildFrame, type InlineContext, type RenderContext, type RenderHandle, type ResolvedBlock, escapeHtml } from '@octaether/core-sdk';
 import type { Registry } from './registry';
@@ -33,6 +33,13 @@ function stableText(value: PropertyValue): string {
 	return JSON.stringify(value);
 }
 
+/** The note's root container from its `Layout:` header, written like a block header: `Board {Arrange: Free}`. */
+export function readLayout(value: PropertyValue | undefined): { type: string; property: PropertyMap } {
+	const match = typeof value === 'string' ? /^\s*([A-Z][A-Za-z0-9]*)\s*(\{.*\})?\s*$/.exec(value) : null;
+	if (!match) return { type: 'Flow', property: new Map() };
+	return { type: match[1]!, property: match[2] ? parseFlowMapText(match[2]).value : new Map() };
+}
+
 export function resolveBlock(node: BlockNode): ResolvedBlock {
 	return { key: node.key, id: node.id, type: node.type, version: node.version, body: node.body, property: node.property, node };
 }
@@ -44,6 +51,8 @@ export class RenderHost {
 	private readonly recordMap = new Map<string, FrameRecord>();
 	private readonly styleElementMap = new Map<string, HTMLStyleElement>();
 	private readonly disposeList: (() => void)[] = [];
+	/** The `Layout:` the root was laid out with, so a change starts it clean. */
+	private rootLayoutText = '';
 
 	constructor(
 		readonly root: HTMLElement,
@@ -67,6 +76,7 @@ export class RenderHost {
 		this.unmount();
 		this.model = model;
 		this.unsubscribeModel = model.subscribe((change) => this.onChange(change));
+		this.resetRoot();
 		this.reconcile();
 	}
 
@@ -152,7 +162,18 @@ export class RenderHost {
 			setBody: (body) => {
 				if (model.get(key)) model.setBody(key, body);
 			},
+			replaceWith: (source) => {
+				if (!model.get(key)) return;
+				const { parentKey } = model.placeOf(key);
+				const nodeList = model.parseFragment(source);
+				model.transact(() => {
+					let after = key;
+					for (const node of nodeList) after = model.insert(parentKey, after, node);
+					model.delete(key);
+				});
+			},
 			readOnly: () => this.readOnly,
+			feature: (id) => this.registry.isFeatureActive(id),
 		};
 	}
 
@@ -163,7 +184,26 @@ export class RenderHost {
 		return this.registry.moduleTokenList().some((moduleToken) => token in moduleToken);
 	}
 
+	/** Clears what a root layout left on the note (a Board's classes and size), for the next one. */
+	private resetRoot(): void {
+		const keep = ['oi-note', 'oi-read-only', 'oi-empty'];
+		for (const name of [...this.root.classList]) if (!keep.includes(name)) this.root.classList.remove(name);
+		this.root.removeAttribute('style');
+		for (const name of Object.keys(this.root.dataset)) delete this.root.dataset[name];
+		this.rootLayoutText = stableText(this.model?.noteProperty('Layout') ?? null);
+	}
+
 	private onChange(change: Change): void {
+		if (change.notePropertyChanged && this.model && stableText(this.model.noteProperty('Layout') ?? null) !== this.rootLayoutText) {
+			// another page layout: the root starts clean, and its blocks render again (their place depends on it)
+			this.resetRoot();
+			for (const node of this.model.document.itemList) {
+				const record = this.recordMap.get(node.key);
+				if (record) record.renderKey = '';
+			}
+			this.reconcile();
+			return;
+		}
 		if (change.structure || !this.model) {
 			this.reconcile();
 			return;
@@ -174,7 +214,11 @@ export class RenderHost {
 			const node = this.model.get(key);
 			if (!record || !node) continue;
 			this.renderRecord(record, node, this.coordinateOf(this.model.parentOf(key)?.key ?? null));
-			parentSet.add(this.model.parentOf(key)?.key ?? null);
+			// every container around it arranges again, innermost first: a Board redraws when text inside one of its arrows changes
+			for (let parent = this.model.parentOf(key); ; parent = this.model.parentOf(parent.key)) {
+				parentSet.add(parent?.key ?? null);
+				if (!parent) break;
+			}
 		}
 		for (const parentKey of parentSet) this.arrange(parentKey);
 	}
@@ -225,10 +269,7 @@ export class RenderHost {
 
 	/** Coordinate space of a container (null = the note root). */
 	private coordinateOf(containerKey: string | null): 'Flow' | 'Fixed' {
-		if (containerKey === null) {
-			const layout = this.model?.noteProperty('Layout');
-			return this.registry.blockType(typeof layout === 'string' ? layout : 'Flow')?.layout?.coordinate ?? 'Flow';
-		}
+		if (containerKey === null) return this.registry.blockType(readLayout(this.model?.noteProperty('Layout')).type)?.layout?.coordinate ?? 'Flow';
 		return this.recordMap.get(containerKey)?.definition?.layout?.coordinate ?? 'Flow';
 	}
 
@@ -322,9 +363,9 @@ export class RenderHost {
 	private arrange(containerKey: string | null): void {
 		const model = this.model;
 		if (!model) return;
-		const layoutType = containerKey === null ? model.noteProperty('Layout') : undefined;
+		const rootLayout = readLayout(model.noteProperty('Layout'));
 		const record = containerKey === null ? undefined : this.recordMap.get(containerKey);
-		const definition = containerKey === null ? this.registry.blockType(typeof layoutType === 'string' ? layoutType : 'Flow') : record?.definition;
+		const definition = containerKey === null ? this.registry.blockType(rootLayout.type) : record?.definition;
 		const area = containerKey === null ? this.root : record?.childArea;
 		const layout = definition?.layout;
 		if (!layout || !area) return;
@@ -332,14 +373,33 @@ export class RenderHost {
 		const childList: ChildFrame[] = [];
 		for (const node of nodeList) {
 			const child = this.recordMap.get(node.key);
-			if (child) childList.push({ key: child.key, element: child.element, property: node.property as PropertyMap, type: node.type });
+			if (!child) continue;
+			childList.push({
+				key: child.key,
+				element: child.element,
+				property: node.property as PropertyMap,
+				type: node.type,
+				id: node.id,
+				anchor: (name, toward) => {
+					try {
+						return child.handle?.anchor?.(name, toward);
+					} catch {
+						return undefined;
+					}
+				},
+			});
 		}
 		const container: ResolvedBlock =
 			containerKey === null
-				? { key: '', id: undefined, type: definition.name, version: 1, body: '', property: new Map(), node: { ...model.document.itemList[0]!, childList: model.document.itemList } }
+				? { key: '', id: undefined, type: definition.name, version: 1, body: '', property: rootLayout.property, node: { ...model.document.itemList[0]!, childList: model.document.itemList } }
 				: resolveBlock(model.get(containerKey)!);
 		try {
-			layout.arrange(area, container, childList, { theme: themeContext(this.themeRegistry.current()), resolveLength, setting: (id) => this.registry.setting(id) });
+			layout.arrange(area, container, childList, {
+				theme: themeContext(this.themeRegistry.current()),
+				resolveLength,
+				resolveColor: (value) => resolveColor(value, (token) => this.isKnownToken(token)),
+				setting: (id) => this.registry.setting(id),
+			});
 		} catch (error) {
 			area.dataset.oiProblem = error instanceof Error ? error.message : String(error);
 		}

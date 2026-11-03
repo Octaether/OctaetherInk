@@ -1,5 +1,5 @@
 // Layout containers. Each container is a module block type that implements the layout
-// protocol, so new layouts (Page, Canvas, Deck, Board…) plug in without core changes.
+// protocol, so new layouts (Page, Deck, Masonry…) plug in without core changes.
 //
 //   Grid:                       ← side by side; stacks when there is too little room
 //   	Column {Width: 60%}:     ← each column holds any blocks
@@ -197,7 +197,7 @@ export const layoutModule: ModuleDefinition = {
 	publisher: 'Octaether',
 	version: '1.0.0',
 	title: 'Layout',
-	explain: 'Blocks that hold blocks: Grid with Columns (side by side, stacks on narrow screens) and Callout (a colored box with a title, like Obsidian’s callouts). Always on.',
+	explain: 'Blocks that hold blocks: Grid with Columns (side by side, stacks on narrow screens) and Callout (a colored box with a title, like Obsidian’s callouts). Always on. Blocks placed freely are the Board module.',
 	core: true,
 	settingList: [
 		{

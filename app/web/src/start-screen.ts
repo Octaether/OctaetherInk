@@ -3,7 +3,7 @@
 // open the welcome guide, plus the vaults, quick notes, and files you had open. The last one
 // reopens by itself next time (a setting).
 
-import { icon, logoMark } from './icon';
+import { icon, logoMark, markIcon } from './icon';
 import type { RecentEntry } from './storage';
 import { escapeHtml } from './ui';
 
@@ -67,7 +67,7 @@ export class StartScreen {
 			.map(
 				(entry, index) =>
 					`<div class="start-recent-item"><button type="button" class="start-link" data-index="${index}">${entry.kind === 'Folder' ? icon.Folder : entry.kind === 'File' ? icon.File : icon.Browser}<span>${escapeHtml(entry.name)}</span><small>${kindLabel[entry.kind]}</small></button>` +
-					`<button type="button" class="start-remove" data-remove="${index}" title="Remove from the list (nothing is deleted)" aria-label="Remove ${escapeHtml(entry.name)} from the list">×</button></div>`,
+					`<button type="button" class="start-remove" data-remove="${index}" title="Remove from the list (nothing is deleted)" aria-label="Remove ${escapeHtml(entry.name)} from the list">${markIcon.CrossLarge}</button></div>`,
 			)
 			.join('');
 		for (const button of recent.querySelectorAll<HTMLButtonElement>('[data-index]')) button.addEventListener('click', () => option.openRecent(list[Number(button.dataset.index)]!));

@@ -80,7 +80,8 @@ describe('Property block', () => {
 		expect([...frame.querySelectorAll<HTMLElement>('.oi-property-row')].map((row) => `${row.dataset.key}:${row.dataset.kind}`)).toEqual(['Tag:List', 'Due:Date', 'Done:Checkbox', 'Credit:Number']);
 		expect([...frame.querySelectorAll('.oi-pill')].map((pill) => pill.firstChild!.textContent)).toEqual(['Organic', 'Lab']);
 		expect(frame.querySelector<HTMLInputElement>('input[type="date"]')!.value).toBe('2026-10-05');
-		expect(frame.querySelector('.oi-pill-add')!.textContent).toBe('+');
+		expect(frame.querySelector('.oi-pill-add')!.getAttribute('aria-label')).toMatch(/^Add to/);
+		expect(frame.querySelector('.oi-pill-add svg')).not.toBeNull();
 	});
 
 	it('edits a tag in place, adds one with +, and writes the note', () => {

@@ -17,6 +17,7 @@
 		"@octaether/core-render": "*",
 		"@octaether/core-sdk": "*",
 		"@octaether/core-vault": "*",
+		"@octaether/module-board": "*",
 		"@octaether/module-chem": "*",
 		"@octaether/module-code": "*",
 		"@octaether/module-diagram": "*",
@@ -27,6 +28,7 @@
 		"@octaether/module-media": "*",
 		"@octaether/module-property": "*",
 		"@octaether/module-text": "*",
+		"@octaether/plugin-palette": "*",
 		"@octaether/plugin-theme": "*"
 	}
 }

@@ -1,0 +1,15 @@
+{
+	"name": "@octaether/module-board",
+	"version": "0.1.0",
+	"private": true,
+	"description": "OI Board module: blocks placed freely by X and Y, and Arrow blocks between named points",
+	"license": "MIT",
+	"type": "module",
+	"exports": {
+		".": "./src/index.ts"
+	},
+	"dependencies": {
+		"@octaether/core-format": "*",
+		"@octaether/core-sdk": "*"
+	}
+}

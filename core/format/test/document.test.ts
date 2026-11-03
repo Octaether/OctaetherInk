@@ -63,7 +63,7 @@ describe('parseNote', () => {
 			expect(property?.body, name).toMatch(/^Tag: \[Guide/);
 			walkNode(document.itemList, (node) => typeSet.add(node.type));
 		}
-		expect(typeSet).toEqual(new Set(['Property', 'Text', 'Math', 'Callout', 'Code', 'Chem', 'Grid', 'Column', 'Diagram', 'Image', 'Video', 'Markdown', 'HTML']));
+		expect(typeSet).toEqual(new Set(['Property', 'Text', 'Math', 'Callout', 'Code', 'Chem', 'Board', 'Arrow', 'Grid', 'Column', 'Diagram', 'Image', 'Video', 'Markdown', 'HTML']));
 		// the file after `Image:` and `Video:` is a property, the caption is the body
 		const image = parseNote(guideMap.get('Image')!).itemList.find((node) => node.type === 'Image')!;
 		expect(Object.fromEntries(image.property)).toEqual({ Source: 'Octahedron.svg', Width: 220 });

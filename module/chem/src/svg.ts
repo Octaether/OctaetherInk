@@ -80,11 +80,16 @@ class Painter {
 		for (const bond of molecule.bondList) if (!bond.hidden) this.bond(molecule, bond, position, unit, dx, dy);
 		for (const atom of molecule.atomList) {
 			const at = position(atom);
+			const color = atom.color ? this.option.resolveColor(atom.color) : undefined;
+			const start = this.partList.length;
 			for (const group of atom.electronList) this.electron(atom, at, group);
-			if (atom.label === '' || atom.pieceList.length === 0) continue;
-			this.partList.push(
-				`<text class="oi-chem-atom" x="${number(at.x - atom.anchor)}" y="${number(at.y + 0.36)}"${spanOf(atom.span.start, atom.span.end)}>${textPieces(atom.pieceList)}</text>`,
-			);
+			if (atom.label !== '' && atom.pieceList.length > 0) {
+				this.partList.push(
+					`<text class="oi-chem-atom" x="${number(at.x - atom.anchor)}" y="${number(at.y + 0.36)}"${spanOf(atom.span.start, atom.span.end)}>${textPieces(atom.pieceList)}</text>`,
+				);
+			}
+			// a colored atom: its label and electrons in one group of that color
+			if (color && this.partList.length > start) this.partList.splice(start, Infinity, `<g style="color: ${escapeXml(color)}">${this.partList.slice(start).join('')}</g>`);
 		}
 	}
 

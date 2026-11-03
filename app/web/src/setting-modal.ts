@@ -7,6 +7,7 @@ import type { Registry, ThemeRegistry } from '@octaether/core-render';
 import type { Definition, SettingDefinition, StatusItemDefinition } from '@octaether/core-sdk';
 import { normalizeHex } from './color';
 import { renderHotkeyEditor } from './hotkey-editor';
+import { markIcon } from './icon';
 import type { SettingStore } from './setting-store';
 import { isStatusItemOn } from './status-bar';
 import { escapeHtml, openModal } from './ui';
@@ -57,7 +58,7 @@ function settingRow(definition: SettingDefinition, value: PropertyValue | undefi
 
 export function openSettingModal(option: SettingModalOption, start: SettingSection | `Module:${string}` = 'Editor'): void {
 	openModal('setting-modal', (modal, close) => {
-		modal.innerHTML = `<nav class="setting-nav" aria-label="Setting">${sectionList.map((name) => `<button type="button" data-section="${name}">${name}</button>`).join('')}</nav><section class="setting-body"></section><button type="button" class="modal-close" aria-label="Close">×</button>`;
+		modal.innerHTML = `<nav class="setting-nav" aria-label="Setting">${sectionList.map((name) => `<button type="button" data-section="${name}">${name}</button>`).join('')}</nav><section class="setting-body"></section><button type="button" class="modal-close" aria-label="Close">${markIcon.CrossLarge}</button>`;
 		const body = modal.querySelector<HTMLElement>('.setting-body')!;
 		modal.querySelector('.modal-close')!.addEventListener('click', close);
 		let shown: SettingSection | `Module:${string}` = start;
@@ -82,8 +83,8 @@ export function openSettingModal(option: SettingModalOption, start: SettingSecti
 						value = hex === '' ? undefined : hex;
 					} else value = field.value;
 					option.setting.set(id, value);
-					// a color shows its reset; an alias change may clash with another module's
-					if (definition?.type === 'Color' || /\.Alias(?:Marker)?$/.test(id)) show(shown);
+					// a color shows its reset; an alias change may clash with another module's; a feature's switch changes what it needs
+					if (definition?.type === 'Color' || /\.Alias(?:Marker)?$/.test(id) || option.registry.featureList().some((item) => item.feature.id === id)) show(shown);
 				});
 			}
 			for (const picker of body.querySelectorAll<HTMLInputElement>('[data-color-pick]')) {
@@ -104,12 +105,47 @@ export function openSettingModal(option: SettingModalOption, start: SettingSecti
 			}
 		};
 
-		/** A module's own settings, with the alias settings of its block types. */
+		/** A module's own settings, with the alias settings of its block types (not its features'). */
 		const ownSettingList = (definition: Definition): SettingDefinition[] =>
 			option.registry
 				.settingList()
-				.filter((item) => item.owner === definition.name)
+				.filter((item) => item.owner === definition.name && item.feature === undefined)
 				.map((item) => item.setting);
+
+		/** Each feature: its switch, what it needs that is off, and its own settings under it. */
+		const featureSection = (definition: Definition): string => {
+			const featureList = definition.featureList ?? [];
+			if (featureList.length === 0) return '';
+			return (
+				'<h3>Feature</h3><p class="setting-explain">Parts of this module that switch on and off by themselves, each with what it needs.</p>' +
+				featureList
+					.map((feature) => {
+						const missing = option.registry.missingFor(feature.id).filter((name) => name !== definition.name);
+						const need = (feature.use ?? []).map((name) => {
+							const title = option.registry.get(name)?.title ?? name;
+							return `<button type="button" class="setting-link" data-open="${escapeHtml(name)}">${escapeHtml(title)}</button>${missing.includes(name) ? ' (off)' : ''}`;
+						});
+						const own = option.registry.settingList().filter((item) => item.feature === feature.id && item.setting.id !== feature.id);
+						return (
+							`<div class="setting-feature${missing.length > 0 ? ' setting-feature-blocked' : ''}">` +
+							row({ id: feature.id, title: feature.title, type: 'Toggle', default: feature.default, explain: feature.explain }) +
+							(need.length > 0 ? `<p class="setting-need">Needs ${need.join(', ')}${missing.length > 0 ? ': it stays off until that is on.' : '.'}</p>` : '') +
+							own.map((item) => row(item.setting)).join('') +
+							'</div>'
+						);
+					})
+					.join('')
+			);
+		};
+
+		/** The features of other modules that need this one. */
+		const usedBySection = (definition: Definition): string => {
+			const userList = option.registry.featureList().filter((item) => item.owner !== definition.name && (item.feature.use ?? []).includes(definition.name));
+			if (userList.length === 0) return '';
+			return `<p class="setting-need">Used by ${userList
+				.map((item) => `<button type="button" class="setting-link" data-open="${escapeHtml(item.owner)}">${escapeHtml(option.registry.get(item.owner)?.title ?? item.owner)}</button>: ${escapeHtml(item.feature.title)}`)
+				.join(', ')}. Off: those features switch off too.</p>`;
+		};
 
 		const definitionPage = (definition: Definition): string => {
 			const enabled = option.registry.isEnabled(definition.name);
@@ -122,7 +158,9 @@ export function openSettingModal(option: SettingModalOption, start: SettingSecti
 				`<h2>${escapeHtml(definition.title)}</h2><p class="setting-explain">${escapeHtml(definition.explain)}</p>` +
 				problemList.map((problem) => `<p class="setting-problem" role="alert">${escapeHtml(problem.message)}</p>`).join('') +
 				`<div class="setting-row"><div class="setting-text"><div class="setting-name">On${core ? '<span class="setting-badge">always on</span>' : ''}</div><div class="setting-explain">${definition.kind === 'Module' ? 'Off: its blocks show their text in an outlined box, and nothing is lost.' : 'Off: the function goes away; its files stay.'}</div></div><div class="setting-control"><label class="switch"><input type="checkbox" data-name="${definition.name}"${enabled ? ' checked' : ''}${core ? ' disabled' : ''} aria-label="${escapeHtml(definition.title)} on"><span></span></label></div></div>` +
-				(settingList.length ? settingList.map(row).join('') : '<p class="setting-explain">No setting of its own.</p>') +
+				usedBySection(definition) +
+				(settingList.length ? settingList.map(row).join('') : (definition.featureList ?? []).length > 0 ? '' : '<p class="setting-explain">No setting of its own.</p>') +
+				featureSection(definition) +
 				`<p class="setting-meta">${escapeHtml(definition.publisher)}.${escapeHtml(definition.name)} · version ${escapeHtml(definition.version)}</p>`
 			);
 		};

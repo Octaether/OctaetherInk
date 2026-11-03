@@ -140,7 +140,7 @@ export const defaultAliasList: readonly BlockAlias[] = [
 ];
 
 export const defaultItemTypeSet: ReadonlySet<string> = new Set([
-	'Text', 'Flow', 'Grid', 'Column', 'Group', 'Page', 'Canvas', 'Deck', 'Slide', 'Event', 'Callout', 'Toggle',
+	'Text', 'Flow', 'Grid', 'Column', 'Group', 'Page', 'Board', 'Arrow', 'Deck', 'Slide', 'Event', 'Callout', 'Toggle',
 ]);
 
 export const defaultKnownTypeSet: ReadonlySet<string> = new Set([

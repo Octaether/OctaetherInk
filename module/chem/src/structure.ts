@@ -18,9 +18,12 @@ export interface DrawAtom {
 	/** Element symbol; '' when the atom has a free-form label (CO_2H, Ph, R). */
 	element: string;
 	charge: number;
-	/** Lone pairs drawn around the atom (0–4). */
+	/** Lone pairs drawn around the atom. */
 	lonePair: number;
-	radical: boolean;
+	/** Single electrons drawn around the atom (radicals). Pairs and single electrons share the 8 places around it. */
+	radical: number;
+	/** A theme color (Accent, Danger…) or a CSS color for the atom's label and electrons. */
+	color?: string;
 	/** Carbon is a bare vertex unless it's charged, has lone pairs or no bonds, or this is set. */
 	showLabel: boolean;
 	/** A free-form label kept as written. */
@@ -68,7 +71,7 @@ export function bondBetween(graph: DrawGraph, a: number, b: number): DrawBond | 
 }
 
 export function addAtom(graph: DrawGraph, x: number, y: number, element = 'C', extra: Partial<DrawAtom> = {}): DrawAtom {
-	const atom: DrawAtom = { id: graph.nextId++, x, y, element, charge: 0, lonePair: 0, radical: false, showLabel: false, ...extra };
+	const atom: DrawAtom = { id: graph.nextId++, x, y, element, charge: 0, lonePair: 0, radical: 0, showLabel: false, ...extra };
 	graph.atomList.push(atom);
 	return atom;
 }
@@ -136,11 +139,17 @@ export function hydrogenCount(graph: DrawGraph, atom: DrawAtom): number {
 
 export function isLabelVisible(graph: DrawGraph, atom: DrawAtom): boolean {
 	if (atom.element !== 'C') return true;
-	return atom.showLabel || atom.charge !== 0 || atom.lonePair > 0 || atom.radical || neighborList(graph, atom.id).length === 0;
+	return atom.showLabel || atom.charge !== 0 || atom.lonePair > 0 || atom.radical > 0 || neighborList(graph, atom.id).length === 0;
 }
 
 /** Hydrogens go on the side away from the bonds: HO– when the bond leaves to the right. */
 export function hydrogenSide(graph: DrawGraph, atom: DrawAtom): 'Left' | 'Right' {
+	// on its own, as chemists write: HBr, HCl, H₂O, H₂S (but OH⁻, NH₃, CH₄)
+	if (neighborList(graph, atom.id).length === 0) {
+		if (['F', 'Cl', 'Br', 'I'].includes(atom.element)) return 'Left';
+		if (['O', 'S', 'Se'].includes(atom.element) && hydrogenCount(graph, atom) === 2) return 'Left';
+		return 'Right';
+	}
 	let sum = 0;
 	for (const { atom: other } of neighborList(graph, atom.id)) {
 		const length = Math.hypot(other.x - atom.x, other.y - atom.y) || 1;
@@ -166,12 +175,16 @@ export function atomPieceList(graph: DrawGraph, atom: DrawAtom): AtomPiece[] {
 	return pieceList;
 }
 
-/** Directions (multiples of 45°) for the lone pairs, then the single electron, away from bonds and hydrogens. */
+/** Places around an atom for lone pairs and single electrons (every 45°). */
+export const electronRoom = 8;
+
+/** Directions (multiples of 45°) for the lone pairs, then the single electrons, away from bonds and hydrogens. */
 export function electronAngleList(graph: DrawGraph, atom: DrawAtom): { angle: number; kind: 'Pair' | 'Single' }[] {
 	const taken = neighborList(graph, atom.id).map(({ atom: other }) => degreeOf(atom, other));
 	if (hydrogenCount(graph, atom) > 0 && isLabelVisible(graph, atom)) taken.push(hydrogenSide(graph, atom) === 'Left' ? 180 : 0);
 	const result: { angle: number; kind: 'Pair' | 'Single' }[] = [];
-	const wantList: ('Pair' | 'Single')[] = [...Array.from({ length: Math.min(atom.lonePair, 8) }, () => 'Pair' as const), ...(atom.radical ? ['Single' as const] : [])];
+	// pairs first, then single electrons, in the 8 places around the atom
+	const wantList: ('Pair' | 'Single')[] = [...Array.from({ length: atom.lonePair }, () => 'Pair' as const), ...Array.from({ length: atom.radical }, () => 'Single' as const)].slice(0, electronRoom);
 	for (const kind of wantList) {
 		let best = 90;
 		let bestScore = -Infinity;
@@ -344,10 +357,10 @@ export function addRing(graph: DrawGraph, size: number, aromatic: boolean, place
 
 /** Reads an atom label: element (+ hydrogens), charge, and \lewis electrons; anything else is kept as free text. */
 export function readAtomLabel(raw: string): Pick<DrawAtom, 'element' | 'charge' | 'lonePair' | 'radical' | 'showLabel' | 'label'> {
-	if (raw.replace(/[{}\s]/g, '') === '') return { element: 'C', charge: 0, lonePair: 0, radical: false, showLabel: false };
+	if (raw.replace(/[{}\s]/g, '') === '') return { element: 'C', charge: 0, lonePair: 0, radical: 0, showLabel: false };
 	const lewis = splitLewis(raw);
 	const lonePair = lewis.electronList.filter((group) => group.kind !== 'Single').length;
-	const radical = lewis.electronList.some((group) => group.kind === 'Single');
+	const radical = lewis.electronList.filter((group) => group.kind === 'Single').length;
 	let text = lewis.label.trim();
 	let charge = 0;
 	const chargeMatch = /\^\{?(\d?)([+-])\}?$|\^\{?\\(oplus|ominus)\}?$|\\(oplus|ominus)$/.exec(text);

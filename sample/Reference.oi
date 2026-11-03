@@ -39,13 +39,24 @@ Math:
 
 ## Chemistry
 
-Chem:
-	\chemfig{@{o}HO^{-}} \qquad \chemfig{@{c}C(-[:100]H)(>[:215]H)(>:[:250]H)@{cb}-@{br}Br}
-	Arrow o -> c {Curve: 45}
-	Arrow cb -> br {Curve: 70}
-	Label c {Side: Below}: backside attack, **inversion** of configuration
-	\schemestart \arrow{->[][slow]} \chemfig{HO-[,,,,dashed]@{ts}C(-[2]H)(>[:235]H)(>:[:305]H)-[,,,,dashed]Br} \arrow{->} \chemfig{HO-C(-[:80]H)(>[:-35]H)(>:[:-70]H)} \+ Br^{-} \schemestop
-	Label ts {Side: Below, Color: Accent}: transition state
+Board:
+	Chem {X: 14.7, Y: 37.8}: O@o^-
+	Chem {X: 76.4, Y: 0}: H >35 C@c (-0@cb Br@br) (-100 H) <:250 H
+	Chem {X: 65.6, Y: 157.4}: O -0[Dashed] C@ts (-0[Dashed] Br) (-90 H) (<235 H) <:305 H
+	Chem {X: 243.4, Y: 155.4}: O -0 C (-80 H) (<:290 H) <325 H
+
+	{Chem: +} {X: 353.1, Y: 194}
+
+	Chem {X: 368.7, Y: 193.7}: Br^-
+	Arrow {X: 8.8, Y: 206, Length: 51.2}:
+		slow {Side: Below}
+	Arrow {X: 186.6, Y: 206, Length: 51.2}:
+	Arrow {From: o, To: c, Curve: 45}:
+	Arrow {From: cb, To: br, Curve: 70}:
+
+	backside attack, **inversion** of configuration {X: 5.6, Y: 100.3, Size: 0.85em, TextAlign: Center, Width: 227.2}
+
+	transition state {X: 74.1, Y: 253.7, Size: 0.85em, TextAlign: Center, Color: Accent}
 
 Chem:
 	\schemestart \chemfig{*6(=-=-=-)} \arrow{->[Br_2][FeBr_3]} \chemfig{*6(=-=(-Br)-=-)} \+ HBr \schemestop

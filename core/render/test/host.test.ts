@@ -9,6 +9,7 @@ import type { ModuleDefinition } from '@octaether/core-sdk';
 import { chemModule } from '@octaether/module-chem';
 import { codeModule } from '@octaether/module-code';
 import { diagramModule } from '@octaether/module-diagram';
+import { boardModule } from '@octaether/module-board';
 import { layoutModule } from '@octaether/module-layout';
 import { mathModule } from '@octaether/module-math';
 import { textModule } from '@octaether/module-text';
@@ -52,7 +53,7 @@ function setup(): Setup {
 			},
 		})),
 	});
-	for (const module of [textModule, layoutModule, mathModule, codeModule, chemModule, diagramModule]) registry.add(counted(module));
+	for (const module of [textModule, layoutModule, boardModule, mathModule, codeModule, chemModule, diagramModule]) registry.add(counted(module));
 	registry.add(themePlugin);
 	const service: HostService = {
 		registerCommand: () => () => {},
@@ -75,15 +76,18 @@ function setup(): Setup {
 describe('RenderHost', () => {
 	it('renders one frame per block, with children inside their parent', () => {
 		const { host, model, top } = setup();
-		expect(host.root.querySelectorAll('.oi-frame')).toHaveLength(26);
+		expect(host.root.querySelectorAll('.oi-frame')).toHaveLength(39);
 		const list = model.get(top[4]!)!;
 		const nestedMath = list.childList[1]!.childList[0]!;
 		expect(host.frameOf(nestedMath.key)!.closest('.oi-child')!.parentElement).toBe(host.frameOf(list.childList[1]!.key));
 		expect(host.contentOf(top[7]!)!.querySelector('math')).not.toBeNull();
 		expect(host.contentOf(top[2]!)!.querySelector('.oi-tag')).not.toBeNull();
 		expect(host.contentOf(top[2]!)!.querySelector('.oi-chem-formula')).not.toBeNull();
-		expect(host.contentOf(top[11]!)!.querySelector('svg.oi-chem-svg')).not.toBeNull();
-		expect(host.contentOf(top[11]!)!.querySelector('.oi-chem-label')?.textContent).toContain('inversion');
+		// the mechanism is a Board: its structures and its text are blocks inside it
+		const board = host.frameOf(top[11]!)!;
+		expect(board.dataset.oiType).toBe('Board');
+		expect(board.querySelector('.oi-frame[data-oi-type="Chem"] svg.oi-chem-svg')).not.toBeNull();
+		expect(board.querySelector('.oi-board-area')?.textContent).toContain('inversion');
 	});
 
 	it('re-renders only the block that changed', () => {
@@ -174,6 +178,18 @@ describe('RenderHost', () => {
 });
 
 describe('theme safety', () => {
+	it('replaces a block with blocks written in OI text, as one undo step', () => {
+		const { host, model, top } = setup();
+		const before = model.serialize();
+		host.context(top[11]!).replaceWith('Board:\n\tChem {X: 0, Y: 0}: O@o^-:3\n\tArrow {From: o.lp, To: [80, 0]}:');
+		const board = model.document.itemList[11]!;
+		expect(board.type).toBe('Board');
+		expect(board.childList.map((node) => node.type)).toEqual(['Chem', 'Arrow']);
+		expect(host.frameOf(board.key)!.querySelector('.oi-arrow-svg')).not.toBeNull();
+		model.undo();
+		expect(model.serialize()).toBe(before);
+	});
+
 	it('accepts colors and tokens, rejects injection', () => {
 		const known = (token: string): boolean => token === 'Color.Accent';
 		expect(resolveColor('Accent', known)).toBe('var(--oi-color-accent)');

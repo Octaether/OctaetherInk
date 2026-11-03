@@ -30,7 +30,8 @@ Callout {Kind: Tip}: Click anywhere to edit, exactly there
 - Blocks hold blocks: `Tab` nests a block under the one above, and `Shift+Tab` brings it back.
 	- A nested block can be anything, such as an equation:
 		Math: e^{i\pi} + 1 = 0
-- Drag the ⋮⋮ handle left of a block to move it, or right-click a block for its menu.
+- Hold **Alt** (Option on a Mac) and drag any block to move it; drop it on another block's side for columns. While Alt is held, the scroll wheel picks the block around it (a column, a callout, a Board) and back. On a touch screen, hold a block, then drag it.
+- Press Esc while writing to select the whole block, and Esc again for the block around it; a selected block drags from anywhere. Right-click a block for its menu. Prefer a handle? Turn on *Show the block handle* in Setting → Editor.
 - Every block type also fits in a sentence: {Math: a^2 + b^2 = c^2}, {Chem: H_2O}, and so on.
 
 ## The file behind it

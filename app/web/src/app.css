@@ -797,6 +797,44 @@ body[data-view='Read'] .page {
 	font-size: 0.85em;
 }
 
+/* an empty note's page layout: a document or a wall of cards */
+.note-head-layout {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	margin-top: 10px;
+}
+
+.note-head-layout-label {
+	margin-inline-end: 4px;
+	color: var(--oi-color-text-muted);
+	font-size: 13px;
+}
+
+.layout-choice {
+	display: inline-flex;
+	align-items: center;
+	gap: 7px;
+	padding: 6px 12px 6px 9px;
+	border: 1px solid var(--oi-color-border);
+	border-radius: 8px;
+	background: none;
+	color: var(--oi-color-text-muted);
+	font-size: 13.5px;
+	cursor: pointer;
+}
+
+.layout-choice:hover {
+	color: var(--oi-color-text);
+	border-color: var(--oi-color-text-muted);
+}
+
+.layout-choice.active {
+	color: var(--oi-color-accent);
+	border-color: var(--oi-color-accent);
+	background: var(--oi-color-accent-soft);
+}
+
 .note-head-add {
 	display: inline-flex;
 	align-items: center;
@@ -1029,18 +1067,53 @@ body.no-block-outline #note .oi-frame[data-oi-editing]::after {
 	content: none;
 }
 
-/* the block a gutter belongs to, while the pointer is on the gutter */
-#note .oi-frame.oi-gutter-target {
-	outline: 1.5px dashed color-mix(in srgb, var(--oi-color-accent) 60%, transparent);
-	outline-offset: 4px;
-	border-radius: 4px;
+/* the block under the pointer (gutter.ts): one box where the outline of a block being edited goes (the
+   same size and shape, in a softer accent); strong (with the block's type) for the block Alt + drag takes */
+.hover-box {
+	position: fixed;
+	z-index: 4;
+	box-sizing: border-box;
+	border: 1.5px solid color-mix(in srgb, var(--oi-color-accent) 32%, transparent);
+	border-radius: 9px;
+	pointer-events: none;
 }
 
-/* while dragging, every block shows its edge, so you see where things can go */
-body.dragging #note .oi-frame {
-	outline: 1px dashed color-mix(in srgb, var(--oi-color-text-muted) 32%, transparent);
-	outline-offset: 2px;
+.hover-box[hidden] {
+	display: none;
+}
+
+.hover-box.hover-box-strong {
+	border: 1.5px solid color-mix(in srgb, var(--oi-color-accent) 75%, transparent);
+	background: color-mix(in srgb, var(--oi-color-accent) 5%, transparent);
+}
+
+.hover-box-tag {
+	position: absolute;
+	top: -9px;
+	left: 6px;
+	padding: 0 5px;
+	font: 600 10.5px/16px var(--oi-font-body);
+	color: var(--oi-color-background);
+	background: color-mix(in srgb, var(--oi-color-accent) 85%, transparent);
 	border-radius: 4px;
+	white-space: nowrap;
+}
+
+.hover-box-tag[hidden],
+.hover-box-tag:empty {
+	display: none;
+}
+
+/* the page is a Masonry Board: the cards get the window's width */
+.page.wide,
+.page.readable.wide {
+	max-width: 1400px;
+}
+
+/* a block moving on its Board: the block itself, over the others */
+#note .oi-frame.oi-board-moving {
+	z-index: 8;
+	opacity: 0.85;
 }
 
 body.dragging #note .oi-frame.oi-dragging {
@@ -1118,6 +1191,10 @@ body.dragging * {
 .gutter-handle {
 	cursor: grab;
 	touch-action: none;
+}
+
+.drop-line.drop-line-side {
+	box-shadow: 0 0 0 2px color-mix(in srgb, var(--oi-color-accent) 22%, transparent);
 }
 
 .drop-line {
@@ -1535,6 +1612,9 @@ mark.s-find-current span {
 .start-remove {
 	width: 26px;
 	height: 26px;
+	display: grid;
+	place-items: center;
+	padding: 0;
 	flex: none;
 	border: none;
 	border-radius: 5px;
@@ -1978,6 +2058,9 @@ mark.s-find-current span {
 	z-index: 1;
 	width: 28px;
 	height: 28px;
+	display: grid;
+	place-items: center;
+	padding: 0;
 	border: none;
 	border-radius: 6px;
 	background: transparent;
@@ -2314,6 +2397,33 @@ mark.s-find-current span {
 	font-size: 12px;
 }
 
+/* a feature: its switch and settings, set in a little from the module's own */
+.setting-feature {
+	margin: 6px 0 10px;
+	padding-inline-start: 12px;
+	border-inline-start: 2px solid var(--oi-color-border);
+}
+
+.setting-feature-blocked .setting-name {
+	color: var(--oi-color-text-muted);
+}
+
+.setting-need {
+	margin: 2px 0 8px;
+	color: var(--oi-color-text-muted);
+	font-size: 12.5px;
+}
+
+.setting-link {
+	padding: 0;
+	border: none;
+	background: none;
+	color: var(--oi-color-accent);
+	font: inherit;
+	text-decoration: underline;
+	cursor: pointer;
+}
+
 .setting-back {
 	margin: 0 0 8px -6px;
 	padding: 2px 6px;
@@ -2405,6 +2515,9 @@ mark.s-find-current span {
 }
 
 .setting-button {
+	display: inline-flex;
+	align-items: center;
+	gap: 5px;
 	padding: 4px 10px;
 	border: 1px solid var(--oi-color-border);
 	border-radius: 6px;
@@ -2579,12 +2692,16 @@ mark.s-find-current span {
 }
 
 .key-chip button {
-	padding: 0 6px 0 0;
+	width: 18px;
+	height: 18px;
+	margin-inline-end: 2px;
+	display: grid;
+	place-items: center;
+	padding: 0;
 	border: none;
+	border-radius: 4px;
 	background: none;
 	color: var(--oi-color-text-muted);
-	font-size: 14px;
-	line-height: 1;
 	cursor: pointer;
 }
 
@@ -2601,9 +2718,11 @@ mark.s-find-current span {
 }
 
 .key-add {
-	min-width: 26px;
+	width: 26px;
 	height: 24px;
-	padding: 0 7px;
+	display: grid;
+	place-items: center;
+	padding: 0;
 	border: 1px dashed var(--oi-color-border);
 	border-radius: 5px;
 	background: none;
@@ -2690,6 +2809,9 @@ mark.s-find-current span {
 .macro-step button {
 	width: 28px;
 	height: 28px;
+	display: grid;
+	place-items: center;
+	padding: 0;
 	border: none;
 	border-radius: 5px;
 	background: none;

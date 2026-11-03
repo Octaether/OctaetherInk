@@ -13,30 +13,34 @@ import {
 	addColumn,
 	colorRange,
 	duplicateBlock,
+	eventChord,
 	indentBlock,
 	insertTemplate,
 	installEditStyle,
 	isApplePlatform,
 	moveBlock,
 	outdentBlock,
+	parseHotkey,
 	toggleFormat,
 	turnInto,
 } from '@octaether/core-edit';
-import { type HostService, Registry, RenderHost, type TemplateEntry, ThemeRegistry, applyThemeVariable, installBaseStyle, themeContext } from '@octaether/core-render';
-import { type AssetResolver, type CommandDefinition, type Definition, type SettingDefinition, assetExtension } from '@octaether/core-sdk';
+import { type HostService, Registry, RenderHost, type TemplateEntry, ThemeRegistry, applyThemeVariable, installBaseStyle, readLayout, themeContext } from '@octaether/core-render';
+import { type AssetResolver, type ColorPicker, type CommandDefinition, type Definition, type HotkeyLookup, type SettingDefinition, assetExtension, colorPickerExtension, hotkeyExtension } from '@octaether/core-sdk';
 import { type FileSystem, MemoryFileSystem, Vault, baseName, extensionOf, isNote, joinPath, linkTargetOf, mediaKindOf, mediaTypeOf, nameProblem, parentPath, stemOf } from '@octaether/core-vault';
 import { chemModule } from '@octaether/module-chem';
 import { codeModule } from '@octaether/module-code';
 import { diagramModule } from '@octaether/module-diagram';
 import { htmlModule } from '@octaether/module-html';
+import { boardModule } from '@octaether/module-board';
 import { layoutModule } from '@octaether/module-layout';
 import { markdownModule } from '@octaether/module-markdown';
 import { mathModule } from '@octaether/module-math';
 import { imageModule, videoModule } from '@octaether/module-media';
 import { openPropertyForm, propertyModule } from '@octaether/module-property';
 import { textModule } from '@octaether/module-text';
+import { palettePlugin } from '@octaether/plugin-palette';
 import { themePlugin } from '@octaether/plugin-theme';
-import { accentToken, normalizeHex, recentColorList, rememberColor } from './color';
+import { accentToken, normalizeHex } from './color';
 import { BrowserFileSystem, DirectoryFileSystem, canOpenFolder, downloadBlob, downloadText, ensurePermission } from './file-system';
 import { FindBar, NoteFindTarget, SourceFindTarget } from './find-bar';
 import { setupFormatBar } from './format-bar';
@@ -78,6 +82,13 @@ const appSettingList: SettingDefinition[] = [
 	},
 	{ id: 'Editor.DefaultView', title: 'View for a note you open', type: 'Choice', choiceList: ['Edit', 'Read', 'Source'], default: 'Edit', explain: 'Edit: blocks turn into text where you click. Read: nothing changes by accident. Source: the whole note as text, like a code editor.' },
 	{ id: 'Editor.ReadableWidth', title: 'Readable line length', type: 'Toggle', default: true, explain: 'Keeps lines about 750 px wide on a big screen. Off: text uses the whole window.' },
+	{
+		id: 'Editor.BlockHandle',
+		title: 'Show the block handle',
+		type: 'Toggle',
+		default: false,
+		explain: 'The ⋮⋮ handle (drag it, or click it for the block menu) and + beside the block under the mouse. Without it: hold Alt (Option on a Mac) and drag any block, Alt + the wheel for the block around it, right-click for the menu. On a touch screen, hold a block, then drag.',
+	},
 	{ id: 'Editor.BlockOutline', title: 'Outline the block being edited', type: 'Toggle', default: true, explain: 'A soft outline (and the block’s type) shows which block you’re editing, and a dashed one the block around it.' },
 	{ id: 'Appearance.FontSize', title: 'Text size', type: 'Choice', choiceList: ['14px', '15px', '16px', '17px', '18px', '20px'], default: '16px', explain: 'The size of the note’s text; math, chemistry, and diagrams grow with it.' },
 	{ id: 'Appearance.AccentColor', title: 'Accent color', type: 'Color', default: '', explain: 'The color of links, buttons, outlines, and tags. Pick one or type a hex code; ↺ goes back to the theme’s own (Octaether gold).' },
@@ -129,6 +140,7 @@ const definitionList: Definition[] = [
 	textModule,
 	propertyModule,
 	layoutModule,
+	boardModule,
 	mathModule,
 	codeModule,
 	chemModule,
@@ -138,13 +150,32 @@ const definitionList: Definition[] = [
 	markdownModule,
 	htmlModule,
 	themePlugin,
+	palettePlugin,
 ];
 for (const definition of definitionList) registry.add(definition, enabledState[definition.name] ?? true);
 // the modules' own settings, and the alias switch and symbols of each block type that has aliases
 setting.define(registry.settingList().map((item) => item.setting));
 
+/** The app's own default keys, and those modules and plugins give their commands (the drawing tool's, in its `Drawing` context). */
+let appBindingList: HotkeyBinding[] = [];
+const moduleBindingList: HotkeyBinding[] = [];
+function refreshDefaultBinding(): void {
+	setting.defaultBindingList = [...appBindingList, ...moduleBindingList];
+	setting.defaultBindingChanged();
+}
+
 const service: HostService = {
-	registerCommand: (command) => commandRegistry.register(command),
+	registerCommand: (command) => {
+		const remove = commandRegistry.register(command);
+		const bindingList = (command.key ?? []).map((key): HotkeyBinding => ({ key, command: command.id, ...(command.when ? { when: command.when } : {}) }));
+		moduleBindingList.push(...bindingList);
+		refreshDefaultBinding();
+		return () => {
+			remove();
+			for (const binding of bindingList) moduleBindingList.splice(moduleBindingList.indexOf(binding), 1);
+			refreshDefaultBinding();
+		};
+	},
 	registerTheme: (theme) => themeRegistry.register(theme),
 	setting: (id) => setting.get(id),
 	theme: () => themeContext(themeRegistry.current()),
@@ -320,6 +351,8 @@ const noteHead = new NoteHead(element('noteHead'), {
 	},
 	onTitleDone: () => focusFirstBlock(),
 	addProperty: () => addProperty(),
+	pageLayout: () => pageLayoutOf(model()),
+	setPageLayout: (layout) => setPageLayout(layout),
 	moveHeaderProperty: () => moveHeaderProperty(),
 });
 
@@ -578,10 +611,13 @@ function showTab(): void {
 		statusBar.schedule();
 		// a Property block added or removed changes what the note's top offers
 		if (change.notePropertyChanged || change.structure) noteHead.refresh();
+		else noteHead.noteChanged();
+		if (change.notePropertyChanged) applyPageLayout();
 		if (viewMode === 'Source' && sourceEditor && !applyingSource) sourceEditor.setText(note.model.serialize());
 		if (findBar.isOpen()) scheduleFindRefresh();
 	});
 	// show the page first: the title and the Source view measure their text
+	applyPageLayout();
 	updateLayout();
 	noteHead.refresh();
 	if (viewMode === 'Source') openSourceEditor();
@@ -1502,62 +1538,29 @@ function formatItemList(): MenuItem[] {
 	return list.map(([kind, title, command]) => ({ title, hint: hotkeyText(command), run: () => applyFormat(kind) }));
 }
 
-function colorItemList(): MenuItem[] {
-	const swatch = (color: string): string => `<svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><circle cx="8" cy="8" r="6" fill="${color}"/></svg>`;
-	return [
-		...['Accent', 'Danger', 'Success', 'Warning', 'TextMuted'].map((color) => ({ title: color === 'TextMuted' ? 'Muted' : color, icon: swatch(`var(--oi-color-${color === 'TextMuted' ? 'text-muted' : color.toLowerCase()})`), run: () => applyColor(color) })),
-		// colors of your own: the last few you used, and any hex code
-		...recentColorList().map((hex, index) => ({ title: hex, icon: swatch(hex), separatorBefore: index === 0, run: () => applyColor(hex) })),
-		{ title: 'Custom color', icon: '#', separatorBefore: recentColorList().length === 0, run: () => void pickCustomColor() },
-		{ title: 'No color', separatorBefore: true, run: () => applyColor(undefined) },
-	];
+/** Where the pointer last went down: a color menu opened from a menu opens there. */
+let lastPress = { x: 120, y: 120 };
+document.addEventListener('pointerdown', (event) => (lastPress = { x: event.clientX, y: event.clientY }), true);
+
+/** The Palette plugin's color menu; without the plugin there is no color choice. */
+function colorPicker(): ColorPicker | undefined {
+	return registry.extension<ColorPicker>(colorPickerExtension);
 }
 
-/** Asks for a color (a picker and a hex code) for the selected text. */
-async function pickCustomColor(): Promise<void> {
+/** Colors the selected text from the Palette plugin's menu, opened at (x, y). */
+function openTextColor(x: number, y: number): void {
 	const range = session.textRange();
-	const hex = await new Promise<string | undefined>((resolve) => {
-		let answer: string | undefined;
-		openModal(
-			'dialog-modal',
-			(modal, close) => {
-				const start = recentColorList()[0] ?? '#b5452c';
-				modal.innerHTML =
-					'<p class="dialog-text">A color for the selected text: pick it, or type a hex code.</p>' +
-					`<div class="color-control color-dialog"><input type="color" class="color-pick" value="${start}" aria-label="Pick a color"><input class="dialog-input color-hex" value="${start}" maxlength="7" spellcheck="false" aria-label="Hex code"></div>` +
-					'<div class="dialog-row"><button type="button" class="dialog-button" data-answer="No">Cancel</button><button type="button" class="dialog-button primary" data-answer="Yes">Color it</button></div>';
-				const picker = modal.querySelector<HTMLInputElement>('.color-pick')!;
-				const text = modal.querySelector<HTMLInputElement>('.color-hex')!;
-				picker.addEventListener('input', () => {
-					text.value = picker.value;
-				});
-				text.addEventListener('input', () => {
-					const valid = normalizeHex(text.value);
-					if (valid) picker.value = valid;
-				});
-				const finish = (keep: boolean): void => {
-					answer = keep ? normalizeHex(text.value) : undefined;
-					if (keep && !answer) {
-						text.focus();
-						return;
-					}
-					close();
-				};
-				text.addEventListener('keydown', (event) => {
-					if (event.key === 'Enter') finish(true);
-				});
-				for (const button of modal.querySelectorAll<HTMLButtonElement>('[data-answer]')) button.addEventListener('click', () => finish(button.dataset.answer === 'Yes'));
-				text.focus();
-				text.select();
-			},
-			() => resolve(answer),
-		);
+	const picker = colorPicker();
+	if (!picker || !range || range.start === range.end) return;
+	picker.open({
+		x,
+		y,
+		title: 'Text color',
+		onPick: (color) => {
+			if (model()?.get(range.key)?.type !== 'Text') return;
+			session.replace(range.key, (body) => colorRange(body, range.start, range.end, color));
+		},
 	});
-	if (!hex || !range) return;
-	rememberColor(hex);
-	const note = model();
-	if (!note || note.get(range.key)?.type !== 'Text') return;
-	session.replace(range.key, (body) => colorRange(body, range.start, range.end, hex));
 }
 
 function applyFormat(kind: FormatKind): void {
@@ -1565,14 +1568,6 @@ function applyFormat(kind: FormatKind): void {
 	const range = session.textRange();
 	if (!note || !range || range.start === range.end || note.get(range.key)?.type !== 'Text') return;
 	session.replace(range.key, (body) => toggleFormat(body, range.start, range.end, kind));
-}
-
-function applyColor(color: string | undefined): void {
-	const note = model();
-	const range = session.textRange();
-	if (!note || !range || range.start === range.end || note.get(range.key)?.type !== 'Text') return;
-	if (color?.startsWith('#')) rememberColor(color);
-	session.replace(range.key, (body) => colorRange(body, range.start, range.end, color));
 }
 
 function blockMenu(key: string, x: number, y: number): void {
@@ -1583,7 +1578,7 @@ function blockMenu(key: string, x: number, y: number): void {
 	const hasText = range !== undefined && range.key === key && range.start !== range.end && node.type === 'Text';
 	const container = registry.blockType(node.type)?.layout !== undefined;
 	const itemList: MenuItem[] = [];
-	if (hasText) itemList.push({ title: 'Format', itemList: formatItemList() }, { title: 'Color', itemList: colorItemList() });
+	if (hasText) itemList.push({ title: 'Format', itemList: formatItemList() }, ...(colorPicker() ? [{ title: 'Color', run: () => openTextColor(lastPress.x, lastPress.y + 8) }] : []));
 	if (!container) {
 		itemList.push({
 			title: 'Turn into',
@@ -1647,7 +1642,7 @@ function deleteBlock(key: string): void {
 const inBrowserTab = !('__TAURI_INTERNALS__' in window);
 const apple = isApplePlatform();
 
-setting.defaultBindingList = [
+appBindingList = [
 	inBrowserTab ? { key: 'Alt+N', command: 'Note.Create', when: 'NotTyping' } : { key: 'Mod+N', command: 'Note.Create' },
 	inBrowserTab ? { key: 'Alt+W', command: 'Tab.Close', when: 'NotTyping' } : { key: 'Mod+W', command: 'Tab.Close' },
 	{ key: 'Alt+PageDown', command: 'Tab.Next' },
@@ -1684,6 +1679,18 @@ setting.defaultBindingList = [
 	{ key: 'Delete', command: 'Block.Delete', when: 'BlockSelected' },
 	{ key: 'Backspace', command: 'Block.Delete', when: 'BlockSelected' },
 ] satisfies HotkeyBinding[];
+refreshDefaultBinding();
+
+// keys of your own for contexts a module handles itself (the drawing tool's `Drawing`)
+const hotkeyLookup: HotkeyLookup = {
+	commandFor: (event, when) => {
+		const chord = eventChord(event, apple);
+		if (!chord) return undefined;
+		return setting.bindingList().find((binding) => binding.when === when && parseHotkey(binding.key)?.length === 1 && parseHotkey(binding.key)![0] === chord)?.command;
+	},
+	keyText: (command) => hotkeyText(command),
+};
+registry.registerExtension(hotkeyExtension, hotkeyLookup);
 
 /** `Mod+Shift+M` → `Ctrl+Shift+M` (or `⌘⇧M` style on Apple devices). */
 function keyText(key: string): string {
@@ -1742,6 +1749,8 @@ const commandList: CommandDefinition[] = [
 	{ id: 'Note.Switch', title: 'Open the quick switcher', run: () => openSwitcher() },
 	{ id: 'Note.Save', title: 'Save the note', run: () => void workspace.save(true) },
 	{ id: 'Note.Rename', title: 'Rename the note', run: () => workspace.note && noteHead.focusTitle() },
+	{ id: 'Page.Flow', title: 'Page layout: Flow (one block under another)', run: () => setPageLayout('Flow') },
+	{ id: 'Page.Masonry', title: 'Page layout: Masonry (cards in columns, Pinterest style)', run: () => setPageLayout('Masonry') },
 	{
 		id: 'Note.Quick',
 		title: 'New quick note (kept in this browser)',
@@ -1962,6 +1971,7 @@ element('moreButton').addEventListener('click', (event) => {
 			{ title: 'Save', hint: hotkeyText('Note.Save'), run: () => void workspace.save(true) },
 			...(inVault ? [{ title: 'Rename', hint: hotkeyText('Note.Rename'), run: () => noteHead.focusTitle() }] : []),
 			{ title: 'Add a property', hint: hotkeyText('Property.Add'), run: () => addProperty() },
+			...(viewMode === 'Read' ? [] : [{ title: 'Page layout', itemList: pageLayoutItemList() }]),
 			{ title: 'Find in the note', hint: hotkeyText('Find.Open'), run: () => commandRegistry.run('Find.Open') },
 			{ title: 'Export (download .oi)', run: () => commandRegistry.run('Note.Export') },
 			{ title: 'Print or save as PDF', run: () => window.print() },
@@ -2004,6 +2014,35 @@ function openSetting(): void {
 		version: appVersion,
 		formatName,
 	});
+}
+
+/** The note's page layout (its `Layout:` header): Flow, or a Masonry Board, which uses the whole width. */
+function pageLayoutOf(note: import('@octaether/core-model').NoteModel | undefined): PageLayout {
+	const layout = readLayout(note?.noteProperty('Layout'));
+	if (layout.type !== 'Board') return 'Flow';
+	return layout.property.get('Arrange') === 'Masonry' ? 'Masonry' : 'Board';
+}
+type PageLayout = 'Flow' | 'Masonry' | 'Board';
+
+function applyPageLayout(): void {
+	pageElement.classList.toggle('wide', pageLayoutOf(model()) === 'Masonry');
+}
+
+/** Sets the note's page layout (one undo step); Flow takes the header away. */
+function setPageLayout(layout: 'Flow' | 'Masonry'): void {
+	const note = model();
+	if (!note || viewMode === 'Read') return;
+	note.setNoteProperty('Layout', layout === 'Flow' ? undefined : 'Board {Arrange: Masonry}');
+	applyPageLayout();
+}
+
+function pageLayoutItemList(): MenuItem[] {
+	const current = pageLayoutOf(model());
+	const mark = (layout: PageLayout): string => (current === layout ? '✓' : '');
+	return [
+		{ title: 'Flow', explain: 'Blocks one under another, as in a document', icon: mark('Flow'), run: () => setPageLayout('Flow') },
+		{ title: 'Masonry', explain: 'Cards in columns, Pinterest style', icon: mark('Masonry'), run: () => setPageLayout('Masonry') },
+	];
 }
 
 /** Settings the app itself reads: text size, line length, the edit outline, the hover highlight. */
@@ -2082,6 +2121,7 @@ const gutterControl = setupGutter({
 	session,
 	model,
 	readOnly: () => viewMode !== 'Edit',
+	showHandle: () => setting.get('Editor.BlockHandle') === true,
 	onAdd: (key, x, y) => {
 		const note = model();
 		if (!note) return;
@@ -2097,7 +2137,8 @@ setupFormatBar({
 	session,
 	model,
 	format: applyFormat,
-	color: (x, y) => new Menu(colorItemList(), { x, y }),
+	color: openTextColor,
+	hasColor: () => colorPicker() !== undefined,
 	hotkey: hotkeyText,
 });
 closeAllMenu();

@@ -34,7 +34,7 @@ export interface EnvelopeStyle {
 
 export interface EnvelopeOption {
 	resolveColor(value: string): string | undefined;
-	/** `Fixed` parents (Page, Canvas, Slide) honour Position/X/Y/Layer/Rotate. */
+	/** `Fixed` parents (Page, Board, Slide) honour Position/X/Y/Layer/Rotate. */
 	parentCoordinate: 'Flow' | 'Fixed';
 }
 

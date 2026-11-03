@@ -19,7 +19,7 @@ describe('NoteModel', () => {
 	it('loads a note without adding anything to it', () => {
 		const model = NoteModel.fromText(welcome);
 		expect(model.serialize()).toBe(welcome);
-		expect(model.keyList()).toHaveLength(26);
+		expect(model.keyList()).toHaveLength(39);
 	});
 
 	it('sets a body, undoes to the exact bytes, and redoes', () => {

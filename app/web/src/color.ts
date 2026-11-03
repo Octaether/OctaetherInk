@@ -1,15 +1,9 @@
-// Colors you pick yourself: the accent color (Setting → Appearance) and custom text colors.
+// The accent color you pick (Setting → Appearance). Text colors come from the Palette plugin.
 // Only `#rrggbb` hex is accepted, so what is saved is always a plain, portable value.
 
-import type { ThemeDefinition } from '@octaether/core-sdk';
+import { type ThemeDefinition, normalizeHex } from '@octaether/core-sdk';
 
-/** `#abc` or `#aabbcc` (any case) → `#aabbcc`; anything else → undefined. */
-export function normalizeHex(text: string): string | undefined {
-	const match = /^#?([0-9a-f]{3}|[0-9a-f]{6})$/i.exec(text.trim());
-	if (!match) return undefined;
-	const hex = match[1]!.toLowerCase();
-	return `#${hex.length === 3 ? [...hex].map((digit) => digit + digit).join('') : hex}`;
-}
+export { normalizeHex } from '@octaether/core-sdk';
 
 function channelList(hex: string): [number, number, number] {
 	return [0, 2, 4].map((at) => Number.parseInt(hex.slice(1 + at, 3 + at), 16)) as [number, number, number];
@@ -26,24 +20,4 @@ export function mixHex(first: string, second: string, weight: number): string {
 export function accentToken(hex: string, theme: ThemeDefinition): Record<string, string> {
 	const background = normalizeHex(theme.token['Color.Background'] ?? '') ?? (theme.mode === 'Dark' ? '#161616' : '#ffffff');
 	return { 'Color.Accent': hex, 'Color.AccentSoft': mixHex(hex, background, theme.mode === 'Dark' ? 0.2 : 0.12) };
-}
-
-const recentKey = 'OctaetherInk.RecentColor';
-
-/** Custom text colors you used lately, newest first. */
-export function recentColorList(): string[] {
-	try {
-		const list = JSON.parse(localStorage.getItem(recentKey) ?? '[]') as unknown;
-		return Array.isArray(list) ? list.flatMap((item) => (typeof item === 'string' && normalizeHex(item) ? [normalizeHex(item)!] : [])).slice(0, 6) : [];
-	} catch {
-		return [];
-	}
-}
-
-export function rememberColor(hex: string): void {
-	try {
-		localStorage.setItem(recentKey, JSON.stringify([hex, ...recentColorList().filter((item) => item !== hex)].slice(0, 6)));
-	} catch {
-		// not remembered
-	}
 }

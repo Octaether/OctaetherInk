@@ -186,7 +186,10 @@ export class EditSession {
 			return true;
 		}
 		if (event.key === 'Escape' && this.selectedKey) {
-			this.select(undefined);
+			// out a level: the block around the selected one (a column, a callout, a Board), then nothing
+			const parentKey = model?.parentOf(this.selectedKey)?.key;
+			this.select(parentKey);
+			if (parentKey) this.host.frameOf(parentKey)?.scrollIntoView({ block: 'nearest' });
 			return true;
 		}
 		if (event.key === 'Enter' && this.selectedKey) {
@@ -282,8 +285,17 @@ export class EditSession {
 		frame.insertBefore(textarea, content);
 		const hiddenContent = kind === 'InlineText' ? content : undefined;
 		if (hiddenContent) hiddenContent.hidden = true;
-		// the block around this one (a callout, a column, a list item) is outlined too
-		const parentFrame = frame.parentElement?.closest<HTMLElement>('.oi-frame') ?? undefined;
+		// the block around this one (a callout, a column, a list item) is outlined too; one just as big
+		// as this block (a column holding only it) would draw a second line right beside the first, so
+		// the outline goes to the next block out instead
+		const blockRect = frame.getBoundingClientRect();
+		let parentFrame = frame.parentElement?.closest<HTMLElement>('.oi-frame') ?? undefined;
+		while (parentFrame && this.host.root.contains(parentFrame)) {
+			const rect = parentFrame.getBoundingClientRect();
+			const close = Math.abs(rect.left - blockRect.left) < 6 && Math.abs(rect.right - blockRect.right) < 6 && Math.abs(rect.top - blockRect.top) < 6 && Math.abs(rect.bottom - blockRect.bottom) < 6;
+			if (!close) break;
+			parentFrame = parentFrame.parentElement?.closest<HTMLElement>('.oi-frame') ?? undefined;
+		}
 		if (parentFrame && this.host.root.contains(parentFrame)) parentFrame.setAttribute('data-oi-editing-parent', '');
 		const open: OpenEditor = { key, kind, textarea, hiddenContent, slash: false, full, parentFrame };
 		this.open = open;

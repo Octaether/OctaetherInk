@@ -13,6 +13,8 @@
 import { type PropertyMap, parseFlowMapText } from '@octaether/core-format';
 import { type FormulaPiece, formulaWidth, parseFormula } from './formula';
 import { type Atom, type Molecule, type Problem, type Span, edgeDistance, parseMolecule } from './molecule';
+import { isStructureText, parseStructure, structureMolecule } from './path';
+import type { DrawGraph } from './structure';
 
 export interface Point {
 	x: number;
@@ -824,7 +826,58 @@ function placeCurve(curve: PendingCurve, fromTarget: Target, toTarget: Target, u
 /** A plain `(x, y)` point: placed after every row, since it doesn't belong to one. */
 const isCoordinate = (name: string): boolean => /^\(\s*-?[\d.]+\s*,/.test(name);
 
+/** Every name in a scene (atoms and bonds), as targets in em. */
+function sceneNameMap(scene: Scene): Map<string, Target> {
+	const nameMap = new Map<string, Target>();
+	for (const { molecule, unit, dx, dy } of scene.moleculeList) {
+		for (const atom of molecule.atomList) if (atom.name) nameMap.set(atom.name, { point: { x: atom.x * unit + dx, y: atom.y * unit + dy }, atom, kind: 'Atom' });
+		for (const bond of molecule.bondList) {
+			if (!bond.name) continue;
+			const from = molecule.atomList[bond.from]!;
+			const to = molecule.atomList[bond.to]!;
+			nameMap.set(bond.name, { point: { x: ((from.x + to.x) / 2) * unit + dx, y: ((from.y + to.y) / 2) * unit + dy }, atom: undefined, kind: 'Bond' });
+		}
+	}
+	return nameMap;
+}
+
+/**
+ * A named point of a scene, in em with y up: an atom (`c`), a lone pair (`o.lp`, `o.lp2`), a bond's
+ * middle (`cb`), an edge point (`c.north`, `c.45`), or a point between two names (`a!0.5!b`). With
+ * `toward`, it moves to the edge of what it names on that side (a lone pair: the pair facing it).
+ */
+export function sceneAnchor(scene: Scene, name: string, toward?: Point): Point | undefined {
+	const target = resolveTarget(name, sceneNameMap(scene), scene.moleculeList[0]?.unit ?? defaultBondLength);
+	if (!target) return undefined;
+	if (target.lonePair) return lonePairPoint(target, toward ?? { x: target.point.x + 1, y: target.point.y });
+	if (!toward) return target.point;
+	const distance = clearance(target, toward);
+	const length = Math.hypot(toward.x - target.point.x, toward.y - target.point.y) || 1;
+	return { x: target.point.x + ((toward.x - target.point.x) / length) * distance, y: target.point.y + ((toward.y - target.point.y) / length) * distance };
+}
+
+/** A block in our structure syntax: one structure, its problems listed. */
+export function structureScene(text: string, option: SceneOption = {}): Scene & { graph: DrawGraph } {
+	const parsed = parseStructure(text);
+	const molecule = structureMolecule(parsed.graph, parsed.spanMap);
+	const placed = layoutRow([{ kind: 'Molecule', molecule, span: { start: 0, end: text.length }, inScheme: true }], option.bondLength ?? defaultBondLength);
+	const pad = 0.35;
+	const box = placed.box.minX === Infinity ? { minX: 0, minY: -0.5, maxX: 1, maxY: 0.5 } : placed.box;
+	return {
+		moleculeList: placed.moleculeList,
+		textList: [],
+		arrowList: [],
+		curveList: [],
+		labelList: [],
+		problemList: parsed.problemList,
+		box: { minX: box.minX - pad, minY: box.minY - pad, maxX: box.maxX + pad, maxY: box.maxY + pad },
+		graph: parsed.graph,
+	};
+}
+
+/** A Chem block's text → a scene: our structure syntax, or chemfig with schemes, arrows, and labels, or formula text. */
 export function buildScene(text: string, option: SceneOption = {}): Scene {
+	if (isStructureText(text)) return structureScene(text, option);
 	const unit = option.bondLength ?? defaultBondLength;
 	const builder = new SceneBuilder(text);
 	builder.parse();

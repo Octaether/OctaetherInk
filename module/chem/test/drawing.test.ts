@@ -1,136 +1,211 @@
+import type { PropertyMap } from '@octaether/core-format';
+import type { BoardItem } from '@octaether/core-sdk';
 import { describe, expect, it } from 'vitest';
-import { type BlockDrawing, addAtom, addBond, defaultBondLength, finishDrawing, loadDrawing, removeAtom, removeSpan, rowEnd, syncDrawing } from '../src';
+import {
+	type BoardDrawing,
+	addAtom,
+	addBond,
+	boardScale,
+	buildScene,
+	chemfigToBoard,
+	defaultBondLength,
+	isStructureText,
+	loadBoard,
+	loadStructure,
+	parseStructure,
+	readBoardText,
+	removeAtom,
+	structureScene,
+	syncBoard,
+	syncStructure,
+	writeBoard,
+} from '../src';
 
+const metric = { emPx: 16, option: {} };
+const scale = boardScale(metric);
 const unit = defaultBondLength;
-const body = '\\chemfig{*6(=-=-=-)} \\+ \\chemfig{@{o}O}\nLabel o {Side: Below}: oxygen';
 
-/** Where the block draws each atom of a structure, in bond lengths, rounded and sorted. */
-function scenePointList(drawing: BlockDrawing, index: number): string[] {
-	const placed = drawing.scene.moleculeList[index]!;
-	return placed.molecule.atomList.map((atom) => `${(atom.x + placed.dx / unit).toFixed(2)},${(atom.y + placed.dy / unit).toFixed(2)}`).sort();
+function item(type: string, property: Record<string, unknown>, body = '', childList: BoardItem[] = []): BoardItem {
+	return { type, property: new Map(Object.entries(property)) as PropertyMap, body, childList };
 }
 
-function graphPointList(drawing: BlockDrawing, index: number): string[] {
-	return drawing.graph.atomList.filter((atom) => atom.part === index).map((atom) => `${atom.x.toFixed(2)},${atom.y.toFixed(2)}`).sort();
+/** Where a Chem block at (X, Y) draws its atoms, in Board px, sorted. */
+function drawnAtomList(body: string, x: number, y: number): string[] {
+	const scene = structureScene(body);
+	const placed = scene.moleculeList[0]!;
+	return placed.molecule.atomList
+		.map((atom) => `${(x + (atom.x * unit + placed.dx - scene.box.minX) * metric.emPx).toFixed(1)},${(y + (scene.box.maxY - (atom.y * unit + placed.dy)) * metric.emPx).toFixed(1)}`)
+		.sort();
 }
 
-const oxygen = (drawing: BlockDrawing) => drawing.graph.atomList.find((atom) => atom.name === 'o')!;
-
-describe('drawing tool on a whole block', () => {
-	it('reads every structure, placed where the block draws it', () => {
-		const drawing = loadDrawing(body);
-		expect(drawing.graph.atomList.filter((atom) => atom.part === 0)).toHaveLength(6);
-		expect(oxygen(drawing).part).toBe(1);
-		expect(graphPointList(drawing, 0)).toEqual(scenePointList(drawing, 0));
-		expect(graphPointList(drawing, 1)).toEqual(scenePointList(drawing, 1));
-	});
-
-	it('keeps the text of structures that did not change', () => {
-		expect(syncDrawing(loadDrawing(body)).body).toBe(body);
-	});
-
-	it('rewrites only the structure that changed, and moves the others to their new place', () => {
-		const drawing = loadDrawing(body);
-		const ringAtom = [...drawing.graph.atomList].filter((atom) => atom.part === 0).sort((left, right) => left.x - right.x)[0]!;
-		const methyl = addAtom(drawing.graph, ringAtom.x - 1, ringAtom.y);
-		addBond(drawing.graph, ringAtom.id, methyl.id);
-		const next = syncDrawing(drawing);
-		const [first, rest] = next.body.split(' \\+ ');
-		expect(first).not.toBe('\\chemfig{*6(=-=-=-)}');
-		expect(rest).toBe('\\chemfig{@{o}O}\nLabel o {Side: Below}: oxygen');
-		expect(next.graph).toBe(drawing.graph);
-		expect(graphPointList(next, 0)).toEqual(scenePointList(next, 0));
-		expect(graphPointList(next, 1)).toEqual(scenePointList(next, 1));
-	});
-
-	it('makes a structure drawn apart a new \\chemfig after the last row, on a new line when drawn below', () => {
-		const beside = loadDrawing(body);
-		const right = beside.scene.box.maxX / unit + 4;
-		const a = addAtom(beside.graph, right, 0);
-		addBond(beside.graph, a.id, addAtom(beside.graph, right + 1, 0).id);
-		const besideBody = syncDrawing(beside).body.split('\n');
-		expect(besideBody).toHaveLength(2);
-		expect(besideBody[0]).toMatch(/^\\chemfig\{\*6\(=-=-=-\)\} \\\+ \\chemfig\{@\{o\}O\} \\chemfig\{[^}]+\}$/);
-		expect(besideBody[1]).toBe('Label o {Side: Below}: oxygen');
-
-		const below = loadDrawing(body);
-		const low = below.scene.box.minY / unit - 4;
-		const b = addAtom(below.graph, 0, low);
-		addBond(below.graph, b.id, addAtom(below.graph, 1, low).id);
-		const next = syncDrawing(below);
-		const belowBody = next.body.split('\n');
-		expect(belowBody).toHaveLength(3);
-		expect(belowBody[1]).toMatch(/^\\chemfig\{[^}]+\}$/);
-		expect(next.graph.atomList.filter((atom) => atom.part === 2)).toHaveLength(2);
-		expect(graphPointList(next, 2)).toEqual(scenePointList(next, 2));
-	});
-
-	it('puts the first structure into an empty block', () => {
-		const drawing = loadDrawing('');
-		const a = addAtom(drawing.graph, 3, 3);
-		addBond(drawing.graph, a.id, addAtom(drawing.graph, 4, 3).id);
-		expect(syncDrawing(drawing).body).toMatch(/^\\chemfig\{[^}]+\}$/);
-	});
-
-	it('joins two structures that a new bond connects', () => {
-		const drawing = loadDrawing('\\chemfig{O} \\qquad \\chemfig{N}');
-		const [o, n] = drawing.graph.atomList;
-		addBond(drawing.graph, o!.id, n!.id);
-		const next = syncDrawing(drawing);
-		expect(next.body.match(/\\chemfig/g)).toHaveLength(1);
-		expect(next.body).toContain('\\qquad');
-		expect(next.scene.moleculeList[0]!.molecule.atomList).toHaveLength(2);
-	});
-
-	it('takes an erased structure out of the block', () => {
-		const drawing = loadDrawing(body);
-		removeAtom(drawing.graph, oxygen(drawing).id);
-		expect(syncDrawing(drawing).body).toBe('\\chemfig{*6(=-=-=-)} \\+\nLabel o {Side: Below}: oxygen');
-	});
-});
+/** Where the tool has a structure's atoms, in Board px, sorted. */
+function graphAtomList(drawing: BoardDrawing, part: number): string[] {
+	return drawing.graph.atomList
+		.filter((atom) => atom.part === part)
+		.map((atom) => `${(atom.x * scale).toFixed(1)},${(-atom.y * scale || 0).toFixed(1)}`)
+		.sort();
+}
 
 describe('drawing tool on one structure', () => {
-	it('reads only that structure and leaves the rest of the block alone', () => {
-		const drawing = loadDrawing(body, {}, 1);
-		expect(drawing.graph.atomList).toHaveLength(1);
-		oxygen(drawing).charge = 1;
-		const next = syncDrawing(drawing, {}, 1);
-		expect(next.body.startsWith('\\chemfig{*6(=-=-=-)} \\+ \\chemfig{@{o}')).toBe(true);
-		expect(next.body).not.toContain('\\chemfig{@{o}O}');
+	it('writes a new block in our structure syntax', () => {
+		const drawing = loadStructure('');
+		const a = addAtom(drawing.graph, 3, 3);
+		addBond(drawing.graph, a.id, addAtom(drawing.graph, 4, 3).id);
+		const next = syncStructure(drawing);
+		expect(next.body).toBe('-0');
+		expect(isStructureText(next.body)).toBe(true);
 	});
 
-	it('keeps a fragment drawn apart in the same \\chemfig', () => {
-		const drawing = loadDrawing(body, {}, 1);
-		const far = addAtom(drawing.graph, 40, 0, 'N', { showLabel: true });
-		expect(far.part).toBeUndefined();
-		const next = syncDrawing(drawing, {}, 1);
-		expect(next.body.match(/\\chemfig/g)).toHaveLength(2);
-		expect(next.graph.atomList.every((atom) => atom.part === 1)).toBe(true);
+	it('keeps a structure in our syntax, and joins fragments drawn apart to it', () => {
+		const drawing = loadStructure('O@o^-:3 -0 C');
+		expect(syncStructure(drawing).body).toBe('O@o^-:3 -0 C');
+		const carbon = drawing.graph.atomList.find((atom) => atom.element === 'C')!;
+		addBond(drawing.graph, carbon.id, addAtom(drawing.graph, carbon.x + 0.5, carbon.y + Math.sqrt(3) / 2).id, 2);
+		const next = syncStructure(drawing);
+		expect(next.body).toBe('O@o^-:3 -0 C =60');
+		addAtom(next.graph, 30, 0, 'N', { showLabel: true });
+		expect(syncStructure(next).body).toMatch(/^O@o\^-:3 \(\.[\d.]+\*[\d.]+ N\) -0 C =60$/);
 	});
 
-	it('keeps the place of an erased structure while the tool is open, and takes it out at the end', () => {
-		const drawing = loadDrawing(body, {}, 1);
-		removeAtom(drawing.graph, oxygen(drawing).id);
-		const next = syncDrawing(drawing, {}, 1);
-		expect(next.body).toContain('\\+ \\chemfig{}');
-		expect(next.scene.moleculeList).toHaveLength(2);
-		expect(finishDrawing(next, 1)).toBe('\\chemfig{*6(=-=-=-)} \\+\nLabel o {Side: Below}: oxygen');
+	it('opens a block that is one \\chemfig, and writes our syntax once it changes', () => {
+		const chemfig = '\\chemfig{HO-C(=[1]O)}';
+		const drawing = loadStructure(chemfig);
+		expect(drawing.graph.atomList).toHaveLength(3);
+		expect(syncStructure(drawing).body).toBe(chemfig);
+		const doubleO = drawing.graph.atomList.find((atom) => drawing.graph.bondList.some((bond) => bond.order === 2 && bond.to === atom.id))!;
+		removeAtom(drawing.graph, doubleO.id);
+		const next = syncStructure(drawing);
+		expect(next.body).toBe('O -0 C');
+		expect(parseStructure(next.body).problemList).toEqual([]);
 	});
 });
 
-describe('block text helpers', () => {
-	it('removes a piece with the space around it', () => {
-		expect(removeSpan('A B C', { start: 2, end: 3 })).toBe('A C');
-		expect(removeSpan('A B', { start: 2, end: 3 })).toBe('A');
-		expect(removeSpan('A\nB\nC', { start: 2, end: 3 })).toBe('A\nC');
-		expect(removeSpan('B\nC', { start: 0, end: 1 })).toBe('C');
+describe('drawing tool on a Board', () => {
+	const itemList = (): BoardItem[] => [
+		item('Chem', { X: 10, Y: 20 }, 'O@o^-:3'),
+		item('Chem', { X: 120, Y: 0 }, 'C@c (-100 H) (<215 H) (<:250 H) -0@cb Br@br'),
+		item('Arrow', { From: 'o.lp', To: 'c' }),
+		item('Text', { X: 0, Y: 90 }, 'backside attack'),
+		item('Arrow', { X: 0, Y: 150, Length: 60 }, '', [item('Text', { Side: 'Below' }, 'slow')]),
+	];
+
+	it('reads every structure where the Board draws it, and keeps everything else as blocks', () => {
+		const drawing = loadBoard(new Map(), itemList(), metric);
+		expect(drawing.blockList.map((block) => block.type)).toEqual(['Chem', 'Chem', 'Arrow', 'Text', 'Arrow']);
+		expect(drawing.blockList[4]!.childList[0]!.body).toBe('slow');
+		const [hydroxide, carbon] = drawing.blockList;
+		expect(graphAtomList(drawing, hydroxide!.id)).toEqual(drawnAtomList('O@o^-:3', 10, 20));
+		expect(graphAtomList(drawing, carbon!.id)).toEqual(drawnAtomList('C@c (-100 H) (<215 H) (<:250 H) -0@cb Br@br', 120, 0));
 	});
 
-	it('finds the end of the last row, before Arrow and Label lines and comments', () => {
-		const text = 'A B % note\nC\nArrow a -> b\n\nLabel a: x';
-		expect(rowEnd(text)).toBe(text.indexOf('C') + 1);
-		expect(rowEnd('A B % note')).toBe(3);
-		expect(rowEnd('Label a: x')).toBe(-1);
-		expect(rowEnd('')).toBe(-1);
+	it('writes the Board back exactly when nothing changed, and reads its text again', () => {
+		const drawing = loadBoard(new Map(), itemList(), metric);
+		const text = writeBoard(syncBoard(drawing, metric));
+		expect(text).toBe(writeBoard(drawing));
+		expect(text.split('\n')[0]).toBe('Board:');
+		expect(text).toContain('\tChem {X: 120, Y: 0}: C@c (-100 H) (<215 H) (<:250 H) -0@cb Br@br');
+		expect(text).toContain('\tArrow {X: 0, Y: 150, Length: 60}:\n\t\tslow {Side: Below}');
+		expect(writeBoard(readBoardText(text, metric)!)).toBe(text);
+	});
+
+	it('moves a structure by its atoms: its X and Y follow, its text stays', () => {
+		const drawing = loadBoard(new Map(), itemList(), metric);
+		const carbon = drawing.blockList[1]!;
+		for (const atom of drawing.graph.atomList) if (atom.part === carbon.id) atom.x -= 40 / scale;
+		const next = syncBoard(drawing, metric);
+		const moved = next.blockList[1]!;
+		expect(moved.body).toBe('C@c (-100 H) (<215 H) (<:250 H) -0@cb Br@br');
+		expect(moved.property.get('X')).toBeCloseTo(80, 0);
+		expect(moved.property.get('Y')).toBeCloseTo(0, 0);
+	});
+
+	it('rewrites a changed structure and keeps its atoms where they are', () => {
+		const drawing = loadBoard(new Map(), itemList(), metric);
+		const carbon = drawing.blockList[1]!;
+		const bromine = drawing.graph.atomList.find((atom) => atom.name === 'br')!;
+		const before = graphAtomList(drawing, carbon.id);
+		addBond(drawing.graph, bromine.id, addAtom(drawing.graph, bromine.x + 1, bromine.y, 'C', { part: carbon.id }).id);
+		const next = syncBoard(drawing, metric);
+		const changed = next.blockList[1]!;
+		expect(changed.body).not.toBe(carbon.body);
+		expect(changed.body).toContain('@br');
+		// read again from its text and X/Y, every atom is where it was drawn (to a few tenths of a px)
+		const again = loadBoard(new Map(), [item('Chem', Object.fromEntries(changed.property), changed.body)], metric);
+		const after = graphAtomList(again, again.blockList[0]!.id);
+		expect(after).toHaveLength(before.length + 1);
+		for (const point of before) {
+			const [x, y] = point.split(',').map(Number);
+			expect(after.some((other) => Math.hypot(Number(other.split(',')[0]) - x!, Number(other.split(',')[1]) - y!) < 0.3)).toBe(true);
+		}
+	});
+
+	it('joins two structures a bond connects, makes a fragment drawn on its own a new Chem block, and drops an erased one', () => {
+		const drawing = loadBoard(new Map(), itemList(), metric);
+		const oxygen = drawing.graph.atomList.find((atom) => atom.name === 'o')!;
+		const carbon = drawing.graph.atomList.find((atom) => atom.name === 'c')!;
+		addBond(drawing.graph, oxygen.id, carbon.id);
+		const joined = syncBoard(drawing, metric);
+		expect(joined.blockList.filter((block) => block.type === 'Chem')).toHaveLength(1);
+		expect(joined.blockList[0]!.body).toContain('@o');
+		expect(joined.blockList[0]!.body).toContain('@c');
+
+		const apart = loadBoard(new Map(), itemList(), metric);
+		const first = addAtom(apart.graph, 30, -30);
+		addBond(apart.graph, first.id, addAtom(apart.graph, 31, -30).id);
+		const grown = syncBoard(apart, metric);
+		const added = grown.blockList.at(-1)!;
+		expect(added.type).toBe('Chem');
+		expect(added.body).toBe('-0');
+		expect(Number(added.property.get('X'))).toBeGreaterThan(30 * scale - 20);
+
+		const erased = loadBoard(new Map(), itemList(), metric);
+		for (const atom of [...erased.graph.atomList]) if (atom.name === 'o') removeAtom(erased.graph, atom.id);
+		expect(syncBoard(erased, metric).blockList.map((block) => block.type)).toEqual(['Chem', 'Arrow', 'Text', 'Arrow']);
+	});
+
+	it('keeps a Chem block it can not draw (a chemfig scheme) as a block', () => {
+		const drawing = loadBoard(new Map(), [item('Chem', { X: 0, Y: 0 }, '\\chemfig{A} \\+ \\chemfig{B}'), item('Chem', { X: 0, Y: 50 }, '')], metric);
+		expect(drawing.graph.atomList).toHaveLength(0);
+		expect(syncBoard(drawing, metric).blockList).toHaveLength(2);
+	});
+});
+
+describe('chemfig → Board', () => {
+	const mechanism = [
+		'\\chemfig{@{o}\\lewis{0:2:6:,HO}^{-}} \\qquad \\chemfig{@{c}C(-[:100]H)(>[:215]H)(>:[:250]H)@{cb}-@{br}Br}',
+		'Arrow o.lp -> c',
+		'Arrow cb -> br {Curve: 70, Kind: Fishhook}',
+		'Label c {Side: Below}: backside attack',
+		'\\schemestart \\arrow{<=>[][slow]} \\chemfig{HO-C} \\+ Br^{-} \\schemestop',
+	].join('\n');
+
+	it('makes a block of each structure, arrow, label, and piece of text', () => {
+		const itemList = chemfigToBoard(mechanism, {}, 16);
+		// a single species (Br^-) is a Chem block, so it takes lone pairs; a plus sign is text
+		expect(itemList.map((block) => block.type)).toEqual(['Chem', 'Chem', 'Chem', 'Text', 'Chem', 'Arrow', 'Arrow', 'Arrow', 'Text']);
+		const [hydroxide, carbon] = itemList;
+		expect(hydroxide!.body).toBe('O@o^-:3');
+		expect(carbon!.body).toContain('C@c');
+		expect(itemList[3]!.body).toBe('{Chem: +}');
+		expect(itemList[4]!.body).toBe('Br^-');
+		const equilibrium = itemList[5]!;
+		expect(Object.fromEntries(equilibrium.property)).toMatchObject({ Kind: 'Equilibrium' });
+		expect(equilibrium.childList.map((child) => [child.body, child.property.get('Side')])).toEqual([['slow', 'Below']]);
+		// arrows between names keep them, and keep what their line said
+		expect(Object.fromEntries(itemList[6]!.property)).toEqual({ From: 'o.lp', To: 'c' });
+		expect(Object.fromEntries(itemList[7]!.property)).toEqual({ From: 'cb', To: 'br', Curve: 70, Kind: 'Fishhook' });
+		expect(itemList[8]!.body).toBe('backside attack');
+	});
+
+	it('pins each structure where the chemfig block draws it', () => {
+		const scene = buildScene(mechanism);
+		const board = loadBoard(new Map(), chemfigToBoard(mechanism, {}, 16), metric);
+		scene.moleculeList.forEach((placed, index) => {
+			const expected = placed.molecule.atomList.map((atom) => ({ x: (atom.x * unit + placed.dx - scene.box.minX) * 16, y: (scene.box.maxY - (atom.y * unit + placed.dy)) * 16 }));
+			const block = board.blockList[index]!;
+			const actual = board.graph.atomList.filter((atom) => atom.part === block.id).map((atom) => ({ x: atom.x * scale, y: -atom.y * scale }));
+			// the same atoms in some order: compare each one's nearest
+			for (const point of expected) expect(Math.min(...actual.map((other) => Math.hypot(other.x - point.x, other.y - point.y)))).toBeLessThan(0.15);
+		});
 	});
 });

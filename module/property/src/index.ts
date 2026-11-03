@@ -35,6 +35,10 @@ export * from './body';
 
 const addPropertyEvent = 'oi-property-add';
 
+/** × and + for buttons, drawn so they sit in the middle (text marks sit low in most fonts). */
+const crossMark = '<svg viewBox="0 0 16 16" width="10" height="10" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><path d="M4.5 4.5l7 7M11.5 4.5l-7 7"/></svg>';
+const plusMark = '<svg viewBox="0 0 16 16" width="11" height="11" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><path d="M8 3.5v9M3.5 8h9"/></svg>';
+
 /** Opens the "add property" form of the Property block in this frame (the app's Add property command). */
 export function openPropertyForm(frame: HTMLElement | undefined): boolean {
 	const view = frame?.querySelector('.oi-property');
@@ -171,7 +175,7 @@ class PropertyView {
 					`<datalist id="oi-property-suggestion-${this.id}">${suggestionList.filter((name) => !list.some(([key]) => key === name)).map((name) => `<option value="${name}"></option>`).join('')}</datalist>` +
 					`<div class="oi-property-hint">${escapeHtml(propertyKindExample[this.formKind])}</div>` +
 					`</div>`
-				: `<button type="button" class="oi-property-add" data-action="Add" data-oi-focus>+ Add property</button>`;
+				: `<button type="button" class="oi-property-add" data-action="Add" data-oi-focus>${plusMark}<span>Add property</span></button>`;
 		}
 		this.root.innerHTML = rowHtml + footer;
 		this.root.toggleAttribute('data-empty', list.length === 0);
@@ -195,7 +199,7 @@ class PropertyView {
 			`<div class="oi-property-row" data-key="${name}" data-index="${index}" data-kind="${kind}">` +
 			`<div class="oi-property-name">${kindButton}${keyHtml}</div>` +
 			`<div class="oi-property-value">${this.valueHtml(key, value, kind, readOnly)}</div>` +
-			(readOnly ? '' : `<button type="button" class="oi-property-remove" data-action="Remove" title="Remove this property" aria-label="Remove ${name}">×</button>`) +
+			(readOnly ? '' : `<button type="button" class="oi-property-remove" data-action="Remove" title="Remove this property" aria-label="Remove ${name}">${crossMark}</button>`) +
 			`</div>`
 		);
 	}
@@ -233,7 +237,7 @@ class PropertyView {
 					return `<input class="oi-pill-input" data-field="pill:${escapeHtml(key)}:${index}" value="${escapeHtml(text)}" size="${Math.max(4, text.length + 1)}" aria-label="Edit ${escapeHtml(text)}" spellcheck="false">`;
 				}
 				const tagAttribute = tag ? ` data-oi-tag="${escapeHtml(text)}"` : '';
-				return `<span class="oi-pill${tag ? ' oi-pill-tag' : ''}" data-index="${index}"${tagAttribute}${readOnly ? '' : ' tabindex="0" role="button" title="Click to edit, drag to move"'}>${escapeHtml(hash + text)}${readOnly ? '' : `<button type="button" class="oi-pill-remove" data-action="PillRemove" data-index="${index}" tabindex="-1" aria-label="Remove ${escapeHtml(text)}">×</button>`}</span>`;
+				return `<span class="oi-pill${tag ? ' oi-pill-tag' : ''}" data-index="${index}"${tagAttribute}${readOnly ? '' : ' tabindex="0" role="button" title="Click to edit, drag to move"'}>${escapeHtml(hash + text)}${readOnly ? '' : `<button type="button" class="oi-pill-remove" data-action="PillRemove" data-index="${index}" tabindex="-1" aria-label="Remove ${escapeHtml(text)}">${crossMark}</button>`}</span>`;
 			})
 			.join('');
 		let add = '';
@@ -241,7 +245,7 @@ class PropertyView {
 			add =
 				this.pillEdit?.key === key && this.pillEdit.index === -1
 					? `<input class="oi-pill-input" data-field="pill:${escapeHtml(key)}:-1" size="6" placeholder="New" aria-label="Add to ${escapeHtml(key)}" spellcheck="false">`
-					: `<button type="button" class="oi-pill-add" data-action="PillAdd" title="Add" aria-label="Add to ${escapeHtml(key)}">+</button>`;
+					: `<button type="button" class="oi-pill-add" data-action="PillAdd" title="Add" aria-label="Add to ${escapeHtml(key)}">${plusMark}</button>`;
 		}
 		return `<div class="oi-property-pill-row" data-key="${escapeHtml(key)}">${itemHtml}${add}</div>`;
 	}
@@ -666,7 +670,7 @@ button.oi-property-kind:hover { background: var(--oi-color-surface2); color: var
 .oi-property-key-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 3px 6px; }
 .oi-property-text { padding: 3px 6px; overflow-wrap: anywhere; }
 .oi-property-check { width: 16px; height: 16px; margin: 0 6px; accent-color: var(--oi-color-accent); }
-.oi-property-remove { width: 24px; height: 24px; padding: 0; border: none; border-radius: 4px; background: none; color: var(--oi-color-text-muted); font-size: 15px; opacity: 0; cursor: pointer; }
+.oi-property-remove { width: 24px; height: 24px; display: grid; place-items: center; padding: 0; border: none; border-radius: 4px; background: none; color: var(--oi-color-text-muted); font-size: 15px; opacity: 0; cursor: pointer; }
 .oi-property-row:hover .oi-property-remove, .oi-property-remove:focus-visible { opacity: 1; }
 .oi-property-remove:hover { background: var(--oi-color-surface2); color: var(--oi-color-danger); }
 .oi-property-pill-row { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; padding: 3px 2px; }
@@ -675,14 +679,14 @@ button.oi-property-kind:hover { background: var(--oi-color-surface2); color: var
 .oi-read-only .oi-pill-tag { cursor: pointer; }
 .oi-pill[data-dragging] { opacity: 0.4; }
 .oi-pill:focus-visible { outline: 2px solid var(--oi-color-accent); outline-offset: 1px; }
-.oi-pill-remove { padding: 0 5px; border: none; background: none; color: inherit; font: inherit; line-height: 1; opacity: 0.55; cursor: pointer; }
+.oi-pill-remove { width: 18px; height: 18px; margin-inline-start: 2px; display: inline-grid; place-items: center; vertical-align: middle; padding: 0; border: none; border-radius: 50%; background: none; color: inherit; opacity: 0.55; cursor: pointer; }
 .oi-pill-remove:hover { opacity: 1; }
 .oi-pill-input { min-width: 4ch; padding: 1px 8px; border: 1px solid var(--oi-color-accent); border-radius: 999px; background: var(--oi-color-background); color: var(--oi-color-text); font: inherit; line-height: 1.5; outline: none; }
-.oi-pill-add { width: 24px; height: 24px; padding: 0; border: 1px dashed var(--oi-color-border); border-radius: 999px; background: none; color: var(--oi-color-text-muted); font: inherit; line-height: 1; cursor: pointer; }
+.oi-pill-add { width: 24px; height: 24px; display: inline-grid; place-items: center; padding: 0; border: 1px dashed var(--oi-color-border); border-radius: 999px; background: none; color: var(--oi-color-text-muted); font: inherit; line-height: 1; cursor: pointer; }
 .oi-pill-add:hover { border-color: var(--oi-color-accent); color: var(--oi-color-accent); }
 .oi-property-drop { display: inline-block; width: 2px; height: 22px; border-radius: 1px; background: var(--oi-color-accent); }
 .oi-property-drop.oi-property-drop-row { display: block; width: 100%; height: 2px; }
-.oi-property-add { align-self: flex-start; margin: 2px 0 0; padding: 4px 8px; border: none; border-radius: 5px; background: none; color: var(--oi-color-text-muted); font: inherit; cursor: pointer; }
+.oi-property-add { display: inline-flex; align-items: center; gap: 6px; align-self: flex-start; margin: 2px 0 0; padding: 4px 8px; border: none; border-radius: 5px; background: none; color: var(--oi-color-text-muted); font: inherit; cursor: pointer; }
 .oi-property-add:hover, .oi-property-add:focus-visible { background: var(--oi-color-surface1); color: var(--oi-color-text); }
 .oi-property-form { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 6px 4px; }
 .oi-property-new { flex: 1; min-width: 140px; padding: 4px 8px; border: 1px solid var(--oi-color-border); border-radius: 6px; background: var(--oi-color-background); color: var(--oi-color-text); font: inherit; outline: none; }

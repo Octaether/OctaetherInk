@@ -16,6 +16,7 @@ import type {
 	BlockTypeDefinition,
 	CommandDefinition,
 	Definition,
+	FeatureDefinition,
 	HostContext,
 	InlineRenderer,
 	ModuleToken,
@@ -91,7 +92,7 @@ export class Registry {
 	private readonly activeSet = new Set<string>();
 	private readonly cleanupMap = new Map<string, (() => void)[]>();
 	private readonly blockTypeOwner = new Map<string, string>();
-	private readonly extensionMap = new Map<string, unknown>();
+	private readonly extensionMap = new Map<string, { value: unknown; feature: string | undefined }>();
 	private readonly listenerSet = new Set<() => void>();
 	private service: HostService | undefined;
 
@@ -231,11 +232,38 @@ export class Registry {
 		return this.service?.setting(id);
 	}
 
-	/** Every module's and plugin's own settings (with the alias settings of its block types), with the owner's name. */
-	settingList(): { owner: string; setting: SettingDefinition }[] {
-		return this.definitionList().flatMap((definition) =>
-			[...(definition.settingList ?? []), ...(definition.kind === 'Module' ? definition.blockTypeList.flatMap(aliasSettingList) : [])].map((setting) => ({ owner: definition.name, setting })),
-		);
+	/**
+	 * Every module's and plugin's own settings (with the alias settings of its block types), with the
+	 * owner's name; then each feature's switch (a Toggle with the feature's id) and its own settings.
+	 */
+	settingList(): { owner: string; setting: SettingDefinition; feature?: string }[] {
+		return this.definitionList().flatMap((definition) => [
+			...[...(definition.settingList ?? []), ...(definition.kind === 'Module' ? definition.blockTypeList.flatMap(aliasSettingList) : [])].map((setting) => ({ owner: definition.name, setting })),
+			...(definition.featureList ?? []).flatMap((feature) => [
+				{ owner: definition.name, feature: feature.id, setting: { id: feature.id, title: feature.title, type: 'Toggle' as const, default: feature.default, explain: feature.explain } },
+				...(feature.settingList ?? []).map((setting) => ({ owner: definition.name, feature: feature.id, setting })),
+			]),
+		]);
+	}
+
+	/** Every feature with the module or plugin it belongs to. */
+	featureList(): { owner: string; feature: FeatureDefinition }[] {
+		return this.definitionList().flatMap((definition) => (definition.featureList ?? []).map((feature) => ({ owner: definition.name, feature })));
+	}
+
+	/** The modules a feature needs that are off (its own included). */
+	missingFor(id: string): string[] {
+		const entry = this.featureList().find((item) => item.feature.id === id);
+		if (!entry) return [];
+		return [entry.owner, ...(entry.feature.use ?? [])].filter((name) => !this.enabledSet.has(name));
+	}
+
+	/** True when a feature's switch is on and every module it needs is on. */
+	isFeatureActive(id: string): boolean {
+		const entry = this.featureList().find((item) => item.feature.id === id);
+		if (!entry) return false;
+		const value = this.setting(id);
+		return (value === undefined ? entry.feature.default : value !== false) && this.missingFor(id).length === 0;
 	}
 
 	/** Status bar items of the enabled modules and plugins, left to right. */
@@ -252,7 +280,9 @@ export class Registry {
 	}
 
 	templateList(): TemplateEntry[] {
-		return this.enabledBlockTypeList().flatMap((blockType) => (blockType.templateList ?? []).map((template) => ({ ...template, type: blockType.name })));
+		return this.enabledBlockTypeList().flatMap((blockType) =>
+			(blockType.templateList ?? []).filter((template) => template.feature === undefined || this.isFeatureActive(template.feature)).map((template) => ({ ...template, type: blockType.name })),
+		);
 	}
 
 	moduleTokenList(): ModuleToken[] {
@@ -263,19 +293,22 @@ export class Registry {
 		return this.enabledBlockTypeList().flatMap((blockType) => (blockType.style ? [{ name: blockType.name, style: blockType.style }] : []));
 	}
 
-	registerExtension(name: string, value: unknown): () => void {
-		this.extensionMap.set(name, value);
+	registerExtension(name: string, value: unknown, feature?: string): () => void {
+		this.extensionMap.set(name, { value, feature });
 		this.emit();
 		return () => {
-			if (this.extensionMap.get(name) === value) {
+			if (this.extensionMap.get(name)?.value === value) {
 				this.extensionMap.delete(name);
 				this.emit();
 			}
 		};
 	}
 
+	/** An extension, unless the feature it belongs to is off. */
 	extension<T>(name: string): T | undefined {
-		return this.extensionMap.get(name) as T | undefined;
+		const entry = this.extensionMap.get(name);
+		if (!entry || (entry.feature !== undefined && !this.isFeatureActive(entry.feature))) return undefined;
+		return entry.value as T;
 	}
 
 	subscribe(listener: () => void): () => void {
@@ -304,8 +337,9 @@ export class Registry {
 		return {
 			registerCommand: (command) => track(service.registerCommand(command)),
 			registerTheme: (theme) => track(service.registerTheme(theme)),
-			registerExtension: (key, value) => track(this.registerExtension(key, value)),
+			registerExtension: (key, value, feature) => track(this.registerExtension(key, value, feature)),
 			extension: (key) => this.extension(key),
+			feature: (id) => this.isFeatureActive(id),
 			setting: (id) => service.setting(id),
 			theme: () => service.theme(),
 			applyTheme: (themeName) => service.applyTheme(themeName),

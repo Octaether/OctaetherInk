@@ -7,26 +7,64 @@ Property:
 	Tag: [Guide, Module]
 	Module: Chemistry
 
-The **Chemistry** module draws chemfig: molecules, reactions, and mechanisms with electron-pushing arrows. Hover a drawing and click *Edit drawing* to change all of it in the drawing tool, with its text below, or ✎ on one molecule to change just that one. Back to [[Welcome]]; equations are in [[Math]].
+The **Chemistry** module draws molecules, reactions, and mechanisms with electron-pushing arrows. Hover a drawing and click *Edit drawing* (or *Edit board*) to change it in the drawing tool, like ChemDraw. Back to [[Welcome]]; equations are in [[Math]].
 
-## A mechanism
+## One structure
 
-Chem:
-	\chemfig{@{o}\lewis{0:2:6:,HO}^{-}} \qquad \chemfig{@{c}C(-[:100]H)(>[:215]H)(>:[:250]H)@{cb}-@{br}Br}
-	Arrow o.lp -> c
-	Arrow cb -> br {Curve: 70}
-	Label c {Side: Below}: backside attack, **inversion** of configuration
-	\schemestart \arrow{->[][slow]} \chemfig{HO-[,,,,dashed]@{ts}C(-[2]H)(>[:235]H)(>:[:305]H)-[,,,,dashed]Br} \arrow{->} \chemfig{HO-C(-[:80]H)(>[:-35]H)(>:[:-70]H)} \+ Br^{-} \schemestop
-	Label ts {Side: Below, Color: Accent}: transition state
+Chem: -30 (<90 O) -330 -30
 
-- `\lewis{0:2:6:,HO}` puts lone pairs at 0°, 90°, and 270° (each number times 45°).
-- `Arrow o.lp -> c` starts at a lone pair of the atom named `o`; `cb` names the C–Br bond.
-- `Label` puts text in the drawing, and it steps clear of atoms and arrows.
+A Chem block holds one structure, here 2-butanol. You draw it; the note keeps it as one short line of bonds with their direction in degrees (`-30` goes up-right, `-330` down-right), branches in parentheses (`<90 O`: a wedge up to an O), and atoms. Bare corners are carbons, and hydrogens are added by themselves.
+
+## A mechanism on a board
+
+Board:
+	Chem {X: 14.7, Y: 37.8}: O@o^-:3
+	Chem {X: 76.4, Y: 0}: H >35 C@c (-0@cb Br@br) (-100 H) <:250 H
+	Chem {X: 65.6, Y: 157.4}: O -0[Dashed] C@ts (-0[Dashed] Br) (-90 H) (<235 H) <:305 H
+	Chem {X: 243.4, Y: 155.4}: O -0 C (-80 H) (<:290 H) <325 H
+
+	{Chem: +} {X: 353.1, Y: 194}
+
+	Chem {X: 368.7, Y: 193.7}: Br^-
+	Arrow {X: 8.8, Y: 206, Length: 51.2}:
+		slow {Side: Below}
+	Arrow {X: 186.6, Y: 206, Length: 51.2}:
+	Arrow {From: o.lp, To: c}:
+	Arrow {From: cb, To: br, Curve: 70}:
+
+	backside attack, **inversion** of configuration {X: 5.6, Y: 100.3, Size: 0.85em, TextAlign: Center, Width: 227.2}
+
+	transition state {X: 74.1, Y: 253.7, Size: 0.85em, TextAlign: Center, Color: Accent}
+
+- A **Board** places each block where its X and Y say. Alt + drag a block on it right here, or open *Edit board* and drag anything: click a bond to pick up a whole structure, or drag a box around a chunk. Click empty space to let go.
+- `O@o^-:3` is an oxygen named `o`, charged −1, with three lone pairs. `Arrow {From: o.lp, To: c}` starts at the lone pair facing the carbon named `c`; `cb` names the C–Br bond.
+- The text is ordinary text blocks: double-click one in *Edit board* to change it. Text inside an arrow sits above or below it.
+- Text on an arrow slides along it or to its other side when you drag it, and leaves the arrow when you drop it farther away; drop text on an arrow to put it there.
+- The Color button opens the Palette: the theme's colors, a palette (Element has the usual element colors; import your own), the colors you used lately, and any hex code. Pick one, then click what to color.
+- A Board with no Chem blocks opens with just arrows, text, and color: chemistry tools show where there is chemistry.
+- Keys pick tools: V select, E erase, 1 2 3 bonds, W wedge, R benzene, D lone pair, A curved arrow, T text, G color (hover a tool for its key). On an atom or a bond, element letters and 1 2 3 change it instead. Setting → Hotkey changes them (search "Drawing").
+- In *Edit board*, a right click undoes what the tool does (the lone pair tool takes a pair away) or opens a menu (an arrow's kind, head, and color); a right drag moves around. Hold a tool button for more tools of its kind. On a touch screen, hold your finger instead of right-clicking.
 
 ## A reaction scheme
 
+Board:
+	Chem {X: 0, Y: 4}: &1 =30 -330 =270 -210 =150 -&1
+	Chem {X: 145.1, Y: 0}: &1 =30 -330 * (-30 Br) =270 -210 =150 -&1
+
+	{Chem: +} {X: 271.8, Y: 36}
+
+	Chem {X: 287.3, Y: 35.7}: Br
+	Arrow {X: 83.3, Y: 48, Length: 56.2}:
+		{Chem: Br_2} {Side: Above}
+
+		{Chem: FeBr_3} {Side: Below}
+
+## From LaTeX
+
 Chem:
 	\schemestart \chemfig{*6(=-=-=-)} \arrow{->[Br_2][FeBr_3]} \chemfig{*6(=-=(-Br)-=-)} \+ HBr \schemestop
+
+chemfig pasted from a LaTeX note draws as it is. *Edit drawing* turns it into a Board like the one above, with every structure, arrow, and label pinned where it is.
 
 ## In a sentence
 

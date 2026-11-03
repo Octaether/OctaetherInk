@@ -41,6 +41,8 @@ export interface Atom {
 	y: number;
 	span: Span;
 	name?: string;
+	/** A theme color (Accent, Danger…) or a CSS color for the label and electrons. */
+	color?: string;
 	/** Horizontal offset (em) from the label's left edge to the centre of its main atom. */
 	anchor: number;
 	/** Label width in em. */

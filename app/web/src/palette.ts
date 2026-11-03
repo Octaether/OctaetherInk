@@ -114,6 +114,8 @@ export function openCommandPalette(commandRegistry: CommandRegistry, hotkey: (co
 		itemList: (query) =>
 			commandRegistry
 				.list()
+				// commands with a context of their own (the drawing tool's) work only there
+				.filter((command) => command.when === undefined)
 				.map((command) => ({ command, score: bestFuzzyScore(query, [[command.title, 0], [command.id, 0.5]]) }))
 				.filter((item) => item.score >= 0)
 				.sort((left, right) => left.score - right.score || left.command.title.localeCompare(right.command.title))

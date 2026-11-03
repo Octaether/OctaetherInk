@@ -1,0 +1,14 @@
+{
+	"name": "@octaether/plugin-palette",
+	"version": "0.1.0",
+	"private": true,
+	"description": "OI Palette plugin: one color picker (theme colors, presets, your swatches, recent colors, any hex code) for every module",
+	"license": "MIT",
+	"type": "module",
+	"exports": {
+		".": "./src/index.ts"
+	},
+	"dependencies": {
+		"@octaether/core-sdk": "*"
+	}
+}
