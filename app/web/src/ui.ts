@@ -16,6 +16,8 @@ export interface MenuItem {
 	separatorBefore?: boolean;
 	run?(): void;
 	itemList?: MenuItem[];
+	/** A heading the item sits under (the module that gives a block); with a search, shown at the right instead. */
+	group?: string;
 }
 
 export interface MenuOption {
@@ -53,6 +55,7 @@ export class Menu {
 	private readonly listElement: HTMLElement;
 	private readonly searchElement: HTMLInputElement | undefined;
 	private visibleList: MenuItem[] = [];
+	private query = '';
 	private active = 0;
 	private child: Menu | undefined;
 	private closed = false;
@@ -113,6 +116,7 @@ export class Menu {
 
 	setQuery(query: string): void {
 		const text = query.trim().toLowerCase();
+		this.query = text;
 		// best first: title starts with the query, a title word does, the title contains it, then keywords
 		const rank = (item: MenuItem): number => {
 			const title = item.title.toLowerCase();
@@ -183,7 +187,7 @@ export class Menu {
 		if (this.visibleList.length === 0) return;
 		this.active = (this.active + step + this.visibleList.length) % this.visibleList.length;
 		this.render();
-		this.listElement.children[this.active]?.scrollIntoView({ block: 'nearest' });
+		this.rowOf(this.active)?.scrollIntoView({ block: 'nearest' });
 	}
 
 	private runActive(): void {
@@ -199,11 +203,16 @@ export class Menu {
 
 	private openChild(index: number): void {
 		const item = this.visibleList[index];
-		const row = this.listElement.children[index] as HTMLElement | undefined;
+		const row = this.rowOf(index);
 		if (!item?.itemList || !row) return;
 		this.child?.close();
 		const rect = row.getBoundingClientRect();
 		this.child = new Menu(item.itemList, { x: rect.right - 4, y: rect.top - 4 }, this);
+	}
+
+	/** An item's row (headings and separators sit between rows). */
+	private rowOf(index: number): HTMLElement | undefined {
+		return this.listElement.querySelector<HTMLElement>(`.menu-item[data-index="${index}"]`) ?? undefined;
 	}
 
 	private render(): void {
@@ -211,11 +220,17 @@ export class Menu {
 			this.listElement.innerHTML = `<div class="menu-empty">${escapeHtml(this.option.emptyText ?? 'Nothing matches')}</div>`;
 			return;
 		}
+		let lastGroup: string | undefined;
 		this.listElement.innerHTML = this.visibleList
 			.map((item, index) => {
+				// grouped under a heading while nothing is typed; the group at the right while searching
+				const grouped = item.group !== undefined && this.query === '';
+				const heading = grouped && item.group !== lastGroup ? `<div class="menu-group" role="presentation">${escapeHtml(item.group!)}</div>` : '';
+				lastGroup = item.group;
+				const hint = item.hint ?? (!grouped && item.group ? item.group : undefined);
 				const glyph = item.icon ? (item.icon.startsWith('<svg') ? item.icon : `<span class="menu-glyph">${escapeHtml(item.icon)}</span>`) : '<span class="menu-glyph"></span>';
 				const title = item.explain ? `<span class="menu-title">${escapeHtml(item.title)}<span class="menu-explain">${escapeHtml(item.explain)}</span></span>` : `<span class="menu-title">${escapeHtml(item.title)}</span>`;
-				return `${item.separatorBefore && index > 0 ? '<div class="menu-separator"></div>' : ''}<div class="menu-item${index === this.active ? ' active' : ''}${item.danger ? ' danger' : ''}" role="menuitem" data-index="${index}">${glyph}${title}${item.hint ? `<span class="menu-hint">${escapeHtml(item.hint)}</span>` : ''}${item.itemList ? `<span class="menu-chevron">${icon.Chevron}</span>` : ''}</div>`;
+				return `${heading}${item.separatorBefore && index > 0 && !heading ? '<div class="menu-separator"></div>' : ''}<div class="menu-item${grouped ? ' menu-item-grouped' : ''}${index === this.active ? ' active' : ''}${item.danger ? ' danger' : ''}" role="menuitem" data-index="${index}">${glyph}${title}${hint ? `<span class="menu-hint">${escapeHtml(hint)}</span>` : ''}${item.itemList ? `<span class="menu-chevron">${icon.Chevron}</span>` : ''}</div>`;
 			})
 			.join('');
 		for (const row of this.listElement.querySelectorAll<HTMLElement>('.menu-item')) {

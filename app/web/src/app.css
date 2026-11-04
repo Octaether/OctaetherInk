@@ -740,6 +740,8 @@ body:not(.in-vault) .vault-only {
 	min-height: 0;
 	overflow: auto;
 	overscroll-behavior: contain;
+	/* a Full width block measures the view (100cqw) */
+	container-type: inline-size;
 }
 
 .page {
@@ -1104,7 +1106,27 @@ body.no-block-outline #note .oi-frame[data-oi-editing]::after {
 	display: none;
 }
 
-/* the page is a Masonry Board: the cards get the window's width */
+/* a .csv, .tsv, or .xlsx in the File view: its table over the whole page */
+.file-view-data {
+	flex: 1;
+	min-height: 0;
+	overflow: auto;
+	padding: 20px 32px 40px;
+}
+
+.file-view-data-note {
+	font-size: var(--app-note-size, 16px);
+}
+
+/* a block set to Full width (Wide: True): wider than the text around it, centered on it */
+.page.readable:not(.wide) #note > .oi-frame.oi-wide {
+	--oi-wide-width: max(100%, min(1240px, calc(100cqw - 112px)));
+	width: var(--oi-wide-width);
+	max-width: none;
+	margin-left: calc((100% - var(--oi-wide-width)) / 2);
+}
+
+/* the page is a Masonry Board, or just a Table or a Calendar: it gets the window's width */
 .page.wide,
 .page.readable.wide {
 	max-width: 1400px;
@@ -1968,6 +1990,25 @@ mark.s-find-current span {
 	height: 1px;
 	margin: 4px 6px;
 	background: var(--oi-color-border);
+}
+
+/* the block menu: each module's blocks under its name, indented */
+.menu-group {
+	padding: 8px 8px 3px;
+	font-size: 11px;
+	font-weight: 600;
+	letter-spacing: 0.06em;
+	text-transform: uppercase;
+	color: var(--oi-color-text-muted);
+}
+
+.menu-group:not(:first-child) {
+	margin-top: 4px;
+	border-top: 1px solid var(--oi-color-border);
+}
+
+.menu-item-grouped {
+	padding-left: 18px;
 }
 
 .menu-empty {

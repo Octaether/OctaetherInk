@@ -168,6 +168,11 @@ export class Vault {
 
 	// ------------------------------------------------------------ read and write
 
+	/** A note's text as last read or written, without asking the disk (undefined when it isn't known). */
+	cachedText(path: string): string | undefined {
+		return this.textMap.get(path);
+	}
+
 	async read(path: string): Promise<string> {
 		const cached = this.textMap.get(path);
 		if (cached !== undefined) return cached;
@@ -184,6 +189,13 @@ export class Vault {
 	/** A file's bytes: an image or a video a note shows. */
 	async readBinary(path: string): Promise<Blob> {
 		return this.fs.readBinary(path);
+	}
+
+	/** Writes a file's bytes in place (a table's .xlsx after an edit). */
+	async writeBinary(path: string, data: Blob): Promise<void> {
+		await this.fs.writeBinary(path, data);
+		this.addEntry(path, 'File');
+		this.emit();
 	}
 
 	/** Keeps a file a note shows (a pasted image) in `folder`, under a free name like `name 1.png`; returns its path. */

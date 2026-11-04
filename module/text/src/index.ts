@@ -128,7 +128,7 @@ const textBlockType: BlockTypeDefinition = {
 		{ title: 'Numbered list', icon: '1.', source: '1. ', keywordList: ['ordered'] },
 		{ title: 'To-do', icon: '☐', source: '- [ ] ', keywordList: ['task', 'checkbox'] },
 		{ title: 'Quote', icon: '❝', source: '> ' },
-		{ title: 'Table', icon: '▦', source: '| Column | Column |\n| --- | --- |\n| | |' },
+		{ title: 'Markdown table', icon: '▦', explain: 'Plain Markdown; for one you can sort, sum, and plot, use Table', keywordList: ['markdown', 'pipe'], source: '| Column | Column |\n| --- | --- |\n| | |' },
 	],
 	style: textStyle,
 	plainText: (block) => markdownPlainText(block.body),

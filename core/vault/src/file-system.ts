@@ -98,6 +98,11 @@ export function mediaTypeOf(path: string): string {
 export type MediaKind = 'Image' | 'Video' | 'Audio';
 
 /** Whether the app can show a file on its own (a picture, a video, a sound), as Obsidian does; undefined for anything else. */
+/** Data a Table shows and edits: CSV, tab-separated text, and Excel workbooks. */
+export function isDataFile(path: string): boolean {
+	return /\.(?:csv|tsv|xlsx)$/i.test(path);
+}
+
 export function mediaKindOf(path: string): MediaKind | undefined {
 	const type = mediaTypeOf(path);
 	if (type.startsWith('image/')) return 'Image';

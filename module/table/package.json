@@ -1,0 +1,16 @@
+{
+	"name": "@octaether/module-table",
+	"version": "0.1.0",
+	"private": true,
+	"description": "OI Table module: CSV tables you type into like a spreadsheet, with formulas, filters, groups, summaries, Board/Gallery/List layouts, and tables of notes",
+	"license": "MIT",
+	"type": "module",
+	"exports": {
+		".": "./src/index.ts"
+	},
+	"dependencies": {
+		"@octaether/core-expression": "*",
+		"@octaether/core-format": "*",
+		"@octaether/core-sdk": "*"
+	}
+}

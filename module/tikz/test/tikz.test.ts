@@ -75,7 +75,7 @@ describe('renderDiagram', () => {
 	it('renders SVG paths with source spans and HTML labels', () => {
 		const source = '\\draw[->] (0,0) -- (1,0) node[right] {$x$};';
 		const html = renderDiagram(parseTikz(source), { resolveColor: () => undefined, renderLabel: (content, offset) => `<i data-at="${offset}">${content}</i>` });
-		expect(html).toContain('<svg class="oi-diagram-svg"');
+		expect(html).toContain('<svg class="oi-tikz-svg"');
 		expect(html).toMatch(/<g data-oi-s="0" data-oi-e="\d+"><path d="M [\d.]+ [\d.]+ L/);
 		expect(html).toContain('<polygon');
 		expect(html).toContain(`<i data-at="${source.indexOf('$x$')}">$x$</i>`);

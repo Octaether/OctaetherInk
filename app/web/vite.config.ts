@@ -21,8 +21,31 @@ function noteNoReload(): Plugin {
 	};
 }
 
+/**
+ * Modules load their engines when first used (a Plot, a Table, a Calendar). The page names those
+ * files as prefetch links, so the browser fetches them when idle and the service worker, which caches
+ * every /assets/ file the page names, keeps them for offline use.
+ */
+function prefetchLazyChunk(): Plugin {
+	return {
+		name: 'octaether-prefetch-lazy-chunk',
+		apply: 'build',
+		transformIndexHtml: {
+			order: 'post',
+			handler(html, context) {
+				if (!context.bundle) return html;
+				const named = new Set([...html.matchAll(/\/assets\/[^"'()\s>]+/g)].map((match) => match[0]));
+				const tagList = Object.values(context.bundle)
+					.filter((item) => item.type === 'chunk' && !named.has(`/${item.fileName}`))
+					.map((item) => ({ tag: 'link', attrs: { rel: 'prefetch', href: `/${item.fileName}`, as: 'script' }, injectTo: 'head' as const }));
+				return { html, tags: tagList };
+			},
+		},
+	};
+}
+
 export default defineConfig({
-	plugins: [noteNoReload()],
+	plugins: [noteNoReload(), prefetchLazyChunk()],
 	server: {
 		port: 5173,
 		// the sample vault lives at the repository root

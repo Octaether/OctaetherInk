@@ -207,6 +207,8 @@ export interface BlockTypeDefinition {
 	frameClassList?(block: ResolvedBlock): string[];
 	templateList?: readonly BlockTemplate[];
 	plainText?(block: ResolvedBlock): string;
+	/** The page uses the window's whole width when this is the note's only block (a Property block aside): a Table, a Calendar. */
+	fillPage?: boolean;
 }
 
 /**
@@ -425,4 +427,224 @@ export function loadAssetImage(root: ParentNode, context: { extension<T>(name: s
 			}
 		});
 	}
+}
+
+// ---------------------------------------------------------------- loading a renderer when it is first needed
+
+/** Adds a module's CSS to the page once (for CSS that loads with the module's code, not with the app). */
+export function installStyle(id: string, css: string): void {
+	if (typeof document === 'undefined' || document.head.querySelector(`style[data-oi-style="${id}"]`)) return;
+	const element = document.createElement('style');
+	element.dataset.oiStyle = id;
+	element.textContent = css;
+	document.head.append(element);
+}
+
+// ---------------------------------------------------------------- loading a renderer when it is first needed
+
+/**
+ * A renderer whose code loads the first time a block of its type is drawn (`import('./view')`), so a
+ * module costs nothing until it is used. Until then the block shows a quiet placeholder; updates
+ * that come meanwhile are kept, and the last one is drawn.
+ */
+export function lazyRenderer(load: () => Promise<Renderer>, placeholderText = ''): Renderer {
+	let loaded: Renderer | undefined;
+	let loading: Promise<Renderer> | undefined;
+	return {
+		mount(frame, block, context) {
+			if (loaded) return loaded.mount(frame, block, context);
+			loading ??= load().then((renderer) => (loaded = renderer));
+			const holder = document.createElement('div');
+			holder.className = 'oi-loading';
+			holder.textContent = placeholderText;
+			frame.append(holder);
+			let latest = { block, context };
+			let handle: RenderHandle | void = undefined;
+			let destroyed = false;
+			loading.then(
+				(renderer) => {
+					if (destroyed) return;
+					holder.remove();
+					handle = renderer.mount(frame, latest.block, latest.context);
+				},
+				(error: unknown) => {
+					loading = undefined;
+					holder.textContent = `Could not load: ${error instanceof Error ? error.message : String(error)}`;
+					holder.setAttribute('data-oi-problem', holder.textContent);
+				},
+			);
+			return {
+				update(next, nextContext) {
+					if (!handle) {
+						latest = { block: next, context: nextContext };
+						return 'Done';
+					}
+					return handle.update ? handle.update(next, nextContext) : 'Remount';
+				},
+				anchor: (name, toward) => (handle ? handle.anchor?.(name, toward) : undefined),
+				theme: (theme) => (handle ? handle.theme?.(theme) : undefined),
+				destroy() {
+					destroyed = true;
+					if (handle) handle.destroy?.();
+				},
+			};
+		},
+	};
+}
+
+// ---------------------------------------------------------------- the vault's notes (calendars, tables of notes)
+
+/** The name of the extension the app registers for the vault's notes: `context.extension<NoteIndex>(noteIndexExtension)`. */
+export const noteIndexExtension = 'NoteIndex';
+
+export interface NoteSummary {
+	/** `Class/Linear Algebra.oi` */
+	path: string;
+	/** The file name without `.oi`. */
+	name: string;
+	/** Its folder (`Class`), '' at the top. */
+	folder: string;
+	/** Your properties: the note's first Property block, over any kept in its `---` header. */
+	property: PropertyMap;
+	tagList: readonly string[];
+}
+
+export interface NoteIndex {
+	/** Every note of the vault, with its properties (unsaved edits of open notes included). */
+	noteList(): readonly NoteSummary[];
+	/** The path of an open note (the one a block is in). */
+	pathOf(note: NoteModel): string | undefined;
+	/** Called after any note changes, is added, or goes. */
+	subscribe(listener: () => void): () => void;
+	/** Sets (or, with undefined, removes) properties of a note, in its Property block; one undo step if it is open. */
+	setProperty(path: string, change: ReadonlyMap<string, PropertyValue | undefined>): Promise<void>;
+	/** Writes a new note with a Property block and a body (OI text); a taken name gets a number. Resolves to its path. */
+	createNote(option: { folder: string; name: string; property: PropertyMap; body?: string }): Promise<string | undefined>;
+	/** Moves a note to the trash (with Undo); true when it went. */
+	trashNote(path: string): Promise<boolean>;
+	/** A note's text, unsaved edits included. */
+	readNote(path: string): Promise<string | undefined>;
+	/**
+	 * A note's live model, to show and change a block that lives there (`Table {From: "[[Gym]]"}`): the
+	 * one of its tab when it is open (changes join that tab's undo), otherwise one read from the file,
+	 * whose changes are written back at once. Undefined when there is no such note.
+	 */
+	modelOf(path: string): Promise<NoteModel | undefined>;
+	/** A link's target (`Gym`, `Folder/Gym`) → a note's path. */
+	resolve(target: string, from?: string): string | undefined;
+	/** Opens a note (or a file the app shows, like a .csv) in this tab, or a new one. */
+	open(path: string, newTab?: boolean): void;
+	/** A file a block names (`Data/Gym.csv`, or just `Gym.csv` found anywhere, as Obsidian does) → its path. */
+	findFile(source: string, from?: string): string | undefined;
+	readFile(path: string): Promise<Blob | undefined>;
+	/** Writes a file in place (text or bytes). */
+	writeFile(path: string, data: string | Blob): Promise<void>;
+	/** Writes a new file in a folder under a free name (`Table 1.csv`); resolves to its path. */
+	createFile(folder: string, name: string, data: string | Blob): Promise<string | undefined>;
+}
+
+// ---------------------------------------------------------------- a table's data (Plot, Calendar)
+
+/** The name of the extension the Table module registers for reading tables: `context.extension<TableData>(tableDataExtension)`. */
+export const tableDataExtension = 'TableData';
+
+/** A cell: a number (Number, Checkbox as 1/0, Date and DateTime as days from 1970), text, a list, or nothing. */
+export type TableCell = number | string | readonly string[] | undefined;
+
+export interface TableColumnData {
+	name: string;
+	/** Text, Number, Date, DateTime, Checkbox, Choice, List, Link, Formula */
+	type: string;
+	unit?: string;
+	valueList: readonly TableCell[];
+}
+
+export interface TableSnapshot {
+	columnList: readonly TableColumnData[];
+	rowCount: number;
+	/** For a table of notes, each row's note. */
+	pathList?: readonly (string | undefined)[];
+}
+
+export interface TableData {
+	/**
+	 * A table's rows after its Filter and Sort, found by its title: `Gym log` (in this note) or
+	 * `Gym#Gym log` (in the note Gym). Undefined when there is no such table.
+	 */
+	read(context: RenderContext, reference: string): Promise<TableSnapshot | undefined>;
+	/** Calls `listener` when that table may have changed; returns the cleanup. */
+	watch(context: RenderContext, reference: string, listener: () => void): () => void;
+}
+
+// ---------------------------------------------------------------- menus
+
+/** The name of the extension the app registers for its menus, so a module's menus look like the app's: `context.extension<PopupMenu>(menuExtension)`. */
+export const menuExtension = 'Menu';
+
+export interface MenuEntry {
+	title: string;
+	/** A short line under the title. */
+	explain?: string;
+	/** Right-aligned: a key, a value. */
+	hint?: string;
+	/** A tick before the title (the current choice). */
+	checked?: boolean;
+	/** Other words a search finds it by. */
+	keywordList?: readonly string[];
+	danger?: boolean;
+	separatorBefore?: boolean;
+	run?(): void;
+	/** A submenu. */
+	childList?: readonly MenuEntry[];
+}
+
+export interface PopupMenu {
+	/** Opens a menu at a point on screen (client px); one menu is open at a time. */
+	open(option: { x: number; y: number; itemList: readonly MenuEntry[]; search?: boolean; onClose?(): void }): void;
+	close(): void;
+	/** Asks for a line of text in the app's own dialog; undefined when cancelled. */
+	prompt(message: string, value?: string, action?: string): Promise<string | undefined>;
+}
+
+// ---------------------------------------------------------------- a block that lives in another note (From)
+
+/** Where a block with `From: "[[Note]]"` keeps its content: that note's model, the block's key there, and its path. */
+export interface LinkedBlock {
+	model: NoteModel;
+	key: string;
+	path: string;
+}
+
+/**
+ * The block a `From` names: `[[Gym]]` (the first block of `type` there) or `[[Gym#Gym log]]` (the
+ * one with that title). Undefined when the note or the block isn't there.
+ */
+export async function linkedBlock(context: RenderContext, from: string, type: string): Promise<LinkedBlock | undefined> {
+	const match = /^\s*\[?\[?([^\]#|]+?)(?:#([^\]|]+))?\]?\]?\s*$/.exec(from);
+	const index = context.extension<NoteIndex>(noteIndexExtension);
+	if (!match || !index) return undefined;
+	const here = index.pathOf(context.note);
+	const path = index.resolve(match[1]!.trim(), here);
+	if (!path || path === here) return undefined;
+	const model = await index.modelOf(path);
+	if (!model) return undefined;
+	const title = match[2]?.trim().toLowerCase();
+	const find = (list: readonly BlockNode[]): BlockNode | undefined => {
+		for (const node of list) {
+			const own = node.property.get('Title');
+			if (node.type === type && (title ? typeof own === 'string' && own.trim().toLowerCase() === title : node.property.get('From') === undefined)) return node;
+			const inner = find(node.childList);
+			if (inner) return inner;
+		}
+		return undefined;
+	};
+	const node = find(model.document.itemList);
+	return node ? { model, key: node.key, path } : undefined;
+}
+
+/** A linked block's properties, with the ones written on the reference itself on top (From left out). */
+export function linkedProperty(own: PropertyMap, linked: PropertyMap): PropertyMap {
+	const map: PropertyMap = new Map(linked);
+	for (const [key, value] of own) if (key !== 'From') map.set(key, value);
+	return map;
 }

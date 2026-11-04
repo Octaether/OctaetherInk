@@ -316,7 +316,8 @@ export class RenderHost {
 		} catch {
 			extraClassList = [];
 		}
-		element.className = ['oi-frame', block.node.content === 'Item' ? 'oi-item' : 'oi-raw', ...extraClassList, ...style.presetList.map((preset) => `oi-preset-${kebab(preset)}`)]
+		// Wide: True makes a block wider than the text around it (the app's page decides how wide)
+		element.className = ['oi-frame', block.node.content === 'Item' ? 'oi-item' : 'oi-raw', block.property.get('Wide') === true ? 'oi-wide' : '', ...extraClassList, ...style.presetList.map((preset) => `oi-preset-${kebab(preset)}`)]
 			.filter(Boolean)
 			.join(' ');
 		element.dataset.oiKey = block.key;

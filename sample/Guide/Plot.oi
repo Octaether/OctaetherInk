@@ -1,0 +1,78 @@
+---
+Created: 2026-11-03 12:00 -04:00
+Format: Oi 1
+---
+
+Property:
+	Tag: [Guide, Module]
+	Module: Plot
+
+The **Plot** module draws functions and data, one per line, as Desmos does. Drag a plot to move it, click it and scroll to zoom (or pinch, or `Ctrl` + scroll), and double-click to go back. *Keep this view* writes the view into the block. For drawings, see [[TikZ]]. Back to [[Welcome]].
+
+## Functions and sliders
+
+Plot {X: [-6, 6]}:
+	y = a sin(b x)
+	a = 1.5 {Slider: [0, 3]}
+	b = 1 {Slider: [0.5, 4, 0.5]}
+	f(x) = x^2 / 4 - 2
+	y < f(x) {Opacity: 0.12}
+	x^2 + y^2 = 9 {Style: Dashed}
+	P = (2, f(2))
+
+- **Edit right under the plot**, as in Desmos: click a line to change it, `Enter` for a new line below, `↑` `↓` to move between lines, `Esc` to stop. An emptied line goes.
+- **+ Add** lists what a plot can hold: a function, a number with a slider, a point, a curve, a region, polar and parametric curves, a surface, and charts of the plot's table by its columns. Typing `/` alone in a line opens the same list.
+- **Each line's ⋯ menu** sets its color, a solid, dashed, or dotted line, its thickness, its label; hides or shows it; for data, its kind of chart, grouping, and trend; deletes it. It writes the same `{…}` you could type.
+- **A number gets a slider** on its own line: `a = 1.5  0 ━●━ 3  ▶`. ▶ plays it. Click the number to type one, or the ends of the slider for its range and step (no step: any value).
+- **A point with a name** (`P = (2, f(2))`) is labelled by it, and its parts can be anything, functions too. **Drag a point** with a ring: its numbers follow, or its sliders when it is written `(a, b)`.
+- **Click a line's color dot** to pick its color.
+- `x² + y² = 9` is an implicit curve, and `y < f(x)` shades a region. `r = 1 + cos(θ)` is polar, `(cos t, sin t)` parametric. Write `2x`, `a x`, `sin 2x`, `π`, `sqrt(x)`; `{x < 0: -x, x}` is piecewise. A line with no variable, such as `mean([1, 2, 3])`, shows its value.
+- Style goes at the end of a line (the ⋯ menu writes it for you): `{Color: Accent, Style: Dashed, Width: 3, Label: Top, Hidden: True, Domain: [0, 2]}`.
+
+## Charts of a table
+
+A plot finds a table by its **title** (`Plot {Data: Weight log}`), and then uses its columns by name: `(Date, Weight)`. A table's ⋯ menu → *Plot this table* sets it up for you.
+
+Table {Title: Weight log, Column: {Weight: {Unit: kg}}}:
+	Date,Weight
+	2026-10-05,74.2
+	2026-10-12,73.6
+	2026-10-19,73.8
+	2026-10-26,73.1
+	2026-11-02,72.6
+
+Plot {Data: Weight log}:
+	(Date, Weight) {Kind: Line, Trend: Linear}
+
+Table {Title: Spending, Column: {Amount: {Unit: $}, Category: {Type: Choice}}}:
+	Date,Category,Amount
+	2026-10-03,Food,61.40
+	2026-10-09,Bills,35
+	2026-10-15,Fun,14
+	2026-10-21,Food,48.75
+	2026-11-02,Transport,30
+	2026-11-06,Food,52.10
+
+Grid {Gap: 16px}:
+	Column {Width: 50%}:
+		Plot {Data: Spending}:
+			(Date, Amount) {Kind: Bar, Group: Month, Combine: Sum}
+	Column {Width: 50%}:
+		Plot {Data: Spending}:
+			(Category, Amount) {Kind: Pie}
+
+- The axes are named after the columns, with their unit and how they are combined (*Amount ($, sum by month)*); `XLabel` and `YLabel` name them yourself. The plot updates when the table changes.
+- `Kind` is `Scatter`, `Line`, `Bar`, `Area`, `Pie`, or `Donut`. `Group: Month` (Day, Week, Month, Year) with `Combine: Sum` (Average, Count, Min, Max) gives totals by period; text on x gives one bar or slice per category.
+- `Trend` (Linear, Quadratic, Exponential) draws a trend line, with its equation and R² below.
+- **Point at a bar** to light it up with its value; **point at a slice** (or its row in the legend) to see its name, value, and share, and click it to keep it lit. The legend lists every slice with its share, however small.
+- A table in another note: `Data: Gym#Gym log`.
+
+## In 3D
+
+Plot {X: [-3, 3], Y: [-3, 3], Camera: {Yaw: 35, Pitch: 25}}:
+	z = sin(x) cos(y)
+	(1.5 cos t, 1.5 sin t, t / 4 - 1) {T: [0, 8]}
+
+- A line with `z`, or a point with three parts, makes the plot 3D: surfaces, implicit surfaces (`x² + y² + z² = 4`), curves in space, and points from three columns.
+- Drag to turn it, `Shift` + drag to move it, scroll after a click to zoom.
+- `Interactive: False` fixes a plot at its X, Y (and Z, Camera): it shows exactly that, and the pointer does nothing.

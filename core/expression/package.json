@@ -1,0 +1,11 @@
+{
+	"name": "@octaether/core-expression",
+	"version": "0.1.0",
+	"private": true,
+	"description": "OI expressions: math and data formulas parsed into a tree and compiled to functions, with no eval (Table formulas, Plot)",
+	"license": "MIT",
+	"type": "module",
+	"exports": {
+		".": "./src/index.ts"
+	}
+}

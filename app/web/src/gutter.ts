@@ -102,8 +102,10 @@ export function setupGutter(option: GutterOption): { hide(): void; refresh(): vo
 		const rect = frame.getBoundingClientRect();
 		const outer = (frame.parentElement ?? host.root).getBoundingClientRect();
 		const pad = 6.5;
-		const left = Math.max(rect.left - pad, outer.left - pad);
-		const right = Math.min(rect.right + pad, outer.right + pad);
+		// a Full width block is meant to be wider than the text: its box follows it
+		const wide = frame.classList.contains('oi-wide');
+		const left = wide ? rect.left - pad : Math.max(rect.left - pad, outer.left - pad);
+		const right = wide ? rect.right + pad : Math.min(rect.right + pad, outer.right + pad);
 		const top = rect.top - pad;
 		const bottom = rect.bottom + pad;
 		box.hidden = false;
@@ -628,7 +630,8 @@ export function setupGutter(option: GutterOption): { hide(): void; refresh(): vo
 			holdStart(event);
 			return;
 		}
-		if (event.altKey) {
+		// a block that uses Alt + drag itself (a calendar copies events with it) keeps it there
+		if (event.altKey && !element.closest('[data-oi-own-alt]')) {
 			const inner = host.keyAt(element);
 			const key = altKey ?? (inner ? climb(inner, altLevel) : undefined);
 			if (!key) return;

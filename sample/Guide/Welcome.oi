@@ -16,7 +16,11 @@ Octaether Ink keeps each note as a plain `.oi` text file made of **blocks**: par
 - [[Math]]: equations in TeX
 - [[Code]]: code in any language
 - [[Chemistry]]: structures, reactions, and electron-pushing mechanisms
-- [[Diagram]]: drawings in TikZ
+- [[TikZ]]: drawings in TikZ
+- [[Table]]: data you type into like a spreadsheet, with formulas, summaries, and Board and Gallery layouts
+- [[Plot]]: graphs of functions and of tables, in 2D and 3D, as in Desmos
+- [[Calendar]]: events by month, week, or day, with repeats and breaks
+- [[Tracker]]: a gym log made of a table, two plots, and a calendar
 - [[Image]] and [[Video]]: pictures and videos from the vault or the web
 - [[Markdown]] and [[HTML]]: a whole Markdown document, or HTML, in one block
 - [[Property]]: tags, dates, checkboxes, and other fields of your own, when a note wants them

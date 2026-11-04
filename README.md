@@ -5,7 +5,7 @@
 <h1 align="center">Octaether Ink (OI)</h1>
 
 <p align="center">
-  <b>Local‑first, block‑based notes.</b> Plain‑text <code>.oi</code> files you own, with text, math, chemistry, code, diagrams, boards, pictures, videos, and callouts in one note.<br>
+  <b>Local‑first, block‑based notes.</b> Plain‑text <code>.oi</code> files you own, with text, math, chemistry, code, TikZ drawings, tables, plots, calendars, boards, pictures, videos, and callouts in one note.<br>
   Works in the browser today; desktop, iPad, and phone apps come next.
 </p>
 
@@ -27,7 +27,7 @@
 
 - [Highlights](#highlights)
 - [Quick start](#quick-start)
-- [Using Octaether Ink](#using-octaether-ink): [first launch](#first-launch-a-vault-a-quick-note-or-a-file), [files](#files-new-save-rename-delete), [tabs](#tabs), [views](#three-views-source-edit-read), [blocks](#writing-with-blocks), [media](#pictures-videos-markdown-and-html), [note top](#the-top-of-a-note-name-properties-and-page-layout), [find and links](#find-search-links-and-the-graph), [boards](#boards-free-placement-and-masonry), [chemistry](#chemistry-structures-mechanisms-and-the-drawing-tool), [color](#color), [hotkeys](#hotkeys-and-macros), [setting](#setting), [status bar](#status-bar), [broken blocks](#when-a-block-cant-render), [offline](#offline-install-and-phones)
+- [Using Octaether Ink](#using-octaether-ink): [first launch](#first-launch-a-vault-a-quick-note-or-a-file), [files](#files-new-save-rename-delete), [tabs](#tabs), [views](#three-views-source-edit-read), [blocks](#writing-with-blocks), [media](#pictures-videos-markdown-and-html), [note top](#the-top-of-a-note-name-properties-and-page-layout), [find and links](#find-search-links-and-the-graph), [boards](#boards-free-placement-and-masonry), [tables, plots, calendars](#tables-plots-and-calendars), [chemistry](#chemistry-structures-mechanisms-and-the-drawing-tool), [color](#color), [hotkeys](#hotkeys-and-macros), [setting](#setting), [status bar](#status-bar), [broken blocks](#when-a-block-cant-render), [offline](#offline-install-and-phones)
 - [Syntax at a glance](#syntax-at-a-glance)
 - [Deploy](#deploy)
 - [Roadmap & TODO](#roadmap--todo)
@@ -37,10 +37,11 @@
 
 - **Your notes are plain text.** A `.oi` file reads in any editor and diffs in git. Markdown lines are blocks by themselves; any other block starts with its type and a colon (`Math: x^2`, `Code: Python`), with its settings in braces before the colon (`Math {Numbered: True}:`), the same for every block.
 - **Markdown's symbols still work.** Three backticks and `$$` are *aliases* of `Code:` and `Math:`, so Obsidian notes open as they are. Every alias can be switched off or changed.
-- **Everything is a block, and blocks hold blocks.** Paragraphs, list items, math, code, mechanisms, diagrams, boards, pictures, callouts, columns, and properties. Any block type also works inline: `{Chem: 2H_2 + O_2 -> 2H_2O}`.
+- **Everything is a block, and blocks hold blocks.** Paragraphs, list items, math, code, mechanisms, TikZ drawings, tables, plots, calendars, boards, pictures, callouts, columns, and properties. Any block type also works inline: `{Chem: 2H_2 + O_2 -> 2H_2O}`.
 - **Obsidian‑style app.** A vault is a folder on your disk. Tabs, a file sidebar, search, a graph view, `[[links]]`, and an optional Property block. No folder at hand? A **quick note** stays in the browser until you move it into a vault.
 - **Three views.** *Source* is the whole note as text, like a code editor; *Edit* turns the block you click into its own source, exactly where you clicked; *Read* never changes anything.
 - **Own renderers.** TeX → MathML, our own chemistry syntax and chemfig, a TikZ subset, Markdown, an HTML cleaner, and a code highlighter, all with themes and click‑to‑edit.
+- **Tables, plots, and calendars.** Type into a table like a spreadsheet (formulas, summaries, groups, Board and Gallery layouts), or show a `.csv` or an Excel sheet and edit it in place; plot functions and table columns like Desmos, in 2D and 3D; plan in a calendar with repeats and breaks, dragging events around.
 - **Boards.** Place blocks freely (with arrows between them, for whiteboards and mechanisms) or as a Pinterest‑style wall of cards. A drawing tool, like ALEKS or ChemDraw, edits structures and boards.
 - **Every key is yours.** Rebind any command, with chords and conflict warnings; macros chain commands. `Ctrl+Z` works everywhere, renames included.
 - **Modules and plugins.** Every block type comes from a module and every system function from a plugin; each can be switched off and has its own settings.
@@ -54,7 +55,7 @@
 ```bash
 npm install
 npm run dev       # web app at http://localhost:5173
-npm test          # 286 tests: format, model, vault, editing, every module and plugin, render host, app
+npm test          # 381 tests: format, model, vault, expressions, editing, every module and plugin, render host, app
 npm run check     # TypeScript type-check of every package
 npm run build     # production build of the web app → app/web/dist
 npm run preview   # serve the production build locally
@@ -116,10 +117,10 @@ The buttons at the top right switch views (`Ctrl+E` toggles Edit and Read, `Ctrl
 
 - `Enter` at the end of a line makes a new block, `Backspace` at the start joins it with the one above, `Tab`/`Shift+Tab` nest and un‑nest.
 - **A block starts with its type and a colon:** `Math: x^2`, or `Code: Python` with the code indented below. Settings go in braces before the colon: `Code {LineNumber: True}: Python`, `Callout {Kind: Tip}: Title`. A header (or an alias such as three backticks) typed alone in a paragraph, then `Enter`, turns the paragraph into that block.
-- **`/` on an empty line** opens the block menu (math, code, chemistry, diagram, board, picture, video, callout, columns, property, headings, lists, tables…), each entry saying what it makes.
+- **`/` on an empty line** opens the block menu (math, code, chemistry, TikZ, table, plot, calendar, board, picture, video, callout, columns, property, headings, lists…), each entry under the module that gives it and saying what it makes; typing searches them all, with the module at the right.
 - **Move a block: hold `Alt` (`Option` on a Mac) and drag it** from anywhere on it, however small. While `Alt` is held, the block under the pointer is outlined with its type, and **`Alt` + the scroll wheel** steps out to the block around it (a column, a callout, a Board) and back in. **`Esc`** while writing selects the whole block, `Esc` again the block around it, and a selected block drags from anywhere. **On touch, hold a block**, then drag it (let go without moving for its menu).
 - **Where it lands:** a line shows the spot as you move. Moving right over a block drops it inside. **Drop on the left or right edge of a block to put the two side by side** (columns); an emptied column goes away, and a grid of one column becomes its blocks again. On a Board a block moves where you drop it; on a Masonry wall a card goes before or after the nearest card.
-- **Right‑click** (long‑press on touch) for the block menu: *Turn into*, *Add block below*, *Add column left/right*, *Duplicate*, *Move up/down*, *Nest*, *Move out*, *Copy as OI text*, *Delete*. The `⋮⋮` handle and `+` in the margin come back with *Setting → Editor → Show the block handle*.
+- **Right‑click** (long‑press on touch) for the block menu: *Full width* (a block at the top of the note wider than the text, `Wide: True`), *Turn into*, *Add block below*, *Add column left/right*, *Duplicate*, *Move up/down*, *Nest*, *Move out*, *Copy as OI text*, *Delete*. The `⋮⋮` handle and `+` in the margin come back with *Setting → Editor → Show the block handle*.
 - **Select text** for the format bar: bold, italic, strikethrough, highlight, code, math, link, and color. With text selected, `Delete` removes it and typing replaces it.
 - **Undo and redo work everywhere** (`Ctrl+Z`, `Ctrl+Shift+Z`/`Ctrl+Y`): while typing, on the page, and for renames.
 - **Aliases:** a Markdown fence is a Code block and `$$ … $$` a Math block; *Setting → Module → Code* (or *Math*) switches them off or changes the symbols. Obsidian's `> [!tip] Title` is a Callout.
@@ -169,6 +170,17 @@ Board {Arrange: Masonry, ColumnWidth: 12em}:
 
 	Math: E = mc^2
 ````
+
+### Tables, plots, and calendars
+
+The guide has a note for each (Table, Plot, Calendar) and a **Tracker** that ties them together.
+
+- **Table:** rows kept as CSV in the note (`Table:` with `Date,Workout,Calorie` lines below), with a **title** first in its bar (`Title`) that plots and other notes find it by. Click a cell to type (`Enter`, `Tab`, arrows move), drag across cells for their count, sum, and average, paste rows from a spreadsheet, and drag a row by its handle. A column's name opens its menu: type (Text, Number, Date, Date and time, Checkbox, Choice, List, Link), sort, filter, group (by day, week, month, or year), a summary in the footer, a unit (`kcal`, `$`), decimals, *Analyze* (mean, median, spread, histogram), hide, insert, move, delete, and formula columns (`Calorie - Burned`). A Choice or List cell opens its choices on a click (pick, add, clear); *Edit choices* colors, renames (cells follow), reorders, and deletes them. *Board* puts the rows in lanes by a Choice column (drag a card to change it), *Gallery* shows cards, *List* lines. ⋯ → *Plot this table* puts a plot of it below.
+- **Tables in files:** `Table: Expense.csv` shows a `.csv`, a `.tsv`, or a sheet of an Excel `.xlsx` (`Sheet: Budget`, or the picker in the bar) and writes what you type back into it. In a workbook only the changed cells are written: their style, the other sheets, charts, and formulas stay as Excel made them, and Excel works the formulas out again on opening. The note keeps how the table looks; the file keeps the rows. A data file opened from the sidebar is a table over the whole page. The ⋯ menu moves a table's rows *to a CSV file* or *brings* a file's rows into the note.
+- **A table of notes:** `Source: "Reading/"` or `Source: "tag:Book"` makes each note a row and its properties the columns, like a Notion database; a cell you change is written into that note.
+- **Plot:** one line per thing, as in Desmos: `y = a sin(x)`, `a = 1 {Slider: [0, 5]}`, `f(x) = x^2`, `x^2 + y^2 = 4`, `y < f(x)`, `r = 1 + cos(θ)`, `(cos t, sin t)`, points, and tables: `Plot {Data: Gym log}` finds a table by its title, and its lines use the columns by name, `(Date, Weight) {Kind: Line, Trend: Linear}` (bars by month or category, pies and donuts). The axes are named after the columns, with units and how they are combined ("Amount ($, sum by month)"). Under the plot, the lines are typeset and edited in place, as in Desmos: click one to change it, `Enter` for a new one, *Add a line*; click a slider's number to type it, its ends for its range and step; drag a point with a ring; click a color dot for the line's color. `z = sin(x) cos(y)`, implicit surfaces, curves, and points make it 3D. Drag to move (or turn), click then scroll to zoom (pinch and `Ctrl` + scroll always), double‑click to go back, *Keep this view* to write it into the block; `Interactive: False` fixes it.
+- **Calendar:** Month, Week, Day, and Agenda. Click an empty time (or drag across times), type a name, `Enter`. Drag an event to move it, its bottom edge to resize, `Alt` + drag to copy it (same name, no "(1)"). Pick *End* or *Duration*, a repeat (every day, week on some days, weekday, month, year, until a day), and skipped days for breaks; changing one day of a repeat asks *this event*, *this and following*, or *all*. Events are blocks inside the calendar, or notes of their own (*As a linked note*, *Move to its own note*, *Move into the calendar*); `Source` adds notes by folder or tag, and `Data: Gym log` a table's rows by their dates. The zone button (`UTC+9`, with cities to search by) shows it in another place's time, daylight saving included (events move to that clock; the note doesn't change). Keys: `T` `D` `W` `M` `A` `J` `K` `C`, rebindable.
+- **Room:** a note that is only a table or a calendar uses the window's whole width; elsewhere *Full width* (⋯, or right‑click) makes one wider than the text. *Move to its own note* (⋯) puts a table or calendar in a note of its own and leaves `Calendar {From: "[[Classes]]"}` behind, which shows and edits it there; *Bring into this note* brings it back.
 
 ### Chemistry: structures, mechanisms, and the drawing tool
 
@@ -272,7 +284,10 @@ Macro:
 | Math | `Math.Font`, `Math.Numbering` (Numbered, All, None), `Math.ShowError`, alias `$$` |
 | Code | `Code.LanguageLabel`, `Code.CopyButton`, `Code.LineNumber`, `Code.Wrap`, `Code.Highlight`, `Code.TabSize`, aliases ```` ``` ~~~ ```` |
 | Chemistry | `Chem.BondLength` (Short, Normal, Long), `Chem.LabelAvoid`, `Chem.ShowProblem`; feature *Drawing on Boards* (needs Board) |
-| Diagram | `Diagram.Scale`, `Diagram.ShowProblem` |
+| TikZ | `TikZ.Scale`, `TikZ.ShowProblem` |
+| Table | `Table.MaxRow` (rows before *Show all*) |
+| Plot | `Plot.Interactive`, `Plot.Height` |
+| Calendar | `Calendar.WeekStart` (Monday, Sunday), `Calendar.Snap`, `Calendar.Duration` |
 | Image · Video | `Image.Align`, `Image.Zoom` · `Video.Width` |
 | HTML | `HTML.Style` |
 | Layout | `Layout.StackWidth` (columns stack below 480, 640, or 800px, or never) |
@@ -351,15 +366,28 @@ Grid {Gap: 16px}:
 	Column {Width: 60%}:
 		Chem: &1 =30 -330 =270 -210 =150 -&1
 	Column {Width: 40%}:
-		Diagram:
+		TikZ:
 			\draw[->] (0,0) -- (2,1) node[right] {$v$};
+
+Table {Title: Gym log, Column: {Calorie: {Unit: kcal, Summary: Average}}}:
+	Date,Workout,Calorie
+	2026-11-02,Legs,520
+
+Plot {Data: Gym log}:
+	(Date, Calorie) {Kind: Line, Trend: Linear}
+	y = a sin(x)
+	a = 1 {Slider: [0, 3]}
+
+Calendar {Show: Week}:
+	Event {Start: 2026-09-07 09:00, End: 10:30, Repeat: {Every: Week, On: [Mon, Wed]}, Skip: [2026-11-23..2026-11-29]}: Linear Algebra
+		Room 204
 ````
 
 | Write | Get |
 |---|---|
 | A Markdown line | A Text block: heading, list item, to‑do, quote, table, or paragraph |
 | `Type {Props}:` + indented lines | A typed block; its body is raw text (`Math`, `Chem`) or child blocks (`Callout`, `Grid`, `Board`) |
-| `Code {Wrap: True}: Python` | A type with a **header argument** (`Code` → `Language`, `Image`/`Video` → `Source`) |
+| `Code {Wrap: True}: Python` | A type with a **header argument** (`Code` → `Language`, `Image`/`Video` → `Source`, `Table` → `File`) |
 | ```` ```Python ```` … ```` ``` ```` · `$$ … $$` | **Aliases** of `Code` and display `Math` |
 | `{Type: …}` · `[text]{Props}` | Any block inline · a styled span |
 | `![caption](Cell.png)` · `![[Cell.png\|300]]` | A picture in text |
@@ -401,17 +429,24 @@ This checklist is the project's to‑do list. Tick items in the change that ship
 
 - [x] **Format and core:** `.oi` `Oi 1` (Markdown lines, `Type {Props}:` blocks, children by indentation, header arguments, module‑owned aliases with switches and clash reports, inline `{Name: text}`, IDs only where written, byte‑exact round trip); a model of operations with undo across text and renames; a render host with keyed frames, layouts, placeholders, and per‑block error boundaries; a vault layer (folder, quick notes, memory) with trash, link rewriting, backlinks, tags, graph, and search; a registry of modules, plugins, features, settings, and status items
 - [x] **App:** start screen and vault switcher; ribbon, file sidebar, tabs with their own history, files opened on their own; quick notes with *Move to a folder* and *Download .zip*; autosave and file rules (blank notes never kept, trash with Undo); three views; every block edited as its own source; find, search, quick switcher, palette, graph; rebindable hotkeys and macros; settings with a page per module and plugin; status bar; the Octaether look; a PWA live on Vercel
-- [x] **Modules:** Text, Property, Layout (Flow, Grid, Column, Callout), Board (Free and Masonry, Arrow), Math (TeX → MathML), Code (11 languages), Chemistry (own structure syntax, chemfig, mechanisms, the drawing tool), Diagram (TikZ subset), Image, Video, Markdown, HTML
+- [x] **Modules:** Text, Property, Layout (Flow, Grid, Column, Callout), Board (Free and Masonry, Arrow), Math (TeX → MathML), Code (11 languages), Chemistry (own structure syntax, chemfig, mechanisms, the drawing tool), TikZ (a subset; was *Diagram*), Image, Video, Markdown, HTML
 - [x] **Plugins:** Theme (Paper, HighContrast) and Palette (one color menu, palettes, import)
 - [x] **Boards and the drawing tool:** free Boards with arrows between named points (atoms, lone pairs, bonds), text along arrows (`At`), chemfig turned into a Board; a drawing tool with Photoshop‑style tool groups, right click to undo the tool, right drag to pan, and touch; plain Boards edited without chemistry
 - [x] **Blocks:** `Alt` + drag from anywhere, `Alt` + wheel and `Esc` for the block around, hold then drag on touch; columns from side drops; Masonry pages chosen on an empty note
-- [x] **Quality:** 286 unit and app tests, strict TypeScript 7; build 589 KB JS (191 KB gzipped) + 42 KB CSS. Every review is checked in Chromium, WebKit, and Firefox at desktop and phone sizes with scripted Playwright runs against a production build
+- [x] **Quality:** 381 unit and app tests, strict TypeScript 7; build 591 KB JS (193 KB gzipped) + 42 KB CSS, with Table, Plot, and Calendar (code and CSS) loaded on first use (about 100 KB gzipped more). Every review is checked in Chromium, WebKit, and Firefox at desktop and phone sizes with scripted Playwright runs against a production build
 
 ### Next (version 1.x)
 
-- [ ] **Table** module: data you can sort, filter, and analyse (counts, sums, averages), with layouts of its own so a table can act like a database
-- [ ] **Plot** module: functions and data, including data from a Table (§6.7)
-- [ ] **Calendar:** `Event` and `View` (day, week, month, timeline, table) (§6.8)
+- [x] **Table** module (§6.8): CSV in the note or a `.csv`/`.tsv`/`.xlsx` file (only changed cells written), typed columns, formulas, filter, sort, group, summaries, *Analyze*, Board/Gallery/List, tables of notes; `TableData` for Plot and Calendar
+- [x] **Plot** module (§6.7): Desmos‑like lines, sliders, implicit curves and regions, polar and parametric, table data with trends, 3D surfaces, implicit surfaces, curves, and points (WebGL); interactive or fixed
+- [x] **Calendar** module (§6.8): Month, Week, Day, Agenda; Event blocks, linked notes, tables; repeats with skips and splits; drag to make, move, resize, copy
+- [x] **Room and references:** a note that is only a table or calendar is full width; `Wide: True` per block; `From: "[[Note]]"` shows and edits a table or calendar of another note; *Move to its own note* / *Bring into this note*
+- [x] **Diagram renamed TikZ** (`Diagram:` blocks still draw); lazy loading of module code (prefetched, offline)
+- [x] **Round 6:** the block menu grouped by module; Plot axes named after table columns, typeset lines, a color per line from its dot, pies and donuts, the play button fixed; calendar time zones
+- [x] **Round 7:** tables found by their title (`Plot {Data: Gym log}`, columns by name, units on the axes), *Plot this table*; choices picked, colored, renamed from menus; Plot's editing layer (lines edited in place, typed values, slider ranges and steps, dragged points) on a data layer of text edits; time zones as places, so daylight saving follows
+- [x] **Round 8:** tables named only by their titles (`^` table references removed; `Calendar {Data: Gym log}`); named points `P = (2, f(2))`; dashed implicit curves; pies with a full legend, lit slices on hover or click, no zoom; bars lit with their value; each slider on its line; a ⋯ menu per line and an *Add* menu (also `/`)
+- [ ] A Swiss (International Typographic) theme for plots, tables, and calendars
+- [ ] Calendar: a Timeline view, `Remind`, `.ics` import and export; tables over 200 rows into `.oi/Data`; plots in the Board drawing tool as pictures
 - [ ] A generic Board editor in the Board module (today the Chem module gives it), `Layout: Board` as an infinite page, and a module dependency view
 - [ ] Export any vault as a `.zip` and import one; send a quick note or a vault to another device (`Transfer`)
 - [ ] Block links (`[[Note#^id]]`, `![[Note#^id]]`, "Copy link to block"), backlinks and outline panes, split panes
@@ -426,8 +461,8 @@ This checklist is the project's to‑do list. Tick items in the change that ship
 
 - **Spikes:** web ink latency in Tauri on iOS vs a native overlay; iPad ↔ Windows transfer over QR + LAN and BLE; a Tauri skeleton (needs the Rust toolchain). Done: format, math, and chemistry spikes.
 - **Phase 1 (one lecture note, iPad → laptop):** `Ink`, `PDF` → `Page` with ink, `Layout.Page`; `Transfer`, `ExportPDF`, `ExportZip`, `History`, `ImportObsidian`; settings with live demos; Windows, macOS, iPad, and the web.
-- **Phase 2 (study workflow):** native wet ink, `Audio`, `Diagram` presets, `Layout.Deck`; `Sync` with block merge, BLE transfer, `Reminder`, `ICS`, `Collab` on a LAN; Android and iPhone.
-- **Phase 3 (power features):** `Code.Run` (JavaScript, then Python), reactive cells, `Plot` 3D; `Collab` over the internet, the registry, more exporters, recognition, an own PDF writer.
+- **Phase 2 (study workflow):** native wet ink, `Audio`, TikZ presets, `Layout.Deck`; `Sync` with block merge, BLE transfer, `Reminder`, `ICS`, `Collab` on a LAN; Android and iPhone.
+- **Phase 3 (power features):** `Code.Run` (JavaScript, then Python), reactive cells; `Collab` over the internet, the registry, more exporters, recognition, an own PDF writer.
 
 ### Known limits of version 1
 
@@ -436,6 +471,7 @@ This checklist is the project's to‑do list. Tick items in the change that ship
 - Graph and search are part of the app shell for now. A pasted picture needs a vault. Web videos and pictures need the network.
 - With the Chem module (or its *Drawing on Boards* feature) off, a free Board has no editor; its blocks still move by `Alt` + drag in the note.
 - No native apps yet (Tauri needs the Rust toolchain).
+- Changes to a table or calendar shown from another note (`From`) join that note's undo when it is open in a tab, otherwise none; changes to a data file can't be undone. A data file changed by another app shows the change when the note is opened again.
 
 ---
 
@@ -553,8 +589,9 @@ core/
   edit/     @octaether/core-edit     command, hotkey, editor session, block action
   sdk/      @octaether/core-sdk      public types for module and plugin authors, extensions
   vault/    @octaether/core-vault    file-system interface, vault, trash, link, search
-module/     text, property, layout, board, math, code, chem, diagram, media (Image, Video), markdown, html
-            (built) → ink, plot, table, pdf, audio, event, view
+  expression/ @octaether/core-expression  math and data formulas → compiled functions, no eval (Table, Plot)
+module/     text, property, layout, board, math, code, chem, tikz, table, plot, calendar, media (Image, Video),
+            markdown, html (built) → ink, pdf, audio
 plugin/     theme, palette (built) → transfer, sync, history, export-pdf, export-zip, import-obsidian, collab
 app/web/    Vite app (and the frontend of native shells): main.ts wires it; workspace.ts, sidebar.ts,
             tab-bar.ts, note-head.ts, source-editor.ts, gutter.ts (picking blocks up), setting-modal.ts…
@@ -575,7 +612,7 @@ doc/        screenshots for this README
 | Source editing | Own Source view (a textarea over colored lines) → CodeMirror 6 if we need folding | Native typing, IME, and undo |
 | Build & test | npm workspaces, Vite, Vitest, happy‑dom, Playwright | Standard, no global installs |
 | Math | **Own TeX parser + macro engine → MathML Core** with a source map | Control of macros, fonts, themes, partial selection (§6.5) |
-| Chemistry, plot, diagram, ink | **Own** (SVG/Canvas) | Consistent styling, per‑part editing, themes |
+| Chemistry, plot (SVG, WebGL 2 for 3D), TikZ, table, calendar, ink | **Own**, with our own zip and `.xlsx` reader | Consistent styling, per‑part editing, themes; module code loads on first use |
 | PDF view · zip · collaboration | pdf.js · fflate · Yjs, each lazy inside its module or plugin | Standard, permissive, replaceable |
 | History · crypto | Own git‑like store · Noise (`snow`) natively, `@noble/*` on the web | Works everywhere; E2E transfer |
 | HTML sanitizing | **Own whitelist cleaner** in the `HTML` module | Only listed tags and attributes are rebuilt into fresh nodes; the CSP is a second wall |
@@ -685,7 +722,7 @@ LEVEL(n) := n × TAB                                    # 4 spaces also read as 
 - **One place for settings:** the braces before the colon, in the property syntax of §5.4, for every type. A long set goes on lines of its own between `{` and `}:`.
 - **Header arguments:** a module may name the property the text after the colon sets (`Code` → `Language`, `Image`/`Video` → `Source`), taken as written or quoted. Such a type's body always goes below. Canonical: the argument after the colon, the rest in braces.
 - **Aliases** are symbols a module owns that open its Raw blocks (```` ``` ```` and `~~~` for Code, `$$` for Math). An *Argument* alias (a fence) holds the argument, props, and ID on its opening line and closes with an equal or longer run; a *Body* alias (`$$`) holds the body (a blank line inside means it wasn't math). Each can be switched off or given other symbols (no letters, digits, or Markdown starts); a clash goes to the module listed first. A block keeps the form it was written in (unless the alias is off or can't hold its props); new blocks start as `Type:`.
-- **Raw vs Item content** is the module's choice: `Math`, `Code`, `Chem`, `Diagram`, `Image`, `Video`, `Markdown`, `HTML`, `Property` keep a raw body; `Text`, `Flow`, `Grid`, `Column`, `Callout`, `Board`, `Arrow` hold child blocks. An unknown or disabled module's block keeps its body verbatim (§6.2).
+- **Raw vs Item content** is the module's choice: `Math`, `Code`, `Chem`, `TikZ`, `Table`, `Plot`, `Image`, `Video`, `Markdown`, `HTML`, `Property` keep a raw body; `Text`, `Flow`, `Grid`, `Column`, `Callout`, `Board`, `Arrow`, `Calendar`, `Event` hold child blocks. An unknown or disabled module's block keeps its body verbatim (§6.2).
 - **Types are PascalCase; IDs are lowercase** `[a-z0-9]+`, unique within the note.
 - **Escapes:** a text line that would read as a header or alias starts with `\`; text that really ends in `{Key: v}` or ` ^abc` is written `\{Key: v}` or ` \^abc`.
 - **Canonical form:** TAB indentation, a blank line between top‑level blocks, props on one line up to 100 characters, an inline body when short. Untouched blocks keep their original bytes, so diffs stay minimal.
@@ -717,11 +754,14 @@ LEVEL(n) := n × TAB                                    # 4 spaces also read as 
 | Placement (read by the parent layout, §6.3) | `Position`, `X`, `Y`, `Width`, `Height`, `Layer`, `Rotate`, `Align` (`Start`/`Center`/`End`/`Stretch`), `Margin`, `Break`; on a Board `Near`, `Side`, `Gap`; inside an `Arrow` `Side`, `At` |
 | Box & content | `Padding`, `Fit`, `TextAlign`, `VerticalAlign` |
 | Text style | `Font`, `Size`, `Weight`, `Italic`, `Underline`, `Color`, `Background`, `LineHeight`, `Opacity` |
-| Border · data · state | `Border`, `Radius` · `Source`, `Asset`, `Name` · `Locked`, `Hidden`, `Collapsed` |
+| Border · data · state | `Border`, `Radius` · `Source`, `Asset`, `Name`, `File`, `From` · `Locked`, `Hidden`, `Collapsed` |
+| Room | `Wide: True`: a block at the top of the note wider than the text around it (built) |
 
 A module may start its blocks with envelope values of its own (`defaultProperty`: `Image` starts `Align: Center`); a block's own property always wins. Every other property belongs to the module and is validated by its schema; a module may not redefine a reserved name.
 
-**Reserved note properties:** `Tag`, `Alias` (other names for the note), `Created`, `Macro`, `Default` (per‑type defaults), `Layout` (the root container, written like a block header: `Layout: Board {Arrange: Masonry}`; what you see of it, such as zoom, is kept per device in `.oi/`), `Id`, `Format`, and the `Event` fields (§6.8).
+**Reserved note properties:** `Tag`, `Alias` (other names for the note), `Title` (the name a calendar shows), `Created`, `Macro`, `Default` (per‑type defaults), `Layout` (the root container, written like a block header: `Layout: Board {Arrange: Masonry}`; what you see of it, such as zoom, is kept per device in `.oi/`), `Id`, `Format`, and the event fields `Start`, `Date`, `End`, `Duration`, `AllDay`, `Repeat`, `Skip`, `Place`, `Color` (§6.8).
+
+**A page as wide as the window:** a Masonry page, or a note whose only block (a Property block aside) is of a type that says `fillPage` (Table, Calendar).
 
 ### 5.6 Layout: every container is a module, so new layouts plug in
 
@@ -751,7 +791,9 @@ A note's root is a container of the type in `Layout:` (default `Flow`). **Each c
 
 - **`Source`** (built) names your own file or a URL, found as Obsidian does: from the vault's top, from the note's folder, then a name alone anywhere (the nearest wins). Pasted and dropped files are written to the attachment folder, named after the note (`SN2.png`, `SN2 1.png`).
 - **`Asset`** is a file the app makes or converts (HEIC → JPEG, recordings → M4A/MP4), stored as `.oi/Asset/<first 16 hex of SHA‑256>.<ext>`, deduped; `Name` keeps the original name for export.
+- **Data files** (built): a Table may show a file of your own, `Table: Expense.csv` (`File`), a `.csv`, `.tsv`, or `.xlsx` (`Sheet` picks one), and writes edits back into it; in a workbook only the changed cells (value and type; the style kept, new rows take the style above), with `fullCalcOnLoad` set and a stale `calcChain` dropped, every other part copied byte for byte.
 - **Block data** is large, changing data owned by one block, in `.oi/Data/<note-id>/<block-id>.<ext>` (OI syntax for our formats, `.csv` for tables). Small data stays inline (ink under 16 KB, tables under 200 rows).
+- **A block from another note** (built): `From: "[[Classes]]"` (or `"[[Classes#Spring term]]"`, a block by its `Title`) on a Table or Calendar shows that note's block, edited through the note's live model (its tab's when open, otherwise read from the file and written back at once); the reference's own properties lie on top (a different `Show`, `Wide`).
 - **Ink uses the same syntax, one stroke per line,** with raw points (first absolute, then deltas in 0.1 px, pressure 0–255, time in ms; about 8–12 bytes per point), so strokes can be restyled, replayed, or recognized, and merge by stroke ID:
 
 ```text
@@ -884,13 +926,21 @@ Chem: &1 =30 -330 =270 -210 =150 -&1             benzene: bare vertices, a ring 
   - Bonds snap to 30°; keys act on the atom or bond under the pointer, and otherwise pick a tool (the `Drawing.<tool>` commands, in the `Drawing` context: listed and changed in Setting → Hotkey, asked for through `HotkeyLookup`, never run in the note); one undo step per gesture; the note's text sits under the canvas, editable. The panel always fits the window.
 - **Settings:** `Chem.BondLength`, `Chem.LabelAvoid`, `Chem.ShowProblem`; feature `Chem.Board` (*Drawing on Boards*, needs Board). Strokes use `currentColor`, so themes just work. **Later:** brackets with `‡`, SMILES, `\ce{}`.
 
-### 6.7 Plot & diagram
+### 6.7 Plot & TikZ
 
-- **Plot (next):** functions, parametric and implicit curves, and data from `Table` blocks (columns as series, updated when the table changes); Desmos‑like sliders (`a = 1 {Slider: [0, 5]}`); an own adaptive sampler and "nice number" axes with math labels. 3D surfaces later (WebGL).
-- **Diagram (built): a TikZ subset from zero**, to SVG, with HTML labels (math and Markdown); TikZJax snippets paste as they are.
+- **Plot (built), one line per thing, as in Desmos** (`module/plot`, its drawing code loaded on first use): `y = …` and `x = …` sampled adaptively (more points where the curve bends, a break where it jumps across the view); implicit curves `F(x, y) = G` by marching squares (a jump isn't a crossing; the pieces joined into lines, so dashes run along them) and regions `<`, `<=`, `>`, `>=` (exact for `y < f(x)`, by cells otherwise, the edge dashed when strict); polar `r = f(θ)` (`Theta`) and parametric `(x(t), y(t))` (`T`, default 0…2π); points and lists of points, named by `P = (2, f(2))` (the name is the label; parts are any expression); your functions `f(x) = …`; numbers with sliders (`a = 1 {Slider: [min, max, step]}`, a plain number gets one; ▶ plays it; letting go writes the number, one undo step); lines without a variable show their value.
+- **Data:** `Data: Gym log` (or a list) names tables by their titles (`Gym#Gym log` in another note); their columns become names the lines use, a name with a capital first never being split into letters (`(Date, Weight)`; `Body fat` is `Body_fat`). They are read through `TableData` (redrawn when the table changes); the axes take the column's name, unit, and how it is combined; `Kind` is Scatter, Line, Bar, or Area; `Group: Month, Combine: Sum` for totals by period; text on x gives categories; `Trend: Linear | Quadratic | Exponential` draws a least‑squares line with its equation (or change per day on dates) and R² in the list.
+- **Look:** SVG, theme colors, "nice number" ticks or date ticks, `X`, `Y`, `Aspect: Equal | Free` (equal for functions, free for data), `Grid`, `Axis`, `Height`, `Legend: False`. The axes are named after the table columns drawn, with how they are combined (`Amount (sum by month)`), unless `XLabel` and `YLabel` say. Style per line `{Color, Width, Style: Dashed | Dotted, Opacity, Label, Domain, Hidden}`. The list of lines under the plot shows each as typeset math (from the expression tree) or, for data, by its columns ("Weight by Date, line"), with a value, trend, or mistake; a click on a line edits it, a click on its color dot opens the Palette and writes `Color`. The hover shows the point under the pointer; over a bar, that bar is lit (the others dimmed) with its value and unit (`Food · $17.50`).
+- **Pie:** `Kind: Pie` (or `Donut`, `Hole: 0.5`) draws one data line's categories or periods (combined, Sum by default) as slices with their shares on the big ones, a legend of every slice with its value (and unit) and share (beside the pie, under it when narrow), and the total in a donut; hovering a slice or its legend row lights it and names it (`Bus · $5 · 23%`), a click keeps it lit (a tap on a phone). There are no axes, no zoom buttons, and no panning.
+- **3D:** a line with `z` or a point with three parts (or `Dimension: 3`): surfaces `z = f(x, y)` (a 72² mesh colored by height), implicit surfaces `F(x, y, z) = 0` (marching tetrahedra on 36³), curves in space (ribbons), and points from three columns, in WebGL 2 with a depth buffer, our own shaders; the box with ticks on the edges nearest you; `Camera: {Yaw, Pitch}`, `Z`. A plot off screen gives its WebGL context back and shows its last picture, so a note can hold many.
+- **Sliders play** from a position kept unrounded, so each frame moves it however small the step.
+- **Three layers.** *Data*: the block's text, changed only through pure edits (`source.ts`: set, insert, or remove a line; set a line's style; replace numbers at their places; set a slider's range). *Render*: the 2D or 3D stage draws what the text says. *Editing*: the panel under the plot, as in Desmos: a click edits a line in place (drawn as you type, written on `Enter`, `↑`/`↓`, or leaving; `Enter` starts a new line, an emptied line goes); *Add* (or `/` alone in a line) lists what can be added (function, number with a slider, point with a free name, curve, region, polar, parametric, surface, note, and charts of the `Data` tables by their columns, or *Chart a table*, which asks for a title); each line's ⋯ menu sets Color, Line (Solid, Dashed, Dotted), Thickness, Label, Hide/Show, and for data Kind, Group by, Combine, Trend line, or opens *Range and step*, *Edit*, *Delete*, all written as the line's `{…}`; a number with a slider is one row, `a = [2.5]  0 ━●━ 5  ▶` (the slider about 220 px; `Legend: False` keeps these rows), its number typed (the range grows to hold it), its ends opening `min ≤ a ≤ max` and a step (empty: any value); a point whose parts are written numbers or sliders has a ring and is dragged (snapped to what the zoom shows; written when let go). Each edit is one undo step. A line's mistake marks the block (`data-oi-problem`) only when there is one, never while a line is merely being typed.
+- **Interactive** (`Interactive`, default `Plot.Interactive`): drag moves (in 3D turns; `Shift` or a right drag moves), the wheel zooms only after a click on the plot (a focus ring shows it; pinch and `Ctrl` + wheel always), +/− buttons, double‑click goes back; *Keep this view* writes `X`, `Y` (`Z`, `Camera`). Fixed (`Interactive: False`): exactly the block's view, the pointer does nothing. A Plot on a Board gives anchors at plot coordinates (`^p.(1, 2)`).
+- **Expressions** (`core/expression`, shared with Table): parsed to a tree and compiled to functions, no `eval`; implicit multiplication (`2x`, `a x`, `sin 2x`), names split as Desmos does (`ax`), Greek names, subscripts, piecewise `{x < 0: -x, x}`, lists and statistics, dates as days.
+- **TikZ (built): a TikZ subset from zero**, to SVG, with HTML labels (math and Markdown); TikZJax snippets paste as they are. The module was called *Diagram*; `Diagram:` blocks still draw.
 
 ```text
-Diagram:
+TikZ:
 	\draw[->] (-3.2,0) -- (3.4,0) node[right] {$x$};
 	\draw[thick, Accent, domain=-3:3, samples=80] plot (\x, {sin(\x r)});
 	\node[draw, circle] (a) at (0,1) {A};  \node[draw] (b) at (2,1) {B};  \draw[->] (a) -- (b);
@@ -903,13 +953,16 @@ Diagram:
 | Coordinate | `(x,y)`, `(angle:radius)`, named nodes and anchors, `+(…)`, `++(…)`, maths anywhere |
 | Style | Arrow tips, line widths, `dashed`, `dotted`, `opacity`, colors (`red!40!blue`, tokens like `Accent`), `fill`, node shapes and placement |
 
-Lines between named nodes stop at node edges; unknown commands are reported with their position (`Diagram.ShowProblem`). **Next:** presets for geometry, graphs, commutative diagrams, flowcharts, circuits.
+Lines between named nodes stop at node edges; unknown commands are reported with their position (`TikZ.ShowProblem`). **Next:** presets for geometry, graphs, commutative diagrams, flowcharts, circuits.
 
-### 6.8 Event & view (calendar, timeline, analysis)
+### 6.8 Table, Calendar & Event
 
-- **Every event is an object that holds anything:** a note becomes one with `Start:`; an `Event` block is a container inside a note. Fields: `Start`, `End`, `AllDay`, `Repeat` (RRULE subset), `TimeZone`, `Remind`, `Tag`.
-- **`View` blocks show collections:** `View {Query: "Tag = Exam and Start >= 2026-10-01", Show: Month}`, with `Show` = `Day`, `Week`, `Month`, `Timeline`, `Agenda`, `Table`, or `Board`. The Table view groups and aggregates (count, sum, average), and a `Plot` can chart it.
-- **Plugins:** `Calendar` (the views in a side pane), `Reminder` (OS notifications), `ICS` (import/export); cloud calendar sync later.
+- **Table (built):** a Raw block, with a `Title` its bar shows and edits (what `Data` and `TableData` find it by, any case), whose body is CSV (header first; quotes as spreadsheets write them; spaces around a cell ignored; rows nobody changed written back byte for byte), or a data file (`File`, §5.8), or notes as rows (`Source`: a folder, `tag:X`). `Column: {Name: {Type, Unit, Decimal, Summary, Formula, Choice, ChoiceColor, Width}}` (types guessed from the values otherwise), `Sort: {Date: Down}`, `Filter: "…"` (an expression; a name with a space is written with `_`), `Group: Name` or `{Date: Month}`, `Hidden`, `Show: Table | Board | Gallery | List`. Summaries: Count, Filled, Empty, Unique, Sum, Average, Median, Min, Max, Range, Deviation, Checked. A `Structured` editor: the grid in place, keyboard like a spreadsheet, paste of tab‑separated rows, selection stats, a row form, the CSV a click away. Plot and Calendar read tables through `TableData` by title (`Gym log`, `Gym#Gym log`), after Filter and Sort.
+- **Calendar (built):** an Item block holding `Event` blocks (drawn by the calendar, hidden as frames; an Event elsewhere shows as a card). Views Month, Week (three days on a phone), Day, Agenda; `Show` is the view it opens with, `Date` the day, `Hour` where the day starts; switching views and moving through dates change nothing in the note. `Source` adds notes (folder, `tag:X`, `/` for all) by `Start` or `Date` (`DateProperty`), with `Title` as their name; `Data` adds tables by their titles (one or a list), each row on its first date column (read‑only); `Folder` is where linked notes go (named after the calendar's note when first needed).
+- **An event:** `Start` (a date alone: all day), `End` (a time: the same day; a date: the last day) or `Duration` (`1h30m`), `Repeat` (`Week`, or `{Every: Day | Week | Month | Year, Interval, On: [Mon, Wed], Until, Count}`; a month without the date is passed), `Skip` (dates and `a..b` ranges), `Color`, `Place`, `Tag`; times are wall‑clock, an offset in the text is read and not written. The event's children are what it holds (notes in the popover).
+- **Making and changing:** a click or a drag on empty time opens a popover (Name, date, times, *End* or *Duration* with 30m/1h/1h30m/2h, All day, repeat, until, skips, place, color, notes, *As a linked note*); `Enter` saves. Drag moves (snapped to `Calendar.Snap`), the bottom edge resizes, `Alt` + drag copies (the calendar's grid keeps `Alt` + drag from the block mover with `data-oi-own-alt`). One day of a repeat: *this event* (the series skips it, a copy gets the change), *this and following* (`Until` the day before, a new series from it), *all events*. Copies keep the exact name. *Move to its own note* / *Move into the calendar* convert an event and a note both ways (the note to the trash, with Undo). Keys are the `Calendar.*` commands in the `Calendar` context.
+- **Time zones (built):** a calendar is in its `TimeZone` (a place such as `America/New_York`, whose daylight saving is followed through `Intl`; or a fixed offset typed as `UTC+9`), else this device's; an event may say its own `TimeZone`. The zone button (labelled with the offset now, `UTC−5`) lists places by their offset now, with their cities, found by them; choosing one shows the calendar in its time: timed occurrences are converted (with daylight saving, through `Intl`), all‑day ones stay on their day, and nothing is written. An event made, pasted, or moved while another zone is shown keeps its own zone, its times written in it.
+- **Later:** a Timeline view, `Remind` (the `Reminder` plugin), `.ics` import and export, cloud calendar sync.
 
 ### 6.9 Built-in render engine
 
@@ -921,11 +974,14 @@ Lines between named nodes stop at node edges; unknown commands are reported with
 | `Board`, `Arrow` | Child blocks at `X`/`Y`, or cards | Own (Board) | HTML + SVG arrows | SVG |
 | `Math` | TeX + macros | Own → MathML | MathML | PDF, TeX |
 | `Chem` | Structure, formula, or chemfig (§6.6) | Own | SVG + HTML labels | SVG, chemfig |
-| `Diagram` | TikZ subset | Own | SVG + HTML labels | SVG |
+| `TikZ` (`Diagram`) | TikZ subset | Own | SVG + HTML labels | SVG |
+| `Table` | CSV, or a `.csv`/`.tsv`/`.xlsx` file, or notes | Own (grid, cards, own zip and `.xlsx`) | HTML | CSV |
+| `Plot` | One item per line | Own sampler, SVG; WebGL 2 for 3D | SVG / Canvas | SVG / PNG |
+| `Calendar`, `Event` | Event blocks, notes, tables | Own | HTML | — |
 | `Code` | Code + stored output | Own highlighter (11 languages) | HTML | HTML/PDF |
 | `Image`, `Video` | `Source` + caption | Native; YouTube and Vimeo players | HTML | Image / poster + link |
 | `Markdown`, `HTML` | A document · cleaned HTML | Own | HTML | HTML/PDF · snapshot |
-| `Plot`, `Table`, `Ink`, `PDF`, `Audio`, `Event`, `View` (later) | Their own syntax | Own (pdf.js for PDF) | SVG/Canvas/HTML | Per type |
+| `Ink`, `PDF`, `Audio` (later) | Their own syntax | Own (pdf.js for PDF) | SVG/Canvas/HTML | Per type |
 | Link/embed | `[[Note#^id]]` / `![[Note#^id]]` | Host (cycle‑safe) | Frame | Inlined |
 
 ### 6.10 Export
@@ -939,7 +995,7 @@ Lines between named nodes stop at node edges; unknown commands are reported with
 ### 7.1 Interaction model
 
 - **Three views** (built): **Source** is a transparent `<textarea>` over colored lines that wrap identically (native typing, IME, undo), sending `Note.Text.Set` operations; **Edit** opens the clicked block at the clicked character (§7.8); **Read** edits nothing.
-- **A block's own source** (built): a paragraph turns into its Markdown in place, same font, nothing jumps; any other block opens as its source, header included, on a soft panel in the code font, so typing `Chem:` over `Math:` changes its type at once (`Block.Source.Set`, one undo step, same key). Math, Chem, and Diagram keep a live preview. Text that no longer reads as one block becomes what it reads as when the editor closes.
+- **A block's own source** (built): a paragraph turns into its Markdown in place, same font, nothing jumps; any other block opens as its source, header included, on a soft panel in the code font, so typing `Chem:` over `Math:` changes its type at once (`Block.Source.Set`, one undo step, same key). Math, Chem, TikZ, and Plot keep a live preview. Text that no longer reads as one block becomes what it reads as when the editor closes.
 - **Outlines** (`Editor.BlockOutline`): the block being edited gets an accent outline 5px out, with its type as a badge; the block around it a dashed one (skipping a parent just as big, such as a column holding only it, for the next one out). The hovered block gets a box in the same place and shape, softer (`.hover-box`), never on the block being edited, kept within the block around it.
 - **Entering and leaving:** `Editor.ClickToEdit` is `SingleClick`, `DoubleClick`, or `HotkeyOnly`. `Esc` leaves the block and selects it, `Esc` again selects the block around it (at the top, nothing), and `Enter` re‑enters. Containers are selected rather than edited; a `Callout` edits its title.
 - **Creating blocks:** `Enter` at a line's end, `/` on an empty line, a header or alias typed alone then `Enter`, a click below the last block, or *Add block below*. With `Editor.BlockHandle` on, `+` and `⋮⋮` show in the left gutter.
@@ -952,8 +1008,8 @@ Lines between named nodes stop at node edges; unknown commands are reported with
 | Kind | Used by | Behaviour |
 |---|---|---|
 | `InlineText` | Text, Callout title | Live preview: Markdown marks show near the caret |
-| `SourcePreview` | Math, Chem, Plot, Diagram, Code, Image, Video, Markdown, HTML | The block's own source with a live preview |
-| `Structured` | Property (built), Table, Event, the drawing tool | A GUI editor, always with the source a view away |
+| `SourcePreview` | Math, Chem, Plot, TikZ, Code, Image, Video, Markdown, HTML | The block's own source with a live preview |
+| `Structured` | Property, Table, Calendar (built), the drawing tool | A GUI editor, always with the source a view away |
 | `Surface` | Ink, Page, Board, Slide | Tools, lasso, handles, snapping |
 
 The host edits a block's own source the same way for every kind; only the edited block mounts an editor, so 1,000‑block notes stay light.
@@ -1082,7 +1138,11 @@ A plugin can extend a block type without replacing it: commands, toolbar and ins
 
 - **`ColorPicker`** (the Palette plugin, built): one color menu (theme colors, palettes with import, recent colors you can remove, any hex code) that the drawing tool and the format bar open; it gives back a theme color's name (`Accent`) or `#rrggbb`. With the plugin off there is no color choice.
 - **`Board.Editor`** (the Chem module, built): the drawing tool for Boards, while *Drawing on Boards* is on.
-- **`Hotkey`** (the app, built): `HotkeyLookup.commandFor(event, when)` gives the command your keys (or the defaults) bind to a keydown in a module's own context, so the drawing tool's keys are rebindable like any other.
+- **`Hotkey`** (the app, built): `HotkeyLookup.commandFor(event, when)` gives the command your keys (or the defaults) bind to a keydown in a module's own context, so the drawing tool's and the calendar's keys are rebindable like any other.
+- **`NoteIndex`** (the app, built): the vault for modules: `noteList()` (each note's properties: its first Property block over its header), `subscribe`, `setProperty`, `createNote`, `trashNote`, `readNote`, `modelOf(path)` (a note's live model, for `From`), `resolve`, `open`, and files (`findFile`, `readFile`, `writeFile`, `createFile`). `linkedBlock` and `linkedProperty` in core‑sdk read a `From`.
+- **`TableData`** (the Table module, built): `read(context, "Gym log" | "Gym#Gym log")` gives typed columns after Filter and Sort, `watch` tells when they change.
+- **`Menu`** (the app, built): the app's menus (`open` with items, ticks, submenus) and its text prompt, so module menus look like the app's.
+- **Loading on first use** (built): `lazyRenderer(() => import('./view'))` mounts a placeholder until a module's code arrives; the page names those files as prefetch links, so the service worker keeps them for offline use.
 
 ### 8.6 Switch (almost) everything on and off
 
@@ -1108,10 +1168,10 @@ A public GitHub repository holds the registry index (`Registry.oi`); packages ar
 | Module | v1 | P1 | P2 | P3 |
 |---|---|---|---|---|
 | `Text`, `Layout` (`Flow`, `Grid`, `Column`, `Callout`), `Property`, `Board` (Free, Masonry, `Arrow`) | ✓ | | | |
-| `Math`, `Code`, `Chem`, `Diagram`, `Image`, `Video`, `Markdown`, `HTML` | ✓ | `\eqref`, `\ce`, brackets | recognition, run code, SMILES, diagram presets | |
-| `Table`, `Plot` 2D (next), `Ink`, `PDF`, `Layout.Page` | | ✓ | | |
-| `Audio`, `Event`, `View`, `Layout.Deck` | | | ✓ | |
-| `Plot` 3D | | | | ✓ |
+| `Math`, `Code`, `Chem`, `TikZ`, `Image`, `Video`, `Markdown`, `HTML` | ✓ | `\eqref`, `\ce`, brackets | recognition, run code, SMILES, TikZ presets | |
+| `Table`, `Plot` (2D and 3D), `Calendar`, `Event` | ✓ (1.x) | Timeline, `.ics` | | |
+| `Ink`, `PDF`, `Layout.Page` | | ✓ | | |
+| `Audio`, `Layout.Deck` | | | ✓ | |
 
 | Plugin | v1 | P1 | P2 | P3 |
 |---|---|---|---|---|
@@ -1277,7 +1337,7 @@ Unavailable features appear **disabled with a one‑line reason**, never silentl
 | Windows · macOS · Linux | 10 (WebView2) · 11+ · WebKitGTK 4.1 | NSIS/MSI (signed) · DMG (notarized) · AppImage, deb, Flatpak |
 | iPadOS/iOS · Android | 16+ · 8.0+ | App Store/TestFlight · Play + APK |
 
-**Small core:** the desktop installer targets < 10 MB and the web core < 200 KB gzipped (v1, with every module and plugin, is 191 KB of JS gzipped). Everything beyond the core loads only when switched on.
+**Small core:** the desktop installer targets < 10 MB and the web core < 200 KB gzipped (with every module and plugin, 193 KB of JS gzipped; Table, Plot, Calendar (with their CSS, through `installStyle`), and the guide's notes load on first use, about 100 KB more). Everything beyond the core loads only when switched on or first used.
 
 ---
 
@@ -1335,7 +1395,7 @@ Unavailable features appear **disabled with a one‑line reason**, never silentl
 
 ## 16. Decision log & open question
 
-The decisions behind the design, by topic (from seven reviews; the history of each is in git):
+The decisions behind the design, by topic (from eight reviews; the history of each is in git):
 
 | Topic | Decision |
 |---|---|
@@ -1353,7 +1413,17 @@ The decisions behind the design, by topic (from seven reviews; the history of ea
 | Chemistry | Own parsers from zero. `Chem` holds one structure in our dense syntax (chemfig stays for pasting LaTeX; no `Molecule` type); mechanisms are Boards with arrows between named atoms, lone pairs, and bonds. The drawing tool has Photoshop‑style groups, right click to undo the tool, right drag to pan, and touch. A Board without chemistry is edited without chemistry tools; a Masonry Board in the note. Arrow text has `At` and is dragged along, across, off, or onto arrows |
 | Modules and plugins | Plugins extend modules (themes, actions, extensions). A module's parts are features with their own switch and needs (Chem's *Drawing on Boards* needs Board); modules declare `provide`/`use` for a later dependency view. Colors come from the **Palette** plugin: one menu, palettes with import, removable recent colors, and no color UI when it is off |
 | Themes | The app chooses (one list in *Appearance*); plugins and modules add themes. Module themes and whole layouts follow the same pattern next |
-| Planned content | Handwriting on `Page` by default (never over reflowing text); PDFs as `Page` backgrounds; `Audio` core, synced replay later; recognition off by default; Plot 2D with sliders first (fed by Tables), 3D later; diagrams from geometry to circuits; `Deck` and `Board` for slides and canvases; Jupyter‑like code (JavaScript and Python first); events that hold anything, with calendar views and table analysis |
+| Tables | Rows as CSV in the note by default (readable, diffable); a table may instead show a `.csv`, `.tsv`, or an `.xlsx` sheet and edit it in place, the note keeping only the view. Excel files keep their styles: only changed cells are written. Tables of notes for database‑like use. Board, Gallery, and List layouts |
+| Plot | Desmos‑like lines (one thing each, style in braces at the end), sliders written back on release, our own sampler; 3D in WebGL 2 now (surfaces, implicit surfaces, curves, points); interactive by default, the wheel zooms only after a click so notes still scroll; *Keep this view* writes the view |
+| Calendar | Events are Event blocks inside the calendar by default; *As a linked note* and both‑way conversion for Notion‑style event notes. Copies keep their name (no "(1)"). One day of a repeat asks this / following / all. `Alt` + drag copies inside the calendar |
+| Room and references | Blocks don't break out of the margins unless set *Full width*; a note that is only a table or calendar fills the window. A table or calendar can live in a note of its own and be shown elsewhere with `From`, moved out or brought back from its ⋯ menu |
+| Diagram → TikZ | The module is named for its syntax; `Diagram:` still reads, so old notes keep working. Its templates say *(TikZ)*, so they aren't taken for Plot |
+| Block menu | Grouped under each module's name, entries indented; a search lists them all with the module at the right |
+| Referencing a table | By its title only (`Data: Gym log`, then columns by name); the `^id.Column` form is gone, so there is one way. *Plot this table* writes it for you |
+| Time zones | The picker shows offsets with cities (as asked), but each entry is a place, so daylight saving follows it; a typed `UTC+9` stays fixed |
+| Editing a Plot | Three layers: the text (data), the stage (render), and a Desmos‑like panel (editing) whose every change is a text edit |
+| Plot look | No raw code on screen: axes named after columns (and how they are combined), lines typeset, colors picked from a dot. A Swiss (International Typographic) style may come as a theme |
+| Planned content | Handwriting on `Page` by default (never over reflowing text); PDFs as `Page` backgrounds; `Audio` core, synced replay later; recognition off by default; TikZ presets from geometry to circuits; `Deck` and `Board` for slides and canvases; Jupyter‑like code (JavaScript and Python first); a calendar Timeline and `.ics` |
 | Sharing | No server needed: QR + LAN, Bluetooth, OS share; send or sync, your choice; collaboration (CRDT‑ready from the start) and a git‑like history tree; an open registry on GitHub, safe by permissions and sandbox |
 | Other | Fully international, WCAG 2.2 AA, a customizable keymap with presets, no encryption, the smallest possible core, PDF as the main export |
 

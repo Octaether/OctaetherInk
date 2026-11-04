@@ -5,11 +5,11 @@ Format: Oi 1
 
 Property:
 	Tag: [Guide, Module]
-	Module: Diagram
+	Module: TikZ
 
-The **Diagram** module draws a subset of TikZ. Node labels hold text and math, written the TikZ way (`$x$`). Back to [[Welcome]].
+The **TikZ** module draws a subset of TikZ. Node labels hold text and math, written the TikZ way (`$x$`). For graphs of functions you can zoom and move, and for data, see [[Plot]]. Back to [[Welcome]].
 
-Diagram:
+TikZ:
 	\draw[->] (-3.2,0) -- (3.4,0) node[right] {$x$};
 	\draw[->] (0,-1.4) -- (0,1.6) node[above] {$y$};
 	\draw[thick, Accent, domain=-3:3, samples=80] plot (\x, {sin(\x r)});
@@ -17,7 +17,7 @@ Diagram:
 
 ## Nodes and arrows
 
-Diagram:
+TikZ:
 	\node[draw, circle] (a) at (0,0) {A};
 	\node[draw] (b) at (3,0) {B};
 	\node[draw, circle] (c) at (1.5,-1.6) {C};
@@ -26,4 +26,4 @@ Diagram:
 	\draw[->, dashed] (c) -- (a);
 	\foreach \x in {0,...,4} { \fill[Accent] (\x*0.75, 1) circle (0.08); }
 
-The drawing size is in Setting → Module → Diagram.
+The drawing size is in Setting → Module → TikZ. Older notes may say `Diagram:`; those blocks draw the same way.

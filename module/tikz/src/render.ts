@@ -121,14 +121,14 @@ export function renderDiagram(diagram: Diagram, option: DiagramRenderOption): st
 		}[node.placement];
 		const textColor = color(node.style.textColor);
 		// left/top are in the scene's em, so the smaller type lives on the inner element
-		return `<div class="oi-diagram-label" style="left: ${number(at.x)}em; top: ${number(at.y)}em; transform: ${transform};${textColor ? ` color: ${escapeXml(textColor)};` : ''}"><div class="oi-diagram-label-text">${option.renderLabel(node.text, node.textOffset)}</div></div>`;
+		return `<div class="oi-tikz-label" style="left: ${number(at.x)}em; top: ${number(at.y)}em; transform: ${transform};${textColor ? ` color: ${escapeXml(textColor)};` : ''}"><div class="oi-tikz-label-text">${option.renderLabel(node.text, node.textOffset)}</div></div>`;
 	};
 
 	const width = (box.maxX - box.minX) * emPerCm;
 	const height = (box.maxY - box.minY) * emPerCm;
 	return (
-		`<div class="oi-diagram-scene" style="width: ${number(width)}em; height: ${number(height)}em">` +
-		`<svg class="oi-diagram-svg" viewBox="0 0 ${number(width)} ${number(height)}" style="width: ${number(width)}em; height: ${number(height)}em" role="img" aria-label="diagram" stroke-linecap="round" stroke-linejoin="round">` +
+		`<div class="oi-tikz-scene" style="width: ${number(width)}em; height: ${number(height)}em">` +
+		`<svg class="oi-tikz-svg" viewBox="0 0 ${number(width)} ${number(height)}" style="width: ${number(width)}em; height: ${number(height)}em" role="img" aria-label="diagram" stroke-linecap="round" stroke-linejoin="round">` +
 		diagram.pathList.map(pathElement).join('') +
 		diagram.nodeList.map(shapeElement).join('') +
 		'</svg>' +

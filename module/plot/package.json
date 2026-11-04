@@ -1,0 +1,16 @@
+{
+	"name": "@octaether/module-plot",
+	"version": "0.1.0",
+	"private": true,
+	"description": "OI Plot module: Desmos-like functions, implicit curves, sliders, table data with trends, and 3D surfaces (own sampler and WebGL renderer)",
+	"license": "MIT",
+	"type": "module",
+	"exports": {
+		".": "./src/index.ts"
+	},
+	"dependencies": {
+		"@octaether/core-expression": "*",
+		"@octaether/core-format": "*",
+		"@octaether/core-sdk": "*"
+	}
+}

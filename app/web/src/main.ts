@@ -25,19 +25,22 @@ import {
 	turnInto,
 } from '@octaether/core-edit';
 import { type HostService, Registry, RenderHost, type TemplateEntry, ThemeRegistry, applyThemeVariable, installBaseStyle, readLayout, themeContext } from '@octaether/core-render';
-import { type AssetResolver, type ColorPicker, type CommandDefinition, type Definition, type HotkeyLookup, type SettingDefinition, assetExtension, colorPickerExtension, hotkeyExtension } from '@octaether/core-sdk';
-import { type FileSystem, MemoryFileSystem, Vault, baseName, extensionOf, isNote, joinPath, linkTargetOf, mediaKindOf, mediaTypeOf, nameProblem, parentPath, stemOf } from '@octaether/core-vault';
+import { type AssetResolver, type ColorPicker, type CommandDefinition, type Definition, type HotkeyLookup, type MenuEntry, type PopupMenu, type SettingDefinition, assetExtension, colorPickerExtension, hotkeyExtension, menuExtension, noteIndexExtension } from '@octaether/core-sdk';
+import { type FileSystem, MemoryFileSystem, Vault, baseName, extensionOf, isDataFile, isNote, joinPath, linkTargetOf, mediaKindOf, mediaTypeOf, nameProblem, parentPath, stemOf } from '@octaether/core-vault';
+import { calendarModule } from '@octaether/module-calendar';
 import { chemModule } from '@octaether/module-chem';
 import { codeModule } from '@octaether/module-code';
-import { diagramModule } from '@octaether/module-diagram';
 import { htmlModule } from '@octaether/module-html';
 import { boardModule } from '@octaether/module-board';
 import { layoutModule } from '@octaether/module-layout';
 import { markdownModule } from '@octaether/module-markdown';
 import { mathModule } from '@octaether/module-math';
 import { imageModule, videoModule } from '@octaether/module-media';
+import { plotModule } from '@octaether/module-plot';
 import { openPropertyForm, propertyModule } from '@octaether/module-property';
+import { tableModule } from '@octaether/module-table';
 import { textModule } from '@octaether/module-text';
+import { tikzModule } from '@octaether/module-tikz';
 import { palettePlugin } from '@octaether/plugin-palette';
 import { themePlugin } from '@octaether/plugin-theme';
 import { accentToken, normalizeHex } from './color';
@@ -49,6 +52,8 @@ import { setupGutter } from './gutter';
 import { setupHoverHighlight } from './hover-highlight';
 import { icon } from './icon';
 import { NoteHead, headerKeyList, propertyBlockOf, systemKeySet } from './note-head';
+import { createNoteIndex } from './note-index';
+import { NoteModel } from '@octaether/core-model';
 import { bestFuzzyScore, openCommandPalette, openPicker } from './palette';
 import { SettingStore } from './setting-store';
 import { openSettingModal } from './setting-modal';
@@ -58,7 +63,7 @@ import { StartScreen } from './start-screen';
 import { StatusBar } from './status-bar';
 import { type RecentEntry, clearLast, createId, forgetRecent, idbGet, idbSet, lastEntry, readJson, recentList, rememberRecent, storageKey, writeJson } from './storage';
 import { TabBar } from './tab-bar';
-import { Menu, type MenuItem, closeAllMenu, confirmDialog, currentMenu, escapeHtml, openModal, toast } from './ui';
+import { Menu, type MenuItem, closeAllMenu, confirmDialog, currentMenu, escapeHtml, openModal, promptDialog, toast } from './ui';
 import { type Tab, Workspace, newNoteText, nowText } from './workspace';
 import { type ZipEntry, makeZip } from './zip';
 
@@ -136,6 +141,8 @@ const registry = new Registry();
 const themeRegistry = new ThemeRegistry();
 const commandRegistry = new CommandRegistry();
 const enabledState = readJson<Record<string, boolean>>(storageKey.Enabled, {});
+// the TikZ module was called Diagram: its switch carries over
+if ('Diagram' in enabledState && !('TikZ' in enabledState)) enabledState.TikZ = enabledState.Diagram!;
 const definitionList: Definition[] = [
 	textModule,
 	propertyModule,
@@ -144,7 +151,10 @@ const definitionList: Definition[] = [
 	mathModule,
 	codeModule,
 	chemModule,
-	diagramModule,
+	tikzModule,
+	tableModule,
+	plotModule,
+	calendarModule,
 	imageModule,
 	videoModule,
 	markdownModule,
@@ -285,6 +295,33 @@ function assetUrl(source: string): Promise<string | undefined> {
 }
 
 registry.registerExtension(assetExtension, { url: assetUrl } satisfies AssetResolver);
+// the vault's notes, for calendars and tables of notes
+registry.registerExtension(
+	noteIndexExtension,
+	createNoteIndex({
+		workspace,
+		formatOption: () => registry.formatOption(),
+		newNoteText,
+		open: (path, newTab) => (isNote(path) ? void workspace.openNote(path, { newTab }) : void workspace.openFile(path, { newTab })),
+	}),
+);
+// the app's menus, for modules' own (a table's column menu, a calendar event's)
+const menuItemOf = (entry: MenuEntry): MenuItem => ({
+	title: entry.title,
+	explain: entry.explain,
+	hint: entry.hint,
+	danger: entry.danger,
+	separatorBefore: entry.separatorBefore,
+	icon: entry.checked ? '✓' : undefined,
+	keywordList: entry.keywordList,
+	run: entry.run,
+	itemList: entry.childList?.map(menuItemOf),
+});
+registry.registerExtension(menuExtension, {
+	open: ({ x, y, itemList, search, onClose }) => void new Menu(itemList.map(menuItemOf), { x, y, search, onClose }),
+	close: () => closeAllMenu(),
+	prompt: (message, value, action) => promptDialog(message, value, action),
+} satisfies PopupMenu);
 
 let viewMode: ViewMode = (setting.get('Editor.DefaultView') as ViewMode | undefined) ?? 'Edit';
 let slashMenu: Menu | undefined;
@@ -612,7 +649,7 @@ function showTab(): void {
 		// a Property block added or removed changes what the note's top offers
 		if (change.notePropertyChanged || change.structure) noteHead.refresh();
 		else noteHead.noteChanged();
-		if (change.notePropertyChanged) applyPageLayout();
+		if (change.notePropertyChanged || change.structure) applyPageLayout();
 		if (viewMode === 'Source' && sourceEditor && !applyingSource) sourceEditor.setText(note.model.serialize());
 		if (findBar.isOpen()) scheduleFindRefresh();
 	});
@@ -628,6 +665,8 @@ function showTab(): void {
 // ---------------------------------------------------------------- a file of the vault on its own
 
 let fileViewPath: string | undefined;
+/** The table a data file shows in the File view. */
+let dataHost: RenderHost | undefined;
 
 /** Shows the picture, video, or sound in front, as Obsidian does; a click on a picture shows it at its real size. */
 function renderFileView(): void {
@@ -635,8 +674,17 @@ function renderFileView(): void {
 	const path = workspace.file;
 	if (path === fileViewPath) return;
 	fileViewPath = path;
+	dataHost?.destroy();
+	dataHost = undefined;
 	if (path === undefined) {
 		view.replaceChildren();
+		return;
+	}
+	// a .csv, .tsv, or .xlsx: a table over the whole page, edited in place
+	if (isDataFile(path)) {
+		view.innerHTML = '<div class="file-view-data"><div class="file-view-data-note"></div></div>';
+		dataHost = new RenderHost(view.querySelector<HTMLElement>('.file-view-data-note')!, registry, themeRegistry);
+		dataHost.mount(NoteModel.fromText(`Table {File: "${path.replace(/"/g, '')}"}:\n`, registry.formatOption()));
 		return;
 	}
 	const kind = mediaKindOf(path);
@@ -1072,17 +1120,21 @@ async function closeVault(): Promise<void> {
 
 // The welcome guide: a small vault in memory, one note per module plus an overview, all linked,
 // so links, tabs, and the graph work in it (with a picture for the Image guide). Changes stay
-// until it is closed.
-const guideFileMap = Object.fromEntries(
-	Object.entries(import.meta.glob('../../../sample/Guide/*.{oi,svg}', { query: '?raw', import: 'default', eager: true }) as Record<string, string>).map(([path, text]) => [path.split('/').pop()!, text]),
-);
+// until it is closed. Its files load the first time it opens (the page prefetches them).
+const guideLoaderMap = import.meta.glob('../../../sample/Guide/*.{oi,svg,csv}', { query: '?raw', import: 'default' }) as Record<string, () => Promise<string>>;
+let guideFileMap: Record<string, string> | undefined;
+
+async function guideFile(): Promise<Record<string, string>> {
+	guideFileMap ??= Object.fromEntries(await Promise.all(Object.entries(guideLoaderMap).map(async ([path, load]) => [path.split('/').pop()!, await load()] as const)));
+	return guideFileMap;
+}
 
 async function openGuide(): Promise<void> {
 	if (workspace.source?.kind === 'Guide') {
 		await workspace.openNote('Welcome.oi');
 		return;
 	}
-	if (!(await workspace.openVault(new MemoryFileSystem('Welcome guide', guideFileMap), { kind: 'Guide', id: 'guide', name: 'Welcome guide' }))) return;
+	if (!(await workspace.openVault(new MemoryFileSystem('Welcome guide', await guideFile()), { kind: 'Guide', id: 'guide', name: 'Welcome guide' }))) return;
 	await workspace.openNote('Welcome.oi');
 }
 
@@ -1399,7 +1451,7 @@ async function followLink(target: string, newTab: boolean): Promise<void> {
 	}
 	// [[Cell.png]]: a picture, a video, or a sound opens on its own, as in Obsidian
 	const file = vault.findFile(name, from ?? '');
-	if (file && mediaKindOf(file)) {
+	if (file && (mediaKindOf(file) || isDataFile(file))) {
 		workspace.openFile(file, { newTab });
 		return;
 	}
@@ -1520,7 +1572,8 @@ function templateItemList(run: (template: TemplateEntry) => void): MenuItem[] {
 		title: template.title,
 		icon: template.icon,
 		...(template.explain ? { explain: template.explain } : {}),
-		keywordList: [...(template.keywordList ?? []), template.type],
+		keywordList: [...(template.keywordList ?? []), template.type, template.module],
+		group: template.module,
 		run: () => run(template),
 	}));
 }
@@ -1597,6 +1650,11 @@ function blockMenu(key: string, x: number, y: number): void {
 			columnKey = at.key;
 			break;
 		}
+	}
+	// a block at the top of the page can be wider than the text (a calendar, a table, a plot)
+	if (!note.parentOf(key) && pageLayoutOf(note) === 'Flow') {
+		const wide = node.property.get('Wide') === true;
+		itemList.push({ title: 'Full width', icon: wide ? '✓' : undefined, explain: 'Wider than the text around it', run: () => note.setProperty(key, 'Wide', wide ? undefined : true) });
 	}
 	if (node.type === 'Grid') itemList.push({ title: 'Add column', run: () => insertColumn(key, 'Right') });
 	else if (columnKey) {
@@ -2024,8 +2082,14 @@ function pageLayoutOf(note: import('@octaether/core-model').NoteModel | undefine
 }
 type PageLayout = 'Flow' | 'Masonry' | 'Board';
 
+/** A note that is just a Table or a Calendar (a Property block aside): it gets the window's width too. */
+function fillsPage(note: import('@octaether/core-model').NoteModel | undefined): boolean {
+	const list = (note?.document.itemList ?? []).filter((node) => node.type !== 'Property' && !(node.type === 'Text' && node.body.trim() === '' && node.childList.length === 0));
+	return list.length === 1 && registry.blockType(list[0]!.type)?.fillPage === true;
+}
+
 function applyPageLayout(): void {
-	pageElement.classList.toggle('wide', pageLayoutOf(model()) === 'Masonry');
+	pageElement.classList.toggle('wide', pageLayoutOf(model()) === 'Masonry' || fillsPage(model()));
 }
 
 /** Sets the note's page layout (one undo step); Flow takes the header away. */

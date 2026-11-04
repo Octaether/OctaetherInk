@@ -102,7 +102,7 @@ function tokenize(line: string, state: TokenState, syntax: Syntax): Token[] {
 		}
 		return whole('s-body');
 	}
-	// the raw body of a Math / Code / Chem / Diagram block
+	// the raw body of a Math / Code / Chem / TikZ block
 	if (state.rawLevel !== undefined) {
 		if (line.trim() === '' || indent > state.rawLevel) return whole('s-body');
 		state.rawLevel = undefined;
@@ -285,7 +285,7 @@ export class SourceEditor {
 		const state: TokenState = { front: 'Before', alias: undefined, rawLevel: undefined };
 		const aliasList = this.option.aliasList?.() ?? [];
 		const syntax: Syntax = {
-			isRawType: this.option.isRawType ?? ((type: string) => ['Math', 'Code', 'Chem', 'Diagram', 'Plot', 'Table', 'HTML'].includes(type)),
+			isRawType: this.option.isRawType ?? ((type: string) => ['Math', 'Code', 'Chem', 'TikZ', 'Diagram', 'Plot', 'Table', 'HTML'].includes(type)),
 			takesArgument: this.option.takesArgument ?? ((type: string) => type === 'Code'),
 			aliasOf: (rest) => matchAlias(rest, aliasList),
 		};

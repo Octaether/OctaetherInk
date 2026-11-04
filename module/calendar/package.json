@@ -1,0 +1,16 @@
+{
+	"name": "@octaether/module-calendar",
+	"version": "0.1.0",
+	"private": true,
+	"description": "OI Calendar module: Month, Week, Day, and Agenda views of Event blocks, notes with dates, and table rows; repeats with skipped days; drag to make, move, resize, and copy",
+	"license": "MIT",
+	"type": "module",
+	"exports": {
+		".": "./src/index.ts"
+	},
+	"dependencies": {
+		"@octaether/core-format": "*",
+		"@octaether/core-model": "*",
+		"@octaether/core-sdk": "*"
+	}
+}

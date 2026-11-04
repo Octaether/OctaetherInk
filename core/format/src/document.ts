@@ -140,12 +140,12 @@ export const defaultAliasList: readonly BlockAlias[] = [
 ];
 
 export const defaultItemTypeSet: ReadonlySet<string> = new Set([
-	'Text', 'Flow', 'Grid', 'Column', 'Group', 'Page', 'Board', 'Arrow', 'Deck', 'Slide', 'Event', 'Callout', 'Toggle',
+	'Text', 'Flow', 'Grid', 'Column', 'Group', 'Page', 'Board', 'Arrow', 'Deck', 'Slide', 'Event', 'Calendar', 'Callout', 'Toggle',
 ]);
 
 export const defaultKnownTypeSet: ReadonlySet<string> = new Set([
 	...defaultItemTypeSet,
-	'Math', 'Code', 'Chem', 'Plot', 'Diagram', 'Image', 'Ink', 'Table', 'PDF', 'Audio', 'Video', 'HTML', 'Markdown', 'View', 'Property',
+	'Math', 'Code', 'Chem', 'Plot', 'TikZ', 'Diagram', 'Image', 'Ink', 'Table', 'PDF', 'Audio', 'Video', 'HTML', 'Markdown', 'View', 'Property',
 ]);
 
 interface ResolvedOption {

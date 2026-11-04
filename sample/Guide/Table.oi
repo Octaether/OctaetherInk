@@ -1,0 +1,61 @@
+---
+Created: 2026-11-03 12:00 -04:00
+Format: Oi 1
+---
+
+Property:
+	Tag: [Guide, Module]
+	Module: Table
+
+The **Table** module keeps data in the note as CSV, and you type into it like a spreadsheet. Columns know their type, a footer sums or averages them, and a table can be a Board of cards or a list. [[Plot]] draws tables, and [[Calendar]] shows their dates. Back to [[Welcome]].
+
+## Typing into a table
+
+Table {Title: Expenses, Column: {Amount: {Unit: $, Summary: Sum}}}:
+	Date,Item,Category,Amount
+	2026-11-01,Groceries,Food,54.20
+	2026-11-03,Bus pass,Transport,30
+	2026-11-05,Coffee,Food,4.50
+	2026-11-08,Book,Other,18
+
+- **Click a cell** and type. `Enter` goes down, `Tab` goes right, `Esc` leaves. A checkbox column ticks with a click.
+- **Drag across cells** to select them: the count, sum, and average show below. `Ctrl+C` copies them, `Delete` clears them.
+- **Paste** rows from Excel, Google Sheets, or Numbers onto a cell: the table grows to fit.
+- **Click a column's name** to rename it, change its type, sort, filter, group, pick its summary, set a unit (kcal, $, kg), hide it, add columns, or *Analyze* it (mean, median, spread, and a histogram).
+- **The handle** on the left of a row drags it, or opens its menu: insert, duplicate (the copy keeps the same text), or delete.
+- **CSV** in the bar shows the text behind the table.
+- **A title** (*Add a title*, first in the bar) names the table: plots (`Plot {Data: Gym log}`), calendars (`Calendar {Data: Gym log}`), and other notes find it by it. The ⋯ menu → *Plot this table* puts a plot of it below.
+- **Choices:** a Choice (or List) cell opens its choices on a click: pick one, add one, or clear it. *Edit choices* (also in the column's menu → *Choices*) colors, renames (every cell follows), reorders, and deletes them.
+
+## Formulas, filters, and groups
+
+Table {Column: {Calorie: {Unit: kcal, Summary: Average}, Net: {Formula: "Calorie - Burned", Unit: kcal}}, Filter: "Calorie > 1900", Group: {Date: Week}}:
+	Date,Workout,Calorie,Burned
+	2026-11-02,Legs,2100,520
+	2026-11-03,Rest,1850,
+	2026-11-04,Push,1980,410
+	2026-11-06,Pull,2050,450
+	2026-11-09,Legs,2200,540
+
+- `Formula` makes a column from the others: `Calorie - Burned`, `round(Weight * 2.2, 1)`, `{Calorie > 2000: "High", "Normal"}`. A name with a space is written with `_` (`Body_fat`).
+- `Filter` keeps the rows that pass (`Workout = Legs and Calorie > 2000`), `Sort` orders them (`{Date: Down}`), and `Group` gathers them, by day, week, month, or year for dates, with a subtotal for each group.
+- The chips in the bar show what is on; × takes it off.
+
+## A table in a file
+
+Table {Column: {Amount: {Unit: $, Summary: Sum}}, Group: {Date: Month}}: Expense.csv
+
+- `Table: Expense.csv` shows a **file**: a `.csv`, a `.tsv`, or a sheet of an Excel `.xlsx` (`Sheet: Budget` picks one). What you type goes into the file, so Excel, Numbers, and Google Sheets see it too. In a workbook only the cells you change are written: its styles, formulas, and other sheets stay as Excel made them.
+- The note keeps how the table looks (units, summaries, filter, sort, group, layout); the file keeps the rows. Several notes can show one file in different ways.
+- The ⋯ menu moves a table's rows **to a CSV file**, or **brings** a file's rows into the note (the file stays). Open a `.csv` from the files on the left to see it as a table on its own.
+
+## A table as a database
+
+Table {Show: Board, Column: {Status: {Type: Choice, Choice: [To read, Reading, Done]}}}:
+	Title,Author,Status
+	Gödel Escher Bach,Douglas Hofstadter,Reading
+	The Feynman Lectures,Richard Feynman,To read
+	Flatland,Edwin Abbott,Done
+
+- **Board** puts the rows in lanes by a Choice column: drag a card to another lane to change it. **Gallery** shows cards, **List** one line each. Click a card to edit it as a form.
+- `Source: "Reading/"` (a folder) or `Source: "tag:Book"` makes **each note a row**: its properties are the columns, a cell you change is written into that note, and *New* makes a note in the folder.

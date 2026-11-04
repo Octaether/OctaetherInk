@@ -117,6 +117,8 @@ describe('web app', () => {
 
 	it('opens the welcome guide in a tab, with its properties on top and every guide beside it', async () => {
 		command('Guide.Open');
+		// the guide's notes load the first time it opens
+		for (let tries = 0; tries < 400 && !document.getElementById('startScreen')!.hidden; tries++) await new Promise((done) => setTimeout(done, 5));
 		await settle();
 		expect(document.getElementById('startScreen')!.hidden).toBe(true);
 		expect(document.querySelector<HTMLTextAreaElement>('.inline-title')!.value).toBe('Welcome');

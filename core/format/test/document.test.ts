@@ -51,19 +51,20 @@ function typeTree(nodeList: readonly BlockNode[]): unknown[] {
 describe('parseNote', () => {
 	it('reads every guide note with no problem and writes it back byte for byte', () => {
 		// the guide is notes people edit, so this checks what they show, not where
-		expect([...guideMap.keys()].sort()).toEqual(['Chemistry', 'Code', 'Diagram', 'HTML', 'Image', 'Layout', 'Markdown', 'Math', 'Property', 'Text', 'Video', 'Welcome', 'Workspace']);
+		expect([...guideMap.keys()].sort()).toEqual(['Calendar', 'Chemistry', 'Code', 'HTML', 'Image', 'Layout', 'Markdown', 'Math', 'Plot', 'Property', 'Table', 'Text', 'TikZ', 'Tracker', 'Video', 'Welcome', 'Workspace']);
 		const typeSet = new Set<string>();
 		for (const [name, text] of guideMap) {
 			const document = parseNote(text);
 			expect(document.problemList, name).toEqual([]);
-			expect(collectIdSet(document).size, name).toBe(0);
+			// an id only where another block reads it (a Plot reading ^gym)
+			for (const id of collectIdSet(document)) expect(text.split(`^${id}`).length, `${name} ^${id}`).toBeGreaterThan(2);
 			expect(serializeDocument(document), name).toBe(text);
 			// each guide has a Property block tagged Guide; it is a block like any other, so it needn't come first
 			const property = document.itemList.find((node) => node.type === 'Property');
 			expect(property?.body, name).toMatch(/^Tag: \[Guide/);
 			walkNode(document.itemList, (node) => typeSet.add(node.type));
 		}
-		expect(typeSet).toEqual(new Set(['Property', 'Text', 'Math', 'Callout', 'Code', 'Chem', 'Board', 'Arrow', 'Grid', 'Column', 'Diagram', 'Image', 'Video', 'Markdown', 'HTML']));
+		expect(typeSet).toEqual(new Set(['Property', 'Text', 'Math', 'Callout', 'Code', 'Chem', 'Board', 'Arrow', 'Grid', 'Column', 'TikZ', 'Image', 'Video', 'Markdown', 'HTML', 'Table', 'Plot', 'Calendar', 'Event']));
 		// the file after `Image:` and `Video:` is a property, the caption is the body
 		const image = parseNote(guideMap.get('Image')!).itemList.find((node) => node.type === 'Image')!;
 		expect(Object.fromEntries(image.property)).toEqual({ Source: 'Octahedron.svg', Width: 220 });

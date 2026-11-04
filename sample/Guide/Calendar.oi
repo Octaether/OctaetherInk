@@ -1,0 +1,46 @@
+---
+Created: 2026-11-03 12:00 -04:00
+Format: Oi 1
+---
+
+Property:
+	Tag: [Guide, Module]
+	Module: Calendar
+
+The **Calendar** module shows events by month, week, day, or as an agenda. Events live in the calendar, or as notes of their own, and tables with dates show too ([[Table]]). Back to [[Welcome]].
+
+Calendar {Show: Week, Wide: True}:
+	Event {Start: 2026-09-07 09:00, End: 10:30, Repeat: {Every: Week, On: [Mon, Wed]}, Skip: [2026-11-23..2026-11-29], Place: Room 204}: Linear Algebra
+		Bring the problem set.
+	Event {Start: 2026-09-08 13:00, Duration: 2h, Repeat: {Every: Week, On: [Tue]}, Skip: [2026-11-23..2026-11-29], Color: '#3d8a7a'}: Chemistry lab
+	Event {Start: 2026-09-11 18:00, End: 19:00, Repeat: Weekly, Color: '#c0643c'}: Gym
+
+## Making and changing events
+
+- **Make one:** click an empty time, or drag down across times, type a name, and press `Enter`. In the month view, click a day (drag across days for a trip).
+- **Change one:** click it. Pick *End* or *Duration* (with 30m, 1h, 1h30m, 2h at hand), *All day*, a repeat, a place, a color, and notes.
+- **Move it:** drag it; drag its bottom edge for a new end. **Copy it:** hold `Alt` while dragging, or right-click → *Duplicate*. A copy keeps the same name, with no "(1)".
+- **Keys:** `T` today, `D` `W` `M` `A` for the views, `J` and `K` next and previous, `C` new. With an event picked, `←` `→` move it a day and `↑` `↓` by 15 minutes, `Ctrl+D` copies it to the next day, `Ctrl+C` then `Ctrl+V` pastes it on the day under the pointer, and `Delete` deletes it. Change them in Setting → Hotkey.
+
+## Time zones
+
+- The zone button in the bar (`UTC−5`) shows the calendar at another UTC offset, each listed with a few cities (search a city to find it): every timed event moves to that zone's clock, and nothing in the note changes. An event made while another zone is shown keeps it (`TimeZone: Asia/Tokyo`).
+- **Daylight saving:** the zones in the menu are places (New York, Tokyo), each shown by its offset now, so a 09:00 class stays at 09:00 when the clocks change, and its offset reads `UTC−5` in winter, `UTC−4` in summer. A fixed offset typed by hand (`TimeZone: UTC+9`) never changes.
+- A calendar is in this device's zone unless it says `TimeZone`; *Make … the calendar's own* in the same menu sets it. Events without a zone are in the calendar's.
+
+## Repeats and breaks
+
+- A repeat goes every day, every week on some days, every month, or every year, until a day (or a number of times). *Every weekday* is Monday to Friday.
+- **Skip** days for a break: the classes above skip the week of Nov 23. Right-click one day → *Skip this day* for a holiday.
+- Moving or changing one day of a repeat asks: **this event** (the series skips that day, and this one gets its own event), **this and following**, or **all events**.
+
+## Events as notes
+
+- In a new event, tick *As a linked note*: the event becomes a note (in the calendar's `Folder`) with its `Start` and `End` in its properties, so it can hold a whole page.
+- Right-click → *Move to its own note* turns an event into a note; on a note's event, *Move into the calendar* does the opposite (the note goes to the trash, with Undo).
+- `Source` adds notes: a folder (`Class`), a tag (`tag:Exam`), or `/` for every note. `Data: Gym log` adds a table's rows, found by the table's title, each on its first date column. Notes are placed by `Start`, or `Date` (`DateProperty: Due` for another).
+
+## Room, and calendars of their own
+
+- **Full width** (in the ⋯ menu, or right-click → *Full width*) lets a calendar or a table be wider than the text around it. A note that holds only a calendar or a table uses the whole window by itself.
+- **Move to its own note** (⋯) puts the calendar in a note of its own and leaves `Calendar {From: "[[Classes]]"}` here: the same events, shown and changed from any note. **Bring into this note** does the opposite. Tables do the same.

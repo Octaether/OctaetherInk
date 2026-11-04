@@ -81,6 +81,8 @@ export interface RegistryProblem {
 
 export interface TemplateEntry extends BlockTemplate {
 	type: string;
+	/** The title of the module that gives it (`Math`, `TikZ`), for grouping the block menu. */
+	module: string;
 }
 
 export class Registry {
@@ -281,7 +283,12 @@ export class Registry {
 
 	templateList(): TemplateEntry[] {
 		return this.enabledBlockTypeList().flatMap((blockType) =>
-			(blockType.templateList ?? []).filter((template) => template.feature === undefined || this.isFeatureActive(template.feature)).map((template) => ({ ...template, type: blockType.name })),
+			(blockType.templateList ?? [])
+				.filter((template) => template.feature === undefined || this.isFeatureActive(template.feature))
+				.map((template) => {
+					const owner = this.blockTypeOwner.get(blockType.name);
+					return { ...template, type: blockType.name, module: (owner ? this.definitionMap.get(owner)?.title : undefined) ?? blockType.name };
+				}),
 		);
 	}
 

@@ -3,7 +3,7 @@
 // drag into a note) and search across every note. The vault's name sits at the bottom and opens
 // the vault switcher. Notes kept in the browser get a warning on top that can't be missed.
 
-import { type SortOrder, baseName, extensionOf, isInside, mediaKindOf, parentPath, stemOf } from '@octaether/core-vault';
+import { type SortOrder, baseName, extensionOf, isDataFile, isInside, mediaKindOf, parentPath, stemOf } from '@octaether/core-vault';
 import { icon } from './icon';
 import { Menu, type MenuItem, escapeHtml } from './ui';
 import type { Workspace } from './workspace';
@@ -271,7 +271,7 @@ export class Sidebar {
 				const renaming = this.renamePath === entry.path;
 				const nameHtml = renaming ? `<input class="tree-rename" value="${escapeHtml(name)}" aria-label="New name" spellcheck="false">` : `<span class="tree-name">${escapeHtml(name)}</span>`;
 				rowList.push(
-					`<div class="tree-item${folderRow ? ' tree-folder' : ''}${entry.path === current ? ' active' : ''}${entry.pending ? ' pending' : ''}${!folderRow && !note ? (mediaKindOf(entry.path) ? ' media' : ' other') : ''}" role="treeitem" data-path="${escapeHtml(entry.path)}" data-kind="${entry.kind}"${folderRow ? ` aria-expanded="${open}"` : ''} draggable="${!renaming && !entry.pending}" style="--depth: ${depth}">` +
+					`<div class="tree-item${folderRow ? ' tree-folder' : ''}${entry.path === current ? ' active' : ''}${entry.pending ? ' pending' : ''}${!folderRow && !note ? (mediaKindOf(entry.path) || isDataFile(entry.path) ? ' media' : ' other') : ''}" role="treeitem" data-path="${escapeHtml(entry.path)}" data-kind="${entry.kind}"${folderRow ? ` aria-expanded="${open}"` : ''} draggable="${!renaming && !entry.pending}" style="--depth: ${depth}">` +
 						`<span class="tree-chevron">${folderRow ? (open ? icon.ChevronDown : icon.Chevron) : ''}</span>${nameHtml}</div>`,
 				);
 				if (open) walk(entry.path, depth + 1);
@@ -303,12 +303,12 @@ export class Sidebar {
 
 	/** Notes, and the files the app can show on their own. */
 	private canOpen(path: string): boolean {
-		return extensionOf(path) === 'oi' || mediaKindOf(path) !== undefined;
+		return extensionOf(path) === 'oi' || mediaKindOf(path) !== undefined || isDataFile(path);
 	}
 
 	private open(path: string, newTab: boolean): void {
 		if (extensionOf(path) === 'oi') this.option.openNote(path, newTab);
-		else if (mediaKindOf(path)) this.option.openFile(path, newTab);
+		else if (mediaKindOf(path) || isDataFile(path)) this.option.openFile(path, newTab);
 		else this.option.notify(`No module opens .${extensionOf(path)} files yet.`);
 	}
 

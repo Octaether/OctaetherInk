@@ -8,7 +8,7 @@ import { NoteModel } from '@octaether/core-model';
 import type { ModuleDefinition } from '@octaether/core-sdk';
 import { chemModule } from '@octaether/module-chem';
 import { codeModule } from '@octaether/module-code';
-import { diagramModule } from '@octaether/module-diagram';
+import { tikzModule } from '@octaether/module-tikz';
 import { boardModule } from '@octaether/module-board';
 import { layoutModule } from '@octaether/module-layout';
 import { mathModule } from '@octaether/module-math';
@@ -53,7 +53,7 @@ function setup(): Setup {
 			},
 		})),
 	});
-	for (const module of [textModule, layoutModule, boardModule, mathModule, codeModule, chemModule, diagramModule]) registry.add(counted(module));
+	for (const module of [textModule, layoutModule, boardModule, mathModule, codeModule, chemModule, tikzModule]) registry.add(counted(module));
 	registry.add(themePlugin);
 	const service: HostService = {
 		registerCommand: () => () => {},
