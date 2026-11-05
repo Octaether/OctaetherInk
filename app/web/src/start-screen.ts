@@ -1,10 +1,11 @@
 // The first screen, as in Obsidian's vault manager and VS Code's welcome page: make a vault (a
 // folder on disk) or open one, write a quick note kept in this browser, open a single file, or
 // open the welcome guide, plus the vaults, quick notes, and files you had open. The last one
-// reopens by itself next time (a setting).
+// reopens by itself next time (a setting). A quiet line at the bottom links to Support.
 
 import { icon, logoMark, markIcon } from './icon';
 import type { RecentEntry } from './storage';
+import { supportLinkHtml } from './support';
 import { escapeHtml } from './ui';
 
 export interface StartScreenOption {
@@ -47,7 +48,8 @@ export class StartScreen {
 			`<button type="button" class="start-link" data-action="QuickNote" title="A note kept in this browser, with no folder needed. Move it into a vault later">${icon.FilePlus}<span>Quick note</span><small>in this browser</small>${key('Note.Create')}</button>` +
 			`<button type="button" class="start-link" data-action="OpenFile">${icon.File}<span>Open file</span>${key('File.Open')}</button>` +
 			`<button type="button" class="start-link" data-action="Sample">${icon.Help}<span>Open the welcome guide</span></button>` +
-			'</section><section class="start-column"><h2>Recent</h2><div class="start-recent"><p class="start-note">Loading…</p></div></section></div></div>';
+			'</section><section class="start-column"><h2>Recent</h2><div class="start-recent"><p class="start-note">Loading…</p></div></section></div>' +
+			`<p class="start-support">${icon.Heart}<span>Octaether Ink is free and open source. Support it on ${supportLinkHtml()}.</span></p></div>`;
 		const action: Readonly<Record<string, () => void>> = {
 			CreateVault: option.createVault,
 			OpenFolder: option.openFolder,

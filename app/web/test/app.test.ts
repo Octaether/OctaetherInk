@@ -92,6 +92,11 @@ describe('web app', () => {
 		expect(actionList).toEqual(['Create new vault', 'Open folder as vault', 'Quick note', 'Open file', 'Open the welcome guide']);
 		expect(start.textContent).not.toContain('New vault in this browser');
 		expect(start.querySelector('.start-logo svg rect')!.getAttribute('fill')).toBe('#0c0b09');
+		// a quiet Support line, each link in a new tab
+		const supportList = [...start.querySelectorAll<HTMLAnchorElement>('.start-support a')];
+		expect(supportList.map((link) => link.textContent)).toEqual(['GitHub Sponsors', 'Ko-fi']);
+		expect(supportList.map((link) => link.href)).toEqual(['https://github.com/sponsors/Octaether', 'https://ko-fi.com/octaether']);
+		expect(supportList.every((link) => link.target === '_blank' && link.rel === 'noopener noreferrer')).toBe(true);
 		expect(document.getElementById('page')!.hidden).toBe(true);
 		expect(document.getElementById('tabBar')!.hidden).toBe(true);
 	});

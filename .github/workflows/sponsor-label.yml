@@ -1,0 +1,76 @@
+# Gives a new issue the `Sponsor` label when its author backs Octaether at $10 a month or more
+# (the Backer tier, README "Support"). It never commits anything.
+#
+# Needs one repository secret, SPONSOR_TOKEN: a classic personal access token of an Octaether
+# owner with the `read:org` and `read:user` scopes, so private sponsorships count too. Without
+# it the workflow only logs a notice.
+
+name: Sponsor label
+
+on:
+  issues:
+    types: [opened]
+
+permissions:
+  issues: write
+
+jobs:
+  label:
+    runs-on: ubuntu-latest
+    if: github.event.issue.user.type != 'Bot'
+    env:
+      SPONSOR_TOKEN: ${{ secrets.SPONSOR_TOKEN }}
+      MINIMUM_DOLLAR: 10
+    steps:
+      - name: Look up the author's sponsorship
+        id: sponsor
+        if: env.SPONSOR_TOKEN != ''
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.SPONSOR_TOKEN }}
+          script: |
+            const author = context.payload.issue.user.login;
+            const minimum = Number(process.env.MINIMUM_DOLLAR);
+            let after = null;
+            do {
+              const result = await github.graphql(
+                `query ($after: String) {
+                  organization(login: "Octaether") {
+                    sponsorshipsAsMaintainer(first: 100, after: $after, includePrivate: true, activeOnly: true) {
+                      pageInfo { hasNextPage endCursor }
+                      nodes {
+                        isOneTimePayment
+                        sponsorEntity { ... on User { login } ... on Organization { login } }
+                        tier { monthlyPriceInDollars }
+                      }
+                    }
+                  }
+                }`,
+                { after },
+              );
+              const page = result.organization.sponsorshipsAsMaintainer;
+              const found = page.nodes.find((node) => node.sponsorEntity?.login?.toLowerCase() === author.toLowerCase());
+              if (found) {
+                const backer = !found.isOneTimePayment && (found.tier?.monthlyPriceInDollars ?? 0) >= minimum;
+                core.info(`${author} sponsors Octaether${backer ? ` at $${minimum}+ a month` : ', below the Backer tier'}.`);
+                core.setOutput('backer', String(backer));
+                return;
+              }
+              after = page.pageInfo.hasNextPage ? page.pageInfo.endCursor : null;
+            } while (after);
+            core.info(`${author} is not a sponsor.`);
+            core.setOutput('backer', 'false');
+
+      - name: Add the Sponsor label
+        if: steps.sponsor.outputs.backer == 'true'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            await github.rest.issues
+              .createLabel({ ...context.repo, name: 'Sponsor', color: 'c8a032', description: 'Opened by a Backer (GitHub Sponsors)' })
+              .catch((error) => { if (error.status !== 422) throw error; }); // 422: the label exists
+            await github.rest.issues.addLabels({ ...context.repo, issue_number: context.issue.number, labels: ['Sponsor'] });
+
+      - name: Note the missing token
+        if: env.SPONSOR_TOKEN == ''
+        run: echo "::notice::SPONSOR_TOKEN is not set, so sponsorships can't be checked (see the top of this file)."

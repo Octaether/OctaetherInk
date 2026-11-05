@@ -10,6 +10,7 @@ import { renderHotkeyEditor } from './hotkey-editor';
 import { markIcon } from './icon';
 import type { SettingStore } from './setting-store';
 import { isStatusItemOn } from './status-bar';
+import { supportLinkHtml } from './support';
 import { escapeHtml, openModal } from './ui';
 
 export interface SettingModalOption {
@@ -214,7 +215,8 @@ export function openSettingModal(option: SettingModalOption, start: SettingSecti
 					'<h2>About</h2>' +
 					`<p><b>Octaether Ink</b> (OI) ${escapeHtml(option.version)} · <a href="https://octaether.com" target="_blank" rel="noopener noreferrer">octaether.com</a> · MIT licence</p>` +
 					`<p class="setting-explain">Notes are plain <code>.oi</code> text files (format “${escapeHtml(option.formatName)}”). Everything is a block; every block type comes from a module, every system function from a plugin. Settings and hotkeys are saved in ${escapeHtml(option.storageText())}.</p>` +
-					`<p><a href="https://github.com/Octaether/OctaetherInk" target="_blank" rel="noopener noreferrer">GitHub repository</a> — browse the source code or report an issue.</p>`;
+					`<p><a href="https://github.com/Octaether/OctaetherInk" target="_blank" rel="noopener noreferrer">GitHub repository</a> — browse the source code or report an issue.</p>` +
+					`<h3>Support</h3><p class="setting-explain">Octaether Ink is free, open source, and has no ads or account. If it helps you, you can support its work on ${supportLinkHtml()}.</p>`;
 			}
 			body.innerHTML = html;
 			bindSetting();

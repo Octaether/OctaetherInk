@@ -15,13 +15,14 @@
   <a href="#using-octaether-ink">User guide</a> ·
   <a href="#deploy">Deploy</a> ·
   <a href="#roadmap--todo">Roadmap &amp; TODO</a> ·
-  <a href="#specification">Specification</a>
+  <a href="#specification">Specification</a> ·
+  <a href="#support">Support</a>
 </p>
 
 ![A note about the SN2 reaction in a vault: file sidebar, properties at the top, a callout, and an electron-pushing mechanism](doc/Edit.png)
 
 > **Status: version 1**, file format `Format: Oi 1`. Everything in the [user guide](#using-octaether-ink) works now. The [specification](#specification) is the design the build follows, and the [roadmap](#roadmap--todo) tracks what is done and what is next.
-> Website: [octaether.com](https://octaether.com) · Licence: [MIT](LICENSE)
+> Website: [octaether.com](https://octaether.com) · Licence: [MIT](LICENSE) · Support: [GitHub Sponsors](https://github.com/sponsors/Octaether) or [Ko-fi](https://ko-fi.com/octaether)
 
 ## Contents
 
@@ -30,6 +31,7 @@
 - [Using Octaether Ink](#using-octaether-ink): [first launch](#first-launch-a-vault-a-quick-note-or-a-file), [files](#files-new-save-rename-delete), [tabs](#tabs), [views](#three-views-source-edit-read), [blocks](#writing-with-blocks), [media](#pictures-videos-markdown-and-html), [note top](#the-top-of-a-note-name-properties-and-page-layout), [find and links](#find-search-links-and-the-graph), [boards](#boards-free-placement-and-masonry), [tables, plots, calendars](#tables-plots-and-calendars), [chemistry](#chemistry-structures-mechanisms-and-the-drawing-tool), [color](#color), [hotkeys](#hotkeys-and-macros), [setting](#setting), [status bar](#status-bar), [broken blocks](#when-a-block-cant-render), [offline](#offline-install-and-phones)
 - [Syntax at a glance](#syntax-at-a-glance)
 - [Deploy](#deploy)
+- [Support](#support)
 - [Roadmap & TODO](#roadmap--todo)
 - [Specification](#specification) (sections 1–16)
 
@@ -421,57 +423,69 @@ The web app is a static site, deployed to **[ink.octaether.com](https://ink.octa
 
 ---
 
+## Support
+
+Octaether Ink is free and open source, with no ads and no account. If it helps you, you can support its work:
+
+| Where | How | Fee |
+|---|---|---|
+| **[GitHub Sponsors](https://github.com/sponsors/Octaether)** | Monthly or once, with a GitHub account | None from a personal account |
+| **[Ko-fi](https://ko-fi.com/octaether)** | Once or monthly, by card or PayPal, no account needed | None on one‑time gifts (card or PayPal fees apply) |
+
+Money goes to development time, the Apple and Google developer accounts the iPad and phone apps need, and test devices. Starring the repository, reporting issues, and telling a friend help too.
+
+The same links are on the start screen and in *Setting → About*. They live in one list, [`app/web/src/support.ts`](app/web/src/support.ts), and [`.github/FUNDING.yml`](.github/FUNDING.yml) gives the repository its **Sponsor** button. Issues opened by Backers ($10 a month or more) get the `Sponsor` label by themselves ([`.github/workflows/sponsor-label.yml`](.github/workflows/sponsor-label.yml), which needs a `SPONSOR_TOKEN` secret).
+
+---
+
 ## Roadmap & TODO
 
-This checklist is the project's to‑do list. Tick items in the change that ships them, add new tasks under **Next**, and move bigger ideas into a phase.
+Tick an item in the change that ships it. New tasks go under **Next**, bigger ideas under **Later**.
 
-### Version 1 (done)
+### Done (version 1)
 
-- [x] **Format and core:** `.oi` `Oi 1` (Markdown lines, `Type {Props}:` blocks, children by indentation, header arguments, module‑owned aliases with switches and clash reports, inline `{Name: text}`, IDs only where written, byte‑exact round trip); a model of operations with undo across text and renames; a render host with keyed frames, layouts, placeholders, and per‑block error boundaries; a vault layer (folder, quick notes, memory) with trash, link rewriting, backlinks, tags, graph, and search; a registry of modules, plugins, features, settings, and status items
-- [x] **App:** start screen and vault switcher; ribbon, file sidebar, tabs with their own history, files opened on their own; quick notes with *Move to a folder* and *Download .zip*; autosave and file rules (blank notes never kept, trash with Undo); three views; every block edited as its own source; find, search, quick switcher, palette, graph; rebindable hotkeys and macros; settings with a page per module and plugin; status bar; the Octaether look; a PWA live on Vercel
-- [x] **Modules:** Text, Property, Layout (Flow, Grid, Column, Callout), Board (Free and Masonry, Arrow), Math (TeX → MathML), Code (11 languages), Chemistry (own structure syntax, chemfig, mechanisms, the drawing tool), TikZ (a subset; was *Diagram*), Image, Video, Markdown, HTML
-- [x] **Plugins:** Theme (Paper, HighContrast) and Palette (one color menu, palettes, import)
-- [x] **Boards and the drawing tool:** free Boards with arrows between named points (atoms, lone pairs, bonds), text along arrows (`At`), chemfig turned into a Board; a drawing tool with Photoshop‑style tool groups, right click to undo the tool, right drag to pan, and touch; plain Boards edited without chemistry
-- [x] **Blocks:** `Alt` + drag from anywhere, `Alt` + wheel and `Esc` for the block around, hold then drag on touch; columns from side drops; Masonry pages chosen on an empty note
-- [x] **Quality:** 381 unit and app tests, strict TypeScript 7; build 591 KB JS (193 KB gzipped) + 42 KB CSS, with Table, Plot, and Calendar (code and CSS) loaded on first use (about 100 KB gzipped more). Every review is checked in Chromium, WebKit, and Firefox at desktop and phone sizes with scripted Playwright runs against a production build
+- [x] **Format and core:** `.oi` files (`Oi 1`) with a byte‑exact round trip; undo across text and renames; a render host with an error boundary per block; vaults (folder, quick notes, memory) with trash, link rewriting, backlinks, tags, graph, and search; one registry for modules, plugins, and settings
+- [x] **App:** start screen and vault switcher, file sidebar, tabs with their own history, three views, find, search, quick switcher, palette, graph, rebindable hotkeys and macros, a settings page per module and plugin; a PWA on Vercel
+- [x] **Modules:** Text, Property, Layout, Board, Math, Code, Chemistry, TikZ, Table, Plot, Calendar, Image, Video, Markdown, HTML. **Plugins:** Theme, Palette
+- [x] **Tables, plots, and calendars:** spreadsheet‑style tables and `.csv`/`.xlsx` files, tables found by title (*Plot this table*), Desmos‑style plots in 2D and 3D, pies and bars, calendars with repeats and time zones, `From:` references, full‑width notes; module code loaded on first use
+- [x] **Boards and the drawing tool:** arrows between atoms, lone pairs, and bonds; tool groups, pan, and touch; `Alt` + drag for any block
+- [x] **Support:** GitHub Sponsors and Ko‑fi links, the repository's Sponsor button, an automatic `Sponsor` label
+- [x] **Quality:** 381 tests, strict TypeScript; 591 KB JS (193 KB gzipped) + 43 KB CSS; every review checked in Chromium, WebKit, and Firefox at desktop and phone sizes
 
-### Next (version 1.x)
+### Next
 
-- [x] **Table** module (§6.8): CSV in the note or a `.csv`/`.tsv`/`.xlsx` file (only changed cells written), typed columns, formulas, filter, sort, group, summaries, *Analyze*, Board/Gallery/List, tables of notes; `TableData` for Plot and Calendar
-- [x] **Plot** module (§6.7): Desmos‑like lines, sliders, implicit curves and regions, polar and parametric, table data with trends, 3D surfaces, implicit surfaces, curves, and points (WebGL); interactive or fixed
-- [x] **Calendar** module (§6.8): Month, Week, Day, Agenda; Event blocks, linked notes, tables; repeats with skips and splits; drag to make, move, resize, copy
-- [x] **Room and references:** a note that is only a table or calendar is full width; `Wide: True` per block; `From: "[[Note]]"` shows and edits a table or calendar of another note; *Move to its own note* / *Bring into this note*
-- [x] **Diagram renamed TikZ** (`Diagram:` blocks still draw); lazy loading of module code (prefetched, offline)
-- [x] **Round 6:** the block menu grouped by module; Plot axes named after table columns, typeset lines, a color per line from its dot, pies and donuts, the play button fixed; calendar time zones
-- [x] **Round 7:** tables found by their title (`Plot {Data: Gym log}`, columns by name, units on the axes), *Plot this table*; choices picked, colored, renamed from menus; Plot's editing layer (lines edited in place, typed values, slider ranges and steps, dragged points) on a data layer of text edits; time zones as places, so daylight saving follows
-- [x] **Round 8:** tables named only by their titles (`^` table references removed; `Calendar {Data: Gym log}`); named points `P = (2, f(2))`; dashed implicit curves; pies with a full legend, lit slices on hover or click, no zoom; bars lit with their value; each slider on its line; a ⋯ menu per line and an *Add* menu (also `/`)
-- [ ] A Swiss (International Typographic) theme for plots, tables, and calendars
-- [ ] Calendar: a Timeline view, `Remind`, `.ics` import and export; tables over 200 rows into `.oi/Data`; plots in the Board drawing tool as pictures
-- [ ] A generic Board editor in the Board module (today the Chem module gives it), `Layout: Board` as an infinite page, and a module dependency view
-- [ ] Export any vault as a `.zip` and import one; send a quick note or a vault to another device (`Transfer`)
-- [ ] Block links (`[[Note#^id]]`, `![[Note#^id]]`, "Copy link to block"), backlinks and outline panes, split panes
-- [ ] Palettes and recent colors kept with the vault, not only the browser
-- [ ] Pictures: paste into a single file, crop and resize; renaming a picture rewrites the blocks that name it; PDF files opened on their own; recording video and audio
-- [ ] Theme files from the vault (`.oi/Theme/*.oi`), themes for one module, and layouts as contributions (§11.3)
-- [ ] Reload a note changed on disk; cross‑block text selection; an inspector panel; a keyboard toolbar on phones
-- [ ] Settings search and a "where does this value come from" badge; toolbar editor and keymap presets
-- [ ] Math `\eqref` and `\ce{}`; chemistry brackets with `‡` and SMILES; trash emptied after a set number of days; translations
+**Apps**, so handwriting and transfer can start:
 
-### Later phases
+- [ ] `Ink` in the web app first, with latency measured on an iPad with Apple Pencil
+- [ ] A Tauri shell (`app/native`), Windows first, with a native vault backend (WebViews have no File System Access, and no service worker on Tauri's scheme)
+- [ ] A release workflow: a tag builds Windows, macOS, and Linux into a GitHub Release with the desktop updater; a Download page on the site
+- [ ] iPad and iPhone through CI to TestFlight; Android (APK and a Play closed test); Support links hidden in store builds
 
-- **Spikes:** web ink latency in Tauri on iOS vs a native overlay; iPad ↔ Windows transfer over QR + LAN and BLE; a Tauri skeleton (needs the Rust toolchain). Done: format, math, and chemistry spikes.
-- **Phase 1 (one lecture note, iPad → laptop):** `Ink`, `PDF` → `Page` with ink, `Layout.Page`; `Transfer`, `ExportPDF`, `ExportZip`, `History`, `ImportObsidian`; settings with live demos; Windows, macOS, iPad, and the web.
-- **Phase 2 (study workflow):** native wet ink, `Audio`, TikZ presets, `Layout.Deck`; `Sync` with block merge, BLE transfer, `Reminder`, `ICS`, `Collab` on a LAN; Android and iPhone.
-- **Phase 3 (power features):** `Code.Run` (JavaScript, then Python), reactive cells; `Collab` over the internet, the registry, more exporters, recognition, an own PDF writer.
+**Version 1.x:**
+
+- [ ] Files: export and import a vault as `.zip`; reload a note changed on disk; empty the trash after a set number of days
+- [ ] Links and panes: block links (`[[Note#^id]]`, `![[Note#^id]]`, *Copy link to block*), backlinks and outline panes, split panes
+- [ ] Editing: selection across blocks, an inspector panel, a keyboard toolbar on phones
+- [ ] Media: paste into a single file, crop and resize, renaming a picture rewrites its blocks; PDFs opened on their own; recording video and audio
+- [ ] Tables, plots, and calendars: Calendar Timeline, `Remind`, `.ics`; tables over 200 rows in `.oi/Data`; plots as pictures on Boards; a Swiss theme
+- [ ] Boards: a generic editor in the Board module (today the Chem module gives it); `Layout: Board` as an infinite page
+- [ ] Look: theme files from `.oi/Theme/` (the parser exists), themes for one module, layouts as contributions (§11.3); palettes kept with the vault
+- [ ] Setting: search, a "where does this value come from" badge, a toolbar editor, keymap presets, a module dependency view
+- [ ] Math `\eqref` and `\ce{}`; chemistry `‡` brackets and SMILES; translations
+
+### Later
+
+- **Phase 1, one lecture note from iPad to laptop:** `Ink`, PDF pages with ink (`Layout.Page`), `Transfer` over QR and LAN, export to PDF and `.zip`, `History`, Obsidian import, settings with live demos
+- **Phase 2, the study workflow:** native wet ink, `Audio`, `Sync` with block merge, BLE transfer, reminders, `.ics`, `Collab` on a LAN, TikZ presets, slide decks (`Layout.Deck`)
+- **Phase 3, power features:** running code (JavaScript, then Python) and reactive cells, `Collab` over the internet, the module registry, handwriting recognition, more exporters, an own PDF writer
 
 ### Known limits of version 1
 
-- Safari and Firefox can't open folders, so they can't hold a vault (quick notes and single files work). A folder vault asks for access again after a browser restart.
-- Deleted files go to the vault's own `.oi/Trash` (a web page can't reach the recycle bin).
-- Graph and search are part of the app shell for now. A pasted picture needs a vault. Web videos and pictures need the network.
-- With the Chem module (or its *Drawing on Boards* feature) off, a free Board has no editor; its blocks still move by `Alt` + drag in the note.
-- No native apps yet (Tauri needs the Rust toolchain).
-- Changes to a table or calendar shown from another note (`From`) join that note's undo when it is open in a tab, otherwise none; changes to a data file can't be undone. A data file changed by another app shows the change when the note is opened again.
+- Safari and Firefox can't open folders, so they hold only quick notes and single files. A folder vault asks for access again after a browser restart.
+- Deleted files go to the vault's `.oi/Trash`, not the system's recycle bin. A pasted picture needs a vault; web pictures and videos need the network.
+- With the Chem module off, a free Board has no editor (its blocks still move with `Alt` + drag).
+- Edits through `From:` join undo only while the other note is open in a tab; edits to a data file can't be undone, and changes made by another app show when the note is opened again.
+- No native apps yet.
 
 ---
 
