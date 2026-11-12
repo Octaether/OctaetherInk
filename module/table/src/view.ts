@@ -25,7 +25,10 @@ import {
 	linkedBlock,
 	linkedProperty,
 	menuExtension,
-	noteIndexExtension, installStyle } from '@octaether/core-sdk';
+	comboField,
+	type TagAccess,
+	tagExtension,
+	noteIndexExtension, installStyle, t, tr } from '@octaether/core-sdk';
 import { parseCsv, parsePasted, recordText, writeCsv, writeTsv } from './csv';
 import { type SheetGrid, type Workbook, readWorkbook, sheetGrid, writeSheet } from './xlsx';
 import {
@@ -54,6 +57,8 @@ import {
 	summaryChoiceList,
 	summaryText,
 	summaryTitle,
+	tagListOf,
+	tagText,
 	viewOf,
 	writtenOf,
 } from './table';
@@ -75,8 +80,7 @@ const typeIcon: Readonly<Record<ColumnType, string>> = {
 	Date: svg('<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/>'),
 	DateTime: svg('<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>'),
 	Checkbox: svg('<rect x="4" y="4" width="16" height="16" rx="3"/><path d="m8 12 3 3 5-6"/>'),
-	Choice: svg('<circle cx="12" cy="12" r="9"/><path d="m8 11 4 4 4-4"/>'),
-	List: svg('<path d="M9 6h11M9 12h11M9 18h11"/><circle cx="4.5" cy="6" r="1"/><circle cx="4.5" cy="12" r="1"/><circle cx="4.5" cy="18" r="1"/>'),
+	Tag: svg('<path d="M3 12V4h8l10 10-8 8z"/><circle cx="7.5" cy="8.5" r="1.2"/>'),
 	Link: svg('<path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1"/><path d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/>'),
 	Formula: svg('<path d="M9 19c2 0 2-14 4-14h3M7 11h8"/>'),
 };
@@ -85,7 +89,10 @@ const crossMark = '<svg viewBox="0 0 16 16" width="9" height="9" fill="none" str
 const moreMark = '<svg viewBox="0 0 16 16" width="14" height="14" fill="currentColor" aria-hidden="true"><circle cx="3.5" cy="8" r="1.3"/><circle cx="8" cy="8" r="1.3"/><circle cx="12.5" cy="8" r="1.3"/></svg>';
 const handleMark = '<svg viewBox="0 0 16 16" width="12" height="12" fill="currentColor" aria-hidden="true"><circle cx="6" cy="4" r="1.2"/><circle cx="10" cy="4" r="1.2"/><circle cx="6" cy="8" r="1.2"/><circle cx="10" cy="8" r="1.2"/><circle cx="6" cy="12" r="1.2"/><circle cx="10" cy="12" r="1.2"/></svg>';
 
-const typeTitle: Readonly<Record<ColumnType, string>> = { Text: 'Text', Number: 'Number', Date: 'Date', DateTime: 'Date and time', Checkbox: 'Checkbox', Choice: 'Choice', List: 'List', Link: 'Link', Formula: 'Formula' };
+/** The types a new column can start as (a formula column is made from the menu). */
+const newColumnTypeList: readonly ColumnType[] = ['Text', 'Number', 'Tag', 'Date', 'DateTime', 'Checkbox', 'Link'];
+
+const typeTitle: Readonly<Record<ColumnType, string>> = { Text: 'Text', Number: 'Number', Date: 'Date', DateTime: 'Date and time', Checkbox: 'Checkbox', Tag: 'Tag', Link: 'Link', Formula: 'Formula' };
 
 /** A Column map with one setting of one column changed (undefined removes it; an empty column's entry goes). */
 export function withColumnSetting(columnMap: PropertyValue | undefined, name: string, key: string, value: PropertyValue | undefined): PropertyMap | undefined {
@@ -109,17 +116,25 @@ class TableView {
 	private search = '';
 	private selection: { anchor: Place; focus: Place } | undefined;
 	private editing: Place | undefined;
+	/** The tags of the cell being edited, as chips (what is typed after them joins on a comma or Enter). */
+	private tagDraft: string[] = [];
+	private stopTagCombo: (() => void) | undefined;
+	private drawTagPanel: (() => void) | undefined;
+	private closeTagPanel: () => void = () => undefined;
 	/** Show every row, past `Table.MaxRow`. */
 	private showAll = false;
 	private sourceOpen = false;
-	private ask: { label: string; value: string; placeholder?: string; onDone(value: string): void } | undefined;
+	private ask: { label: string; value: string; placeholder?: string; type?: ColumnType; onDone(value: string, type?: ColumnType): void } | undefined;
 	private analyze: number | undefined;
 	private rowForm: Row | undefined;
 	/** In the Read view (or before a vault), the view choice stays on screen only. */
 	private localShow: Show | undefined;
 	private press: { place: Place; pointerId: number; moved: boolean } | undefined;
-	private rowDrag: { row: Row; pointerId: number; startY: number; moving: boolean; target: number } | undefined;
-	private cardDrag: { row: Row; pointerId: number; startX: number; startY: number; moving: boolean; ghost?: HTMLElement } | undefined;
+	private rowDrag: { row: Row; pointerId: number; startY: number; moving: boolean; target: number; ghost?: Ghost } | undefined;
+	/** A column header being dragged: `from` is its place in the CSV, `target` the place it would go. */
+	private columnDrag: { from: number; pointerId: number; startX: number; moving: boolean; target: number; ghost?: Ghost } | undefined;
+	/** A card being dragged; `from` is the lane it was picked up in. */
+	private cardDrag: { row: Row; pointerId: number; startX: number; startY: number; moving: boolean; from: string; ghost?: Ghost } | undefined;
 	private swallowClick = false;
 	private unsubscribeIndex: (() => void) | undefined;
 	/** With From: the Table in another note that holds the rows (its note's live model). */
@@ -162,6 +177,7 @@ class TableView {
 	}
 
 	destroy(): void {
+		this.closeTagPanel();
 		this.unsubscribeIndex?.();
 		this.unsubscribeLinked?.();
 		document.removeEventListener('keydown', this.onDocumentKey);
@@ -286,129 +302,290 @@ class TableView {
 		return typeof value === 'string' && value.trim() ? value.trim() : undefined;
 	}
 
-	/** A choice's own color (from Column → ChoiceColor), as CSS. */
-	private choiceColor(column: ColumnInfo, choice: string): string | undefined {
+	/** A column's own setting for its tags: Tag and TagColor (Choice and ChoiceColor, before). */
+	private tagSetting(column: ColumnInfo, key: 'Tag' | 'TagColor'): PropertyValue | undefined {
 		const own = this.property().get('Column');
 		const setting = own instanceof Map ? own.get(column.name) : undefined;
-		const map = setting instanceof Map ? setting.get('ChoiceColor') : undefined;
+		return setting instanceof Map ? (setting.get(key) ?? setting.get(key === 'Tag' ? 'Choice' : 'ChoiceColor')) : undefined;
+	}
+
+	/** Writes a column's tags (or their colors) under the new name, leaving the old one out. */
+	private setTagSetting(column: ColumnInfo, key: 'Tag' | 'TagColor', value: PropertyValue | undefined): void {
+		this.setProperty('Column', withColumnSetting(withColumnSetting(this.property().get('Column'), column.name, key === 'Tag' ? 'Choice' : 'ChoiceColor', undefined), column.name, key, value));
+	}
+
+	/** A tag's own color in this column (Column → TagColor), as CSS. */
+	private choiceColor(column: ColumnInfo, choice: string): string | undefined {
+		const map = this.tagSetting(column, 'TagColor');
 		if (!(map instanceof Map)) return undefined;
 		const entry = [...map].find(([key]) => key.toLowerCase() === choice.toLowerCase())?.[1];
 		return typeof entry === 'string' ? (this.context.resolveColor(entry) ?? undefined) : undefined;
 	}
 
-	private pillHtml(column: ColumnInfo, choice: string): string {
-		const color = this.choiceColor(column, choice);
-		if (color) return `<span class="oi-table-pill oi-table-pill-own" style="--oi-pill:${escapeHtml(color)}">${escapeHtml(choice)}</span>`;
-		return `<span class="oi-table-pill" data-hue="${hueOf(column.choiceList, choice)}">${escapeHtml(choice)}</span>`;
+	private tagAccess(): TagAccess | undefined {
+		return this.context.extension<TagAccess>(tagExtension);
 	}
 
-	/** The choices for one cell: a click picks one (a List toggles it); new ones can be added. */
+	/** A tag as a chip: the vault's color for that tag, else a color its column had before, else a hue of its place. */
+	private pillHtml(column: ColumnInfo, choice: string, remove?: number): string {
+		const color = this.tagAccess()?.colorOf(choice) ? undefined : this.choiceColor(column, choice);
+		const cross = remove === undefined ? '' : `<button type="button" class="oi-table-pill-remove" data-tag-remove="${remove}" tabindex="-1" aria-label="${escapeHtml(tr`Remove ${choice}`)}">${crossMark}</button>`;
+		if (color) return `<span class="oi-table-pill oi-table-pill-own" style="--oi-pill:${escapeHtml(color)}">${escapeHtml(choice)}${cross}</span>`;
+		return `<span class="oi-table-pill" data-hue="${hueOf(column.choiceList, choice)}" data-oi-label="${escapeHtml(choice)}">${escapeHtml(choice)}${cross}</span>`;
+	}
+
+	/** The tags for one cell: a click adds or takes away one; new ones can be added. */
 	private choiceMenu(row: Row, columnIndex: number, rect: DOMRect): void {
 		const column = this.model.columnList[columnIndex]!;
 		const current = cellValue(column.type, row.cellList[column.index] ?? '');
 		const list = Array.isArray(current) ? [...current] : current === undefined ? [] : [String(current)];
 		const has = (choice: string): boolean => list.some((item) => item.toLowerCase() === choice.toLowerCase());
-		const write = (next: string[]): void => this.writeCell(row, columnIndex, next.join(', '));
+		const write = (next: string[]): void => this.writeCell(row, columnIndex, tagText(next));
 		const itemList: MenuEntry[] = column.choiceList.map((choice) => ({
 			title: choice,
 			checked: has(choice),
 			run: () => {
-				if (column.type === 'List') write(has(choice) ? list.filter((item) => item.toLowerCase() !== choice.toLowerCase()) : [...list, choice]);
-				else write(has(choice) ? [] : [choice]);
+				write(has(choice) ? list.filter((item) => item.toLowerCase() !== choice.toLowerCase()) : [...list, choice]);
 			},
 		}));
 		itemList.push({
-			title: 'New choice',
+			title: t('New tag'),
 			separatorBefore: true,
 			run: () =>
-				this.askFor(`New choice for ${column.name}`, '', (name) => {
+				this.askFor(tr`New tag for ${column.name}`, '', (name) => {
 					const clean = name.trim();
 					if (!clean) return;
 					this.noteModel().transact(() => {
-						if (!column.choiceList.some((item) => item.toLowerCase() === clean.toLowerCase())) this.setColumn(column.name, 'Choice', [...column.choiceList, clean]);
-						write(column.type === 'List' ? [...list, clean] : [clean]);
+						if (!column.choiceList.some((item) => item.toLowerCase() === clean.toLowerCase())) this.setTagSetting(column, 'Tag', [...column.choiceList, clean]);
+						write([...list, clean]);
 					});
 				}),
 		});
-		if (list.length) itemList.push({ title: 'Clear', run: () => write([]) });
-		itemList.push({ title: 'Edit choices', childList: this.choiceEntryList(column, rect) });
+		if (list.length) itemList.push({ title: t('Clear'), run: () => write([]) });
+		itemList.push({ title: t('Edit tags'), run: () => this.openTagPanel(column, rect) });
 		this.openMenu(rect, itemList);
 	}
 
-	/** Each choice of a column (color, rename, move, delete), and a new one. */
-	private choiceEntryList(column: ColumnInfo, rect: DOMRect): MenuEntry[] {
-		const picker = this.context.extension<ColorPicker>(colorPickerExtension);
-		const choiceList = [...column.choiceList];
-		const colorMap = (): Map<string, PropertyValue> => {
-			const own = this.property().get('Column');
-			const setting = own instanceof Map ? own.get(column.name) : undefined;
-			const map = setting instanceof Map ? setting.get('ChoiceColor') : undefined;
-			return new Map(map instanceof Map ? map : []);
+	/**
+	 * A column's tags in one panel: drag to set their order (the Board's lanes), a dot for the color
+	 * (the vault's, the same wherever the tag is), the name to rename (cells follow), × to take it out
+	 * of the list and the cells; a field at the end adds one.
+	 */
+	private openTagPanel(start: ColumnInfo, rect: DOMRect): void {
+		this.closeTagPanel();
+		const name = start.name;
+		const panel = document.createElement('div');
+		panel.className = 'oi-table-tag-panel';
+		panel.dataset.oiKeepEditor = '';
+		panel.setAttribute('role', 'dialog');
+		panel.setAttribute('aria-label', tr`Tags of ${name}`);
+		document.body.append(panel);
+		const column = (): ColumnInfo | undefined => this.model.columnList.find((item) => item.name === name && item.type === 'Tag');
+		const countOf = (tag: string): number => {
+			const at = column()?.index ?? -1;
+			if (at < 0) return 0;
+			return this.model.rowList.filter((row) => tagListOf(row.cellList[at] ?? '').some((item) => item.toLowerCase() === tag.toLowerCase())).length;
+		};
+		let drawn = '';
+		const draw = (force = false): void => {
+			const now = column();
+			if (!now) {
+				this.closeTagPanel();
+				return;
+			}
+			const access = this.tagAccess();
+			const key = JSON.stringify([now.choiceList, now.choiceList.map((tag) => access?.colorOf(tag) ?? this.choiceColor(now, tag) ?? ''), this.model.rowList.length]);
+			if (key === drawn && !force) return;
+			drawn = key;
+			const focused = document.activeElement instanceof HTMLInputElement && panel.contains(document.activeElement) ? document.activeElement.dataset.tagPanel : undefined;
+			panel.innerHTML =
+				`<div class="oi-table-tag-panel-head"><b>${escapeHtml(tr`Tags of ${name}`)}</b><button type="button" class="oi-table-icon" data-tag-panel-close aria-label="${t('Close')}">${crossMark}</button></div>` +
+				`<div class="oi-table-tag-panel-list">${now.choiceList
+					.map((tag, index) => {
+						const own = access?.colorOf(tag) ? undefined : this.choiceColor(now, tag);
+						return (
+							`<div class="oi-table-tag-panel-row" data-tag-index="${index}">` +
+							`<span class="oi-table-tag-handle" data-tag-handle title="${t('Drag to move')}" aria-hidden="true">${handleMark}</span>` +
+							`<button type="button" class="oi-table-tag-swatch" data-tag-color="${index}" data-hue="${hueOf(now.choiceList, tag)}" data-oi-label="${escapeHtml(tag)}"${own ? ` style="--oi-pill:${escapeHtml(own)}"` : ''} title="${t('Color')}" aria-label="${escapeHtml(tr`Color of ${tag}`)}"></button>` +
+							`<input class="oi-table-tag-name" data-tag-panel="name:${index}" value="${escapeHtml(tag)}" spellcheck="false" autocomplete="off" aria-label="${escapeHtml(tr`Rename ${tag}`)}">` +
+							`<span class="oi-table-tag-count" title="${t('Rows with it')}">${countOf(tag)}</span>` +
+							`<button type="button" class="oi-table-icon" data-tag-delete="${index}" title="${t('Take it out of the list and every cell')}" aria-label="${escapeHtml(tr`Delete ${tag}`)}">${crossMark}</button>` +
+							'</div>'
+						);
+					})
+					.join('')}</div>` +
+				`<input class="oi-table-tag-add" data-tag-panel="add" placeholder="${t('Add a tag')}" spellcheck="false" autocomplete="off" aria-label="${t('Add a tag')}">` +
+				`<p class="oi-table-tag-panel-note">${t('Colors are the vault’s: the same tag has the same color in every note.')}</p>`;
+			const box = panel.getBoundingClientRect();
+			panel.style.left = `${Math.max(8, Math.min(rect.left, window.innerWidth - box.width - 8))}px`;
+			panel.style.top = `${rect.bottom + 4 + box.height > window.innerHeight - 8 ? Math.max(8, rect.top - box.height - 4) : rect.bottom + 4}px`;
+			if (focused) panel.querySelector<HTMLInputElement>(`[data-tag-panel="${focused}"]`)?.focus({ preventScroll: true });
+		};
+		const rename = (index: number, to: string): void => {
+			const now = column();
+			const from = now?.choiceList[index];
+			const clean = tagListOf(`"${to.replace(/"/g, '""')}"`)[0] ?? '';
+			if (!now || !from || !clean || clean === from) {
+				draw(true);
+				return;
+			}
+			this.renameChoice(now, from, clean);
+			const color = this.tagAccess()?.colorOf(from);
+			if (color && !this.tagAccess()?.colorOf(clean)) this.tagAccess()?.setColor(clean, color);
+		};
+		const remove = (index: number): void => {
+			const now = column();
+			const tag = now?.choiceList[index];
+			if (!now || !tag) return;
+			const same = (item: string): boolean => item.toLowerCase() === tag.toLowerCase();
+			this.noteModel().transact(() => {
+				this.setTagSetting(now, 'Tag', now.choiceList.filter((item) => !same(item)));
+				for (const row of this.model.rowList) {
+					const list = tagListOf(row.cellList[now.index] ?? '');
+					if (list.some(same)) this.writeCell(row, this.model.columnList.indexOf(now), tagText(list.filter((item) => !same(item))));
+				}
+			});
+		};
+		const add = (input: HTMLInputElement): void => {
+			const now = column();
+			const list = tagListOf(input.value);
+			input.value = '';
+			if (!now || list.length === 0) return;
+			const next = [...now.choiceList];
+			for (const tag of list) if (!next.some((item) => item.toLowerCase() === tag.toLowerCase())) next.push(tag);
+			this.setTagSetting(now, 'Tag', next);
 		};
 		const move = (from: number, to: number): void => {
-			const list = [...choiceList];
+			const now = column();
+			if (!now || from === to) return;
+			const list = [...now.choiceList];
 			const [item] = list.splice(from, 1);
-			list.splice(to, 0, item!);
-			this.setColumn(column.name, 'Choice', list);
+			list.splice(to > from ? to - 1 : to, 0, item!);
+			this.setTagSetting(now, 'Tag', list);
 		};
-		const entryList: MenuEntry[] = choiceList.map((choice, index) => ({
-			title: choice,
-			childList: [
-				...(picker
-					? [
-							{
-								title: 'Color',
-								run: () =>
-									picker.open({
-										x: rect.left,
-										y: rect.bottom + 4,
-										title: choice,
-										onPick: (color: string | undefined) => {
-											const map = colorMap();
-											if (color) map.set(choice, color);
-											else map.delete(choice);
-											this.setColumn(column.name, 'ChoiceColor', map.size ? map : undefined);
-										},
-									}),
-							},
-						]
-					: []),
-				{ title: 'Rename', run: () => this.askFor(`Rename ${choice}`, choice, (name) => this.renameChoice(column, choice, name.trim())) },
-				...(index > 0 ? [{ title: 'Move up', run: () => move(index, index - 1) }] : []),
-				...(index < choiceList.length - 1 ? [{ title: 'Move down', run: () => move(index, index + 1) }] : []),
-				{ title: 'Delete', danger: true, explain: 'Cells keep their text', run: () => this.setColumn(column.name, 'Choice', choiceList.filter((item) => item !== choice)) },
-			],
-		}));
-		entryList.push({
-			title: 'Add a choice',
-			separatorBefore: entryList.length > 0,
-			run: () =>
-				this.askFor(`New choice for ${column.name}`, '', (name) => {
-					const clean = name.trim();
-					if (clean && !choiceList.some((item) => item.toLowerCase() === clean.toLowerCase())) this.setColumn(column.name, 'Choice', [...choiceList, clean]);
-				}),
+		panel.addEventListener('click', (event) => {
+			const target = event.target as Element;
+			if (target.closest('[data-tag-panel-close]')) {
+				this.closeTagPanel();
+				return;
+			}
+			const colorButton = target.closest<HTMLElement>('[data-tag-color]');
+			if (colorButton) {
+				const tag = column()?.choiceList[Number(colorButton.dataset.tagColor)];
+				const picker = this.context.extension<ColorPicker>(colorPickerExtension);
+				if (!tag || !picker) return;
+				const box = colorButton.getBoundingClientRect();
+				picker.open({
+					x: box.left,
+					y: box.bottom + 4,
+					title: tag,
+					...(this.tagAccess()?.colorOf(tag) ? { current: this.tagAccess()!.colorOf(tag)! } : {}),
+					onPick: (color) => {
+						// one color for the tag, the vault's: a color this column kept for it goes
+						const now = column();
+						const map = now ? this.tagSetting(now, 'TagColor') : undefined;
+						if (now && map instanceof Map && [...map.keys()].some((key) => key.toLowerCase() === tag.toLowerCase())) {
+							const next = new Map([...map].filter(([key]) => key.toLowerCase() !== tag.toLowerCase()));
+							this.setTagSetting(now, 'TagColor', next.size ? next : undefined);
+						}
+						this.tagAccess()?.setColor(tag, color);
+						draw(true);
+					},
+				});
+				return;
+			}
+			const deleteButton = target.closest<HTMLElement>('[data-tag-delete]');
+			if (deleteButton) remove(Number(deleteButton.dataset.tagDelete));
 		});
-		return entryList;
+		panel.addEventListener('keydown', (event) => {
+			event.stopPropagation();
+			const input = event.target;
+			if (event.key === 'Escape') {
+				event.preventDefault();
+				if (input instanceof HTMLInputElement && input.dataset.tagPanel?.startsWith('name:')) {
+					draw(true);
+					return;
+				}
+				this.closeTagPanel();
+				this.root.focus({ preventScroll: true });
+				return;
+			}
+			if (event.key !== 'Enter' || !(input instanceof HTMLInputElement) || event.isComposing) return;
+			event.preventDefault();
+			if (input.dataset.tagPanel === 'add') add(input);
+			else input.blur();
+		});
+		panel.addEventListener('change', (event) => {
+			const input = event.target;
+			if (input instanceof HTMLInputElement && input.dataset.tagPanel?.startsWith('name:')) rename(Number(input.dataset.tagPanel.slice(5)), input.value);
+		});
+		// drag a row by its handle to move the tag
+		panel.addEventListener('pointerdown', (event) => {
+			const handle = (event.target as Element).closest('[data-tag-handle]');
+			const row = handle?.closest<HTMLElement>('.oi-table-tag-panel-row');
+			if (!row || event.button !== 0) return;
+			event.preventDefault();
+			const from = Number(row.dataset.tagIndex);
+			const rowList = [...panel.querySelectorAll<HTMLElement>('.oi-table-tag-panel-row')];
+			row.classList.add('oi-table-tag-moving');
+			let to = from;
+			const onMove = (moveEvent: PointerEvent): void => {
+				to = rowList.length;
+				for (const [index, item] of rowList.entries()) {
+					const box = item.getBoundingClientRect();
+					if (moveEvent.clientY < box.top + box.height / 2) {
+						to = index;
+						break;
+					}
+				}
+				for (const [index, item] of rowList.entries()) {
+					item.classList.toggle('oi-table-tag-drop-before', index === to && to !== from && to !== from + 1);
+					item.classList.toggle('oi-table-tag-drop-after', to === rowList.length && index === rowList.length - 1 && from !== rowList.length - 1);
+				}
+			};
+			const onUp = (): void => {
+				window.removeEventListener('pointermove', onMove);
+				window.removeEventListener('pointerup', onUp);
+				row.classList.remove('oi-table-tag-moving');
+				if (to !== from && to !== from + 1) move(from, to);
+				else draw(true);
+			};
+			window.addEventListener('pointermove', onMove);
+			window.addEventListener('pointerup', onUp);
+		});
+		const onOutside = (event: PointerEvent): void => {
+			const target = event.target as Element;
+			if (panel.contains(target) || target.closest?.('.menu, .oi-palette, .modal-backdrop')) return;
+			this.closeTagPanel();
+		};
+		setTimeout(() => document.addEventListener('pointerdown', onOutside, true), 0);
+		this.drawTagPanel = () => draw();
+		this.closeTagPanel = () => {
+			document.removeEventListener('pointerdown', onOutside, true);
+			panel.remove();
+			this.drawTagPanel = undefined;
+			this.closeTagPanel = () => undefined;
+		};
+		draw(true);
+		panel.querySelector<HTMLInputElement>('[data-tag-panel="add"]')?.focus({ preventScroll: true });
 	}
 
-	/** A choice renamed: in the column's choices, its color, and every cell that has it. */
+	/** A tag renamed: in the column's tags, its color, and every cell that has it. */
 	private renameChoice(column: ColumnInfo, from: string, to: string): void {
 		if (!to || to === from) return;
 		const same = (item: string): boolean => item.toLowerCase() === from.toLowerCase();
 		this.noteModel().transact(() => {
-			this.setColumn(column.name, 'Choice', column.choiceList.map((item) => (same(item) ? to : item)));
-			const own = this.property().get('Column');
-			const setting = own instanceof Map ? own.get(column.name) : undefined;
-			const map = setting instanceof Map ? setting.get('ChoiceColor') : undefined;
-			if (map instanceof Map && [...map.keys()].some(same)) this.setColumn(column.name, 'ChoiceColor', new Map([...map].map(([key, value]) => [same(key) ? to : key, value])));
+			if (this.tagSetting(column, 'Tag') !== undefined) this.setTagSetting(column, 'Tag', column.choiceList.map((item) => (same(item) ? to : item)));
+			const map = this.tagSetting(column, 'TagColor');
+			if (map instanceof Map && [...map.keys()].some(same)) this.setTagSetting(column, 'TagColor', new Map([...map].map(([key, value]) => [same(key) ? to : key, value])));
 			if (this.model.kind === 'Csv' && column.index >= 0) {
 				const recordList = this.model.recordList.map((record, index) => {
 					if (index === 0) return record;
 					const cell = record.cellList[column.index] ?? '';
-					const next = cell.split(',').map((part) => (same(part.trim()) ? to : part.trim())).join(', ');
+					const next = tagText(tagListOf(cell).map((part) => (same(part) ? to : part)));
 					if (next === cell || cellValue(column.type, cell) === undefined) return record;
 					const cellList = [...record.cellList];
-					cellList[column.index] = column.type === 'List' ? next : to;
+					cellList[column.index] = next;
 					return { cellList };
 				});
 				this.setBody(writeCsv(recordList));
@@ -421,7 +598,7 @@ class TableView {
 		const insert = (title: string): void => {
 			const date = this.model.columnList.find((column) => column.valueType === 'Date' || column.valueType === 'DateTime');
 			const number = this.model.columnList.find((column) => column.valueType === 'Number');
-			const category = this.model.columnList.find((column) => column.type === 'Choice' || column.type === 'Text');
+			const category = this.model.columnList.find((column) => column.type === 'Tag' || column.type === 'Text');
 			const x = date ?? category;
 			if (!number || !x) return;
 			const name = (column: ColumnInfo): string => column.name.trim().replace(/[^A-Za-z0-9\u0370-\u03ff_]+/g, '_');
@@ -436,7 +613,7 @@ class TableView {
 		const title = this.title();
 		if (title) insert(title);
 		else
-			this.askFor('A title for this table (the plot finds it by it)', 'Table', (name) => {
+			this.askFor(t('A title for this table (the plot finds it by it)'), 'Table', (name) => {
 				const clean = name.trim();
 				if (!clean) return;
 				this.context.note.transact(() => {
@@ -562,16 +739,16 @@ class TableView {
 	private moreMenu(rect: DOMRect): void {
 		const itemList: MenuEntry[] = [];
 		const index = this.index();
-		if (!this.readOnly() && this.model.columnList.some((column) => column.valueType === 'Number')) itemList.push({ title: 'Plot this table', explain: 'A Plot below, drawing it by its title', run: () => this.plotTable() });
+		if (!this.readOnly() && this.model.columnList.some((column) => column.valueType === 'Number')) itemList.push({ title: t('Plot this table'), explain: t('A Plot below, drawing it by its title'), run: () => this.plotTable() });
 		const wide = this.block.property.get('Wide') === true;
-		if (!this.readOnly()) itemList.push({ title: 'Full width', checked: wide, explain: 'Wider than the text around it', run: () => this.context.setProperty('Wide', wide ? undefined : true) });
+		if (!this.readOnly()) itemList.push({ title: t('Full width'), checked: wide, explain: t('Wider than the text around it'), run: () => this.context.setProperty('Wide', wide ? undefined : true) });
 		if (this.data?.path) {
 			const path = this.data.path;
-			itemList.push({ title: 'Open the file', explain: path, separatorBefore: true, run: () => index?.open(path) });
+			itemList.push({ title: t('Open the file'), explain: path, separatorBefore: true, run: () => index?.open(path) });
 			if (!this.readOnly() && this.data.status === 'Ready')
 				itemList.push({
-					title: 'Bring into this note',
-					explain: 'The rows are kept here; the file stays as it is',
+					title: t('Bring into this note'),
+					explain: t('The rows are kept here; the file stays as it is'),
 					run: () =>
 						this.context.note.transact(() => {
 							this.context.setBody(this.data!.body);
@@ -580,18 +757,18 @@ class TableView {
 						}),
 				});
 		} else if (this.linked) {
-			itemList.push({ title: 'Open its note', explain: this.linked.path.replace(/\.oi$/, ''), run: () => index?.open(this.linked!.path) });
-			if (!this.readOnly()) itemList.push({ title: 'Bring into this note', explain: 'Its note goes to the trash', run: () => this.bringIn() });
+			itemList.push({ title: t('Open its note'), explain: this.linked.path.replace(/\.oi$/, ''), run: () => index?.open(this.linked!.path) });
+			if (!this.readOnly()) itemList.push({ title: t('Bring into this note'), explain: t('Its note goes to the trash'), run: () => this.bringIn() });
 		} else if (index && !this.readOnly() && this.model.kind === 'Csv') {
 			itemList.push({
-				title: 'Move to a CSV file',
-				explain: 'Excel and other apps open it too; this table shows it',
+				title: t('Move to a CSV file'),
+				explain: t('Excel and other apps open it too; this table shows it'),
 				separatorBefore: true,
-				run: () => this.askFor('File name', 'Table', (name) => void this.moveToFile(name)),
+				run: () => this.askFor(t('File name'), 'Table', (name) => void this.moveToFile(name)),
 			});
-			itemList.push({ title: 'Move to its own note', explain: 'This note then shows it from there', run: () => this.askFor('Note name', 'Table', (name) => this.moveOut(name)) });
+			itemList.push({ title: t('Move to its own note'), explain: t('This note then shows it from there'), run: () => this.askFor(t('Note name'), 'Table', (name) => this.moveOut(name)) });
 		}
-		if (this.model.kind === 'Csv') itemList.push({ title: this.sourceOpen ? 'Hide the CSV' : 'Show the CSV', run: () => this.toggleSource() });
+		if (this.model.kind === 'Csv') itemList.push({ title: this.sourceOpen ? t('Hide the CSV') : t('Show the CSV'), run: () => this.toggleSource() });
 		this.openMenu(rect, itemList);
 	}
 
@@ -658,13 +835,19 @@ class TableView {
 	// ------------------------------------------------------------ drawing
 
 	private render(): void {
+		this.renderTable();
+		// a column's tag panel follows the table as it is now
+		this.drawTagPanel?.();
+	}
+
+	private renderTable(): void {
 		const focus = document.activeElement;
 		const refocus = focus && this.root.contains(focus) && focus instanceof HTMLInputElement ? { field: focus.dataset.field, start: focus.selectionStart, end: focus.selectionEnd } : undefined;
 		if (this.from() !== this.linkedFrom) this.relink();
 		if (this.from() && this.linkState !== 'Ready') {
 			this.root.innerHTML =
 				this.linkState === 'Loading'
-					? '<p class="oi-table-empty">Loading the table…</p>'
+					? `<p class="oi-table-empty">${t('Loading the table…')}</p>`
 					: `<p class="oi-table-empty" data-oi-problem>No table in ${escapeHtml(this.from()!)}: the note may have been renamed or moved, or holds no Table.</p>`;
 			return;
 		}
@@ -717,44 +900,47 @@ class TableView {
 	private barHtml(problem: string | undefined): string {
 		const readOnly = this.readOnly();
 		const show = this.show();
-		const segment = showList.map((item) => `<button type="button" class="oi-table-segment${item === show ? ' active' : ''}" data-action="Show" data-show="${item}" aria-pressed="${item === show}">${item}</button>`).join('');
+		const segment = showList.map((item) => `<button type="button" class="oi-table-segment${item === show ? ' active' : ''}" data-action="Show" data-show="${item}" aria-pressed="${item === show}">${t(item)}</button>`).join('');
 		const chipList: string[] = [];
 		const chip = (kind: string, text: string): string =>
-			`<span class="oi-table-chip" data-chip="${kind}"><button type="button" class="oi-table-chip-text" data-action="Chip" data-chip="${kind}">${escapeHtml(text)}</button>${readOnly ? '' : `<button type="button" class="oi-table-chip-remove" data-action="ChipRemove" data-chip="${kind}" aria-label="Remove">${crossMark}</button>`}</span>`;
+			`<span class="oi-table-chip" data-chip="${kind}"><button type="button" class="oi-table-chip-text" data-action="Chip" data-chip="${kind}">${escapeHtml(text)}</button>${readOnly ? '' : `<button type="button" class="oi-table-chip-remove" data-action="ChipRemove" data-chip="${kind}" aria-label="${t('Remove')}">${crossMark}</button>`}</span>`;
 		if (this.model.filter) chipList.push(chip('Filter', `Filter: ${this.model.filter}`));
 		for (const sort of this.model.sortList) chipList.push(chip('Sort', `Sort: ${sort.column} ${sort.down ? '↓' : '↑'}`));
 		if (this.model.group) chipList.push(chip('Group', `Group: ${this.model.group.column}${this.model.group.period ? ` by ${this.model.group.period.toLowerCase()}` : ''}`));
 		const hiddenCount = this.model.columnList.filter((column) => column.hidden).length;
 		if (hiddenCount) chipList.push(chip('Hidden', `${hiddenCount} hidden`));
-		if (this.model.kind === 'Note') chipList.push(`<span class="oi-table-chip oi-table-chip-source" title="Each row is a note">Notes: ${escapeHtml(this.model.source ?? '')}</span>`);
+		if (this.model.kind === 'Note') chipList.push(`<span class="oi-table-chip oi-table-chip-source" title="${t('Each row is a note')}">Notes: ${escapeHtml(this.model.source ?? '')}</span>`);
 		if (this.data?.path) {
 			const sheetList = this.data.book?.sheetList ?? [];
 			const picker =
 				sheetList.length > 1
-					? `<select class="oi-table-sheet" data-field="sheet" aria-label="Sheet">${sheetList.map((sheet) => `<option${sheet.name === this.data!.grid?.sheet.name ? ' selected' : ''}>${escapeHtml(sheet.name)}</option>`).join('')}</select>`
+					? `<select class="oi-table-sheet" data-field="sheet" aria-label="${t('Sheet')}">${sheetList.map((sheet) => `<option${sheet.name === this.data!.grid?.sheet.name ? ' selected' : ''}>${escapeHtml(sheet.name)}</option>`).join('')}</select>`
 					: '';
-			chipList.push(`<span class="oi-table-chip oi-table-chip-source" title="The rows live in this file">File <button type="button" class="oi-table-link oi-table-file" data-action="OpenFile">${escapeHtml(this.data.path.split('/').pop() ?? '')}</button></span>${picker}`);
+			chipList.push(`<span class="oi-table-chip oi-table-chip-source" title="${t('The rows live in this file')}">${t('File')} <button type="button" class="oi-table-link oi-table-file" data-action="OpenFile">${escapeHtml(this.data.path.split('/').pop() ?? '')}</button></span>${picker}`);
 		}
 		if (this.data?.message) chipList.push(`<span class="oi-table-chip oi-table-problem" data-oi-problem>${escapeHtml(this.data.message)}</span>`);
-		if (this.linked) chipList.push(`<span class="oi-table-chip oi-table-chip-source" title="The rows live in this note">From <a class="oi-table-link" data-oi-link="${escapeHtml(this.linked.path.replace(/\.oi$/, ''))}">${escapeHtml(this.linked.path.replace(/\.oi$/, '').split('/').pop() ?? '')}</a></span>`);
+		if (this.linked) chipList.push(`<span class="oi-table-chip oi-table-chip-source" title="${t('The rows live in this note')}">${t('From')} <a class="oi-table-link" data-oi-link="${escapeHtml(this.linked.path.replace(/\.oi$/, ''))}">${escapeHtml(this.linked.path.replace(/\.oi$/, '').split('/').pop() ?? '')}</a></span>`);
+		const typeRow = this.ask?.type
+			? `<span class="oi-table-ask-type" role="radiogroup" aria-label="${t('Type')}">${newColumnTypeList.map((type) => `<button type="button" role="radio" data-ask-type="${type}" aria-checked="${this.ask!.type === type}" title="${t(typeTitle[type])}">${typeIcon[type]}<span>${t(typeTitle[type])}</span></button>`).join('')}</span>`
+			: '';
 		const askHtml = this.ask
-			? `<div class="oi-table-ask"><label>${escapeHtml(this.ask.label)}</label><input data-field="ask" value="${escapeHtml(this.ask.value)}" placeholder="${escapeHtml(this.ask.placeholder ?? '')}" spellcheck="false"><button type="button" class="oi-table-button primary" data-action="AskDone">OK</button><button type="button" class="oi-table-button" data-action="AskCancel">Cancel</button></div>`
+			? `<div class="oi-table-ask"><label>${escapeHtml(this.ask.label)}</label><input data-field="ask" value="${escapeHtml(this.ask.value)}" placeholder="${escapeHtml(this.ask.placeholder ?? '')}" spellcheck="false">${typeRow}<button type="button" class="oi-table-button primary" data-action="AskDone">OK</button><button type="button" class="oi-table-button" data-action="AskCancel">${t('Cancel')}</button></div>`
 			: '';
 		const title = this.title();
 		const titleHtml = title
-			? `<button type="button" class="oi-table-title" data-action="Title" title="The table's title: plots and other notes find it by it"${readOnly ? ' disabled' : ''}>${escapeHtml(title)}</button>`
+			? `<button type="button" class="oi-table-title" data-action="Title" title="${t('The table\'s title: plots and other notes find it by it')}"${readOnly ? ' disabled' : ''}>${escapeHtml(title)}</button>`
 			: readOnly
 				? ''
-				: `<button type="button" class="oi-table-title oi-table-title-empty" data-action="Title">Add a title</button>`;
+				: `<button type="button" class="oi-table-title oi-table-title-empty" data-action="Title">${t('Add a title')}</button>`;
 		return (
 			`<div class="oi-table-bar">` +
 			titleHtml +
-			`<div class="oi-table-segment-row" role="group" aria-label="Layout">${segment}</div>` +
+			`<div class="oi-table-segment-row" role="group" aria-label="${t('Layout')}">${segment}</div>` +
 			chipList.join('') +
 			`<span class="oi-table-bar-space"></span>` +
-			`<input class="oi-table-search" data-field="search" type="search" placeholder="Search" value="${escapeHtml(this.search)}" aria-label="Search the table">` +
-			(this.model.kind === 'Csv' ? `<button type="button" class="oi-table-button${this.sourceOpen ? ' active' : ''}" data-action="Source" title="The table's CSV">CSV</button>` : '') +
-			`<button type="button" class="oi-table-icon" data-action="More" title="More" aria-label="More">${moreMark}</button>` +
+			`<input class="oi-table-search" data-field="search" type="search" placeholder="${t('Search')}" value="${escapeHtml(this.search)}" aria-label="${t('Search the table')}">` +
+			(this.model.kind === 'Csv' ? `<button type="button" class="oi-table-button${this.sourceOpen ? ' active' : ''}" data-action="Source" title="${t('The table\'s CSV')}">CSV</button>` : '') +
+			`<button type="button" class="oi-table-icon" data-action="More" title="${t('More')}" aria-label="${t('More')}">${moreMark}</button>` +
 			`</div>` +
 			askHtml +
 			(problem ? '' : '')
@@ -762,8 +948,8 @@ class TableView {
 	}
 
 	private emptyHtml(): string {
-		if (this.readOnly()) return `<p class="oi-table-empty">An empty table.</p>`;
-		return `<div class="oi-table-empty"><p>An empty table. Paste rows from a spreadsheet, or start with columns:</p><button type="button" class="oi-table-button primary" data-action="Start">Name, Date, Number</button></div>`;
+		if (this.readOnly()) return `<p class="oi-table-empty">${t('An empty table.')}</p>`;
+		return `<div class="oi-table-empty"><p>${t('An empty table. Paste rows from a spreadsheet, or start with columns:')}</p><button type="button" class="oi-table-button primary" data-action="Start">Name, Date, Number</button></div>`;
 	}
 
 	private maxRow(): number {
@@ -781,7 +967,7 @@ class TableView {
 	private gridHtml(groupList: { key: string; label: string; rowList: Row[] }[] | undefined): string {
 		const readOnly = this.readOnly();
 		const head = this.shownColumnList.map((columnIndex, place) => this.headerHtml(columnIndex, place)).join('');
-		const addColumn = readOnly || this.model.kind === 'Note' ? '' : `<th class="oi-table-add-column"><button type="button" class="oi-table-icon" data-action="AddColumn" title="Add a column" aria-label="Add a column">${plusMark}</button></th>`;
+		const addColumn = readOnly || this.model.kind === 'Note' ? '' : `<th class="oi-table-add-column"><button type="button" class="oi-table-icon" data-action="AddColumn" title="${t('Add a column')}" aria-label="${t('Add a column')}">${plusMark}</button></th>`;
 		const handleHead = readOnly ? '' : '<th class="oi-table-handle" aria-hidden="true"></th>';
 		const columnCount = this.shownColumnList.length + (readOnly ? 0 : 1) + (addColumn ? 1 : 0);
 		const limit = this.showAll ? Number.POSITIVE_INFINITY : this.maxRow();
@@ -797,7 +983,7 @@ class TableView {
 					return `<td data-row="${at}" data-column="${place}" data-type="${column.valueType}">${this.cellHtml(column, valueList[columnIndex], row)}</td>`;
 				})
 				.join('');
-			const handle = readOnly ? '' : `<td class="oi-table-handle"><button type="button" class="oi-table-row-handle" data-action="RowHandle" data-row="${at}" tabindex="-1" title="Drag to move, click for more" aria-label="Row ${at + 1}">${handleMark}</button></td>`;
+			const handle = readOnly ? '' : `<td class="oi-table-handle"><button type="button" class="oi-table-row-handle" data-action="RowHandle" data-row="${at}" tabindex="-1" title="${t('Drag to move, click for more')}" aria-label="Row ${at + 1}">${handleMark}</button></td>`;
 			return `<tr data-row="${at}">${handle}${cellHtml}${addColumn ? '<td class="oi-table-add-column"></td>' : ''}</tr>`;
 		};
 		const orderList: Row[] = [];
@@ -818,7 +1004,7 @@ class TableView {
 		// a row in several groups (a List column) shows once per group; selection follows the order drawn
 		this.shownRowList = orderList;
 		if (position > limit) body += `<tr class="oi-table-more"><td colspan="${columnCount}"><button type="button" class="oi-table-button" data-action="ShowAll">Show all ${position} rows</button></td></tr>`;
-		if (!readOnly && (this.model.kind === 'Csv' || this.noteFolder() !== undefined)) body += `<tr class="oi-table-new"><td colspan="${columnCount}"><button type="button" class="oi-table-new-button" data-action="AddRow">${plusMark}<span>New</span></button></td></tr>`;
+		if (!readOnly && (this.model.kind === 'Csv' || this.noteFolder() !== undefined)) body += `<tr class="oi-table-new"><td colspan="${columnCount}"><button type="button" class="oi-table-new-button" data-action="AddRow">${plusMark}<span>${t('New')}</span></button></td></tr>`;
 		const foot = this.summaryRowHtml(this.shownRowList, false, readOnly, addColumn !== '');
 		return `<div class="oi-table-scroll"><table class="oi-table-grid"><thead><tr>${handleHead}${head}${addColumn}</tr></thead><tbody>${body}</tbody><tfoot>${foot}</tfoot></table></div>`;
 	}
@@ -835,9 +1021,9 @@ class TableView {
 					rowList.map((row) => this.valueOf(row)[columnIndex]),
 				);
 				const text = column.summary === 'None' ? '' : summaryText(column, column.summary, value);
-				const label = column.summary === 'None' ? '' : `<span class="oi-table-summary-label">${escapeHtml(shortSummary(column.summary))}</span>`;
+				const label = column.summary === 'None' ? '' : `<span class="oi-table-summary-label">${escapeHtml(t(shortSummary(column.summary)))}</span>`;
 				if (group) return `<td class="oi-table-summary">${label}${escapeHtml(text)}</td>`;
-				return `<td class="oi-table-summary">${readOnly ? `${label}${escapeHtml(text)}` : `<button type="button" class="oi-table-summary-button" data-action="Summary" data-column="${place}" title="Summary">${label}${escapeHtml(text) || '<span class="oi-table-summary-hint">Summary</span>'}</button>`}</td>`;
+				return `<td class="oi-table-summary">${readOnly ? `${label}${escapeHtml(text)}` : `<button type="button" class="oi-table-summary-button" data-action="Summary" data-column="${place}" title="${t('Summary')}">${label}${escapeHtml(text) || `<span class="oi-table-summary-hint">${t('Summary')}</span>`}</button>`}</td>`;
 			})
 			.join('');
 		return `<tr class="${group ? 'oi-table-subtotal' : 'oi-table-footer'}">${readOnly ? '' : '<td class="oi-table-handle"></td>'}${cellHtml}${addColumn ? '<td class="oi-table-add-column"></td>' : ''}</tr>`;
@@ -848,7 +1034,7 @@ class TableView {
 			return `<input type="checkbox" class="oi-table-check" data-action="Check"${value === 1 ? ' checked' : ''}${this.readOnly() ? ' disabled' : ''} aria-label="${escapeHtml(column.name)}">`;
 		}
 		if (value === undefined) return '';
-		if (column.type === 'Choice' || column.type === 'List') {
+		if (column.type === 'Tag') {
 			const list = Array.isArray(value) ? value : [String(value)];
 			return list.map((item) => this.pillHtml(column, item)).join('');
 		}
@@ -875,21 +1061,23 @@ class TableView {
 					return `<div class="oi-table-field"><span class="oi-table-field-name">${escapeHtml(column.name)}</span><span class="oi-table-field-value">${this.cellHtml(column, valueList[columnIndex], row)}</span></div>`;
 				})
 				.join('');
-			return `<div class="oi-table-card" data-row="${at}" tabindex="0"><div class="oi-table-card-title">${title || '<span class="oi-table-untitled">Untitled</span>'}</div>${fieldList}</div>`;
+			return `<div class="oi-table-card" data-row="${at}" tabindex="0"><div class="oi-table-card-title">${title || `<span class="oi-table-untitled">${t('Untitled')}</span>`}</div>${fieldList}</div>`;
 		};
 		const newButton = (value?: string): string =>
-			readOnly || (this.model.kind === 'Note' && this.noteFolder() === undefined) ? '' : `<button type="button" class="oi-table-new-button" data-action="AddRow"${value !== undefined ? ` data-lane="${escapeHtml(value)}"` : ''}>${plusMark}<span>New</span></button>`;
+			readOnly || (this.model.kind === 'Note' && this.noteFolder() === undefined) ? '' : `<button type="button" class="oi-table-new-button" data-action="AddRow"${value !== undefined ? ` data-lane="${escapeHtml(value)}"` : ''}>${plusMark}<span>${t('New')}</span></button>`;
 		if (show === 'Board') {
 			const columnIndex = this.boardColumn();
-			if (columnIndex === undefined) return `<p class="oi-table-empty">A Board needs a Choice column to make its lanes (or Group: a column).</p>`;
+			if (columnIndex === undefined) return `<p class="oi-table-empty">${t('A Board needs a Tag column to make its lanes (or Group: a column).')}</p>`;
 			const column = this.model.columnList[columnIndex]!;
 			const laneList = [...column.choiceList];
 			const laneMap = new Map<string, string[]>(laneList.map((lane) => [lane.toLowerCase(), []]));
 			const noneList: string[] = [];
 			this.shownRowList.forEach((row, at) => {
+				// a card with several tags is in each of their lanes
 				const value = this.valueOf(row)[columnIndex];
-				const key = Array.isArray(value) ? (value[0] ?? '') : value === undefined ? '' : String(value);
-				(laneMap.get(key.toLowerCase()) ?? noneList).push(card(row, at));
+				const keyList = (Array.isArray(value) ? value : value === undefined || value === '' ? [] : [String(value)]).map((key) => key.toLowerCase()).filter((key) => laneMap.has(key));
+				if (keyList.length === 0) noneList.push(card(row, at));
+				for (const key of keyList) laneMap.get(key)!.push(card(row, at));
 			});
 			const lane = (title: string, value: string, cardList: string[], hue: number): string =>
 				`<div class="oi-table-lane" data-lane="${escapeHtml(value)}"><div class="oi-table-lane-head">${value ? this.pillHtml(column, title) : `<span class="oi-table-pill" data-hue="${hue}">${escapeHtml(title)}</span>`}<span class="oi-table-group-count">${cardList.length}</span></div><div class="oi-table-lane-body">${cardList.join('')}${newButton(value)}</div></div>`;
@@ -900,11 +1088,11 @@ class TableView {
 		return `<div class="oi-table-${show === 'Gallery' ? 'gallery' : 'list'}">${cardList}${newButton()}</div>`;
 	}
 
-	/** The column a Board's lanes come from: its Group, else the first Choice column. */
+	/** The column a Board's lanes come from: its Group, else the first Tag column. */
 	private boardColumn(): number | undefined {
 		const group = this.model.group ? this.model.columnList.findIndex((column) => column.name === this.model.group!.column) : -1;
 		if (group >= 0) return group;
-		const choice = this.model.columnList.findIndex((column) => column.type === 'Choice');
+		const choice = this.model.columnList.findIndex((column) => column.type === 'Tag');
 		return choice >= 0 ? choice : undefined;
 	}
 
@@ -913,7 +1101,7 @@ class TableView {
 		if (!column) return '';
 		const stat = statisticsOf(this.shownRowList.map((row) => this.valueOf(row)[columnIndex]));
 		const format = (value: number): string => formatValue(column, Math.round(value * 1000) / 1000);
-		let body = '<p>No numbers in this column.</p>';
+		let body = `<p>${t('No numbers in this column.')}</p>`;
 		if (stat) {
 			const top = Math.max(...stat.bin.map((bin) => bin.count), 1);
 			const barWidth = 100 / stat.bin.length;
@@ -923,10 +1111,10 @@ class TableView {
 			const line = (label: string, value: string): string => `<div class="oi-table-stat"><span>${label}</span><b>${escapeHtml(value)}</b></div>`;
 			body =
 				`<div class="oi-table-stat-grid">${line('Count', String(stat.count))}${line('Mean', format(stat.mean))}${line('Median', format(stat.median))}${line('Std. deviation', format(stat.deviation))}${line('Min', format(stat.min))}${line('Max', format(stat.max))}${line('Q1', format(stat.q1))}${line('Q3', format(stat.q3))}</div>` +
-				`<svg class="oi-table-histogram" viewBox="0 0 100 40" preserveAspectRatio="none" role="img" aria-label="Histogram">${bar}</svg>` +
+				`<svg class="oi-table-histogram" viewBox="0 0 100 40" preserveAspectRatio="none" role="img" aria-label="${t('Histogram')}">${bar}</svg>` +
 				`<div class="oi-table-histogram-axis"><span>${escapeHtml(format(stat.min))}</span><span>${escapeHtml(format(stat.max))}</span></div>`;
 		}
-		return `<div class="oi-table-card-panel" role="dialog" aria-label="Analyze ${escapeHtml(column.name)}"><div class="oi-table-panel-head"><b>${escapeHtml(column.name)}</b><span class="oi-table-panel-note">${this.shownRowList.length} rows shown</span><button type="button" class="oi-table-icon" data-action="PanelClose" aria-label="Close">${crossMark}</button></div>${body}</div>`;
+		return `<div class="oi-table-card-panel" role="dialog" aria-label="Analyze ${escapeHtml(column.name)}"><div class="oi-table-panel-head"><b>${escapeHtml(column.name)}</b><span class="oi-table-panel-note">${this.shownRowList.length} rows shown</span><button type="button" class="oi-table-icon" data-action="PanelClose" aria-label="${t('Close')}">${crossMark}</button></div>${body}</div>`;
 	}
 
 	private rowFormHtml(row: Row): string {
@@ -943,20 +1131,19 @@ class TableView {
 				return `<label class="oi-table-form-row"><span class="oi-table-field-name">${typeIcon[column.type]}${escapeHtml(column.name)}</span>${input}</label>`;
 			})
 			.join('');
-		const open = row.path ? `<button type="button" class="oi-table-button" data-action="OpenNote">Open note</button>` : '';
-		return `<div class="oi-table-card-panel oi-table-form" role="dialog" aria-label="Row"><div class="oi-table-panel-head"><b>Row</b>${open}<button type="button" class="oi-table-icon" data-action="PanelClose" aria-label="Close">${crossMark}</button></div>${fieldList}</div>`;
+		const open = row.path ? `<button type="button" class="oi-table-button" data-action="OpenNote">${t('Open note')}</button>` : '';
+		return `<div class="oi-table-card-panel oi-table-form" role="dialog" aria-label="${t('Row')}"><div class="oi-table-panel-head"><b>${t('Row')}</b>${open}<button type="button" class="oi-table-icon" data-action="PanelClose" aria-label="${t('Close')}">${crossMark}</button></div>${fieldList}</div>`;
 	}
 
 	/** An input for a cell's text, by its column's type. */
 	private inputHtml(column: ColumnInfo, text: string, field: string, columnIndex: number): string {
-		const list = column.type === 'Choice' || column.type === 'List' ? ` list="oi-table-choice-${columnIndex}"` : '';
-		const datalist = list ? `<datalist id="oi-table-choice-${columnIndex}">${column.choiceList.map((item) => `<option value="${escapeHtml(item)}"></option>`).join('')}</datalist>` : '';
+		const list = column.type === 'Tag' ? ' data-tag-field' : '';
 		if (column.type === 'Date' && /^\d{4}-\d{2}-\d{2}$/.test(text.trim()) === (text.trim() !== '')) return `<input type="date" class="oi-table-input" data-field="${field}" data-form="${columnIndex}" value="${escapeHtml(text.trim())}">`;
 		if (column.type === 'DateTime') {
 			const match = /^(\d{4}-\d{2}-\d{2})[ T](\d{1,2}):(\d{2})/.exec(text.trim());
 			if (match || text.trim() === '') return `<input type="datetime-local" class="oi-table-input" data-field="${field}" data-form="${columnIndex}" data-kind="DateTime" value="${match ? `${match[1]}T${match[2]!.padStart(2, '0')}:${match[3]}` : ''}">`;
 		}
-		return `<input class="oi-table-input" data-field="${field}" data-form="${columnIndex}" value="${escapeHtml(text)}"${list} spellcheck="false">${datalist}`;
+		return `<input class="oi-table-input" data-field="${field}" data-form="${columnIndex}" value="${escapeHtml(text)}"${list} spellcheck="false" autocomplete="off">`;
 	}
 
 	// ------------------------------------------------------------ selection and typing
@@ -1030,11 +1217,14 @@ class TableView {
 			this.select(place);
 			return;
 		}
-		if ((column.type === 'Choice' || column.type === 'List') && initial === undefined) {
-			// pick from the choices (typing on the cell still types)
-			this.editing = undefined;
+		if (column.type === 'Tag') {
+			// chips and a field: a comma or Enter makes what is typed a tag (spaces stay in it)
+			this.editing = place;
 			this.select(place);
-			this.choiceMenu(row, columnIndex, cell.getBoundingClientRect());
+			const text = row.cellList[column.index] ?? '';
+			cell.classList.add('oi-table-editing');
+			this.tagDraft = tagListOf(text);
+			this.drawTagEditor(cell, column, columnIndex, initial ?? '', text);
 			return;
 		}
 		this.editing = place;
@@ -1051,6 +1241,70 @@ class TableView {
 		}
 	}
 
+	/** The tag editor in a cell: its chips (with ×), a field that suggests the column's tags and then the vault's, and a menu of them all. */
+	private drawTagEditor(cell: HTMLElement, column: ColumnInfo, columnIndex: number, typed: string, committed: string): void {
+		this.stopTagCombo?.();
+		cell.innerHTML =
+			`<div class="oi-table-tag-editor">${this.tagDraft.map((tag, index) => this.pillHtml(column, tag, index)).join('')}` +
+			`<input class="oi-table-input oi-table-tag-input" data-field="cell" data-tag value="${escapeHtml(typed)}" size="${Math.max(6, typed.length + 2)}" spellcheck="false" autocomplete="off" placeholder="${this.tagDraft.length ? '' : t('Tag, tag')}" aria-label="${escapeHtml(tr`Tags of ${column.name}`)}">` +
+			`<button type="button" class="oi-table-tag-more" data-tag-menu tabindex="-1" title="${t('All tags')}" aria-label="${t('All tags')}">${moreMark}</button></div>`;
+		const input = cell.querySelector<HTMLInputElement>('input')!;
+		input.dataset.committed = committed;
+		input.dataset.column = String(columnIndex);
+		this.stopTagCombo = comboField(this.menu(), input, {
+			sort: false,
+			openOnFocus: typed !== '' || this.tagDraft.length > 0,
+			itemList: () => this.tagOfferList(column, this.tagDraft),
+			onPick: (tag) => {
+				this.tagDraft = tagListOf(tagText([...this.tagDraft, tag]));
+				this.redrawTagEditor(input, '');
+			},
+		});
+		input.focus({ preventScroll: true });
+		input.setSelectionRange(input.value.length, input.value.length);
+	}
+
+	/** Tags to suggest for a cell: the column's (in its order), then every other tag of the vault, by name. */
+	private tagOfferList(column: ColumnInfo, chosenList: readonly string[]): { title: string; hint?: string }[] {
+		const chosen = new Set(chosenList.map((tag) => tag.toLowerCase()));
+		const seen = new Set<string>();
+		const list: { title: string; hint?: string }[] = [];
+		for (const tag of column.choiceList) {
+			if (chosen.has(tag.toLowerCase()) || seen.has(tag.toLowerCase())) continue;
+			seen.add(tag.toLowerCase());
+			list.push({ title: tag });
+		}
+		const countMap = new Map<string, { tag: string; count: number }>();
+		for (const note of this.index()?.noteList() ?? []) {
+			for (const tag of note.tagList) {
+				const key = tag.toLowerCase();
+				if (chosen.has(key) || seen.has(key)) continue;
+				const entry = countMap.get(key) ?? { tag, count: 0 };
+				entry.count++;
+				countMap.set(key, entry);
+			}
+		}
+		const rest = [...countMap.values()].sort((left, right) => left.tag.localeCompare(right.tag, undefined, { sensitivity: 'base', numeric: true }));
+		rest.forEach((entry, index) => list.push({ title: entry.tag, hint: index === 0 && list.length > 0 ? t('In the vault') : String(entry.count) }));
+		return list;
+	}
+
+	/** What is typed in the tag editor becomes chips; true when there was something. */
+	private takeTypedTag(input: HTMLInputElement): boolean {
+		if (input.value.trim() === '') return false;
+		this.tagDraft = tagListOf([tagText(this.tagDraft), input.value].join(', '));
+		this.redrawTagEditor(input, '');
+		return true;
+	}
+
+	private redrawTagEditor(input: HTMLInputElement, typed: string): void {
+		const place = this.editing;
+		const cell = input.closest<HTMLElement>('td');
+		const columnIndex = place ? this.shownColumnList[place.column] : undefined;
+		const column = columnIndex === undefined ? undefined : this.model.columnList[columnIndex];
+		if (cell && column && columnIndex !== undefined) this.drawTagEditor(cell, column, columnIndex, typed, input.dataset.committed ?? '');
+	}
+
 	/** Writes the open cell editor (if it changed) and closes it. */
 	private commitEditor(move?: Place): void {
 		const place = this.editing;
@@ -1061,7 +1315,8 @@ class TableView {
 		const columnIndex = this.shownColumnList[place.column];
 		let text = input.value;
 		if (input.dataset.kind === 'DateTime') text = text.replace('T', ' ');
-		const changed = text !== (input.dataset.committed ?? '');
+		if (input.dataset.tag !== undefined) text = tagText(tagListOf([tagText(this.tagDraft), input.value].join(', ')));
+		const changed = input.dataset.tag !== undefined ? text !== tagText(tagListOf(input.dataset.committed ?? '')) : text !== (input.dataset.committed ?? '');
 		if (move) {
 			this.editing = this.clampPlace(move);
 			this.selection = { anchor: this.editing, focus: this.editing };
@@ -1143,8 +1398,9 @@ class TableView {
 		this.menu()?.open({ x, y, itemList });
 	}
 
-	private askFor(label: string, value: string, onDone: (value: string) => void, placeholder?: string): void {
-		this.ask = { label, value, placeholder, onDone };
+	/** Asks for a word in the table's bar; with `type`, a type is picked beside it (a new column's). */
+	private askFor(label: string, value: string, onDone: (value: string, type?: ColumnType) => void, placeholder?: string, type?: ColumnType): void {
+		this.ask = { label, value, placeholder, onDone, type };
 		this.render();
 		const input = this.root.querySelector<HTMLInputElement>('[data-field="ask"]');
 		input?.focus();
@@ -1163,62 +1419,62 @@ class TableView {
 		if (!readOnly) {
 			if (csv || column.formula !== undefined)
 				itemList.push({
-					title: 'Rename',
-					run: () => this.askFor('Name', column.name, (name) => this.renameColumn(column, name)),
+					title: t('Rename'),
+					run: () => this.askFor(t('Name'), column.name, (name) => this.renameColumn(column, name)),
 				});
-			if (column.formula !== undefined) itemList.push({ title: 'Edit formula', hint: column.formula, run: () => this.askFor(`${column.name} =`, column.formula ?? '', (formula) => this.setColumn(column.name, 'Formula', formula || undefined), 'Calorie - Burned') });
+			if (column.formula !== undefined) itemList.push({ title: t('Edit formula'), hint: column.formula, run: () => this.askFor(`${column.name} =`, column.formula ?? '', (formula) => this.setColumn(column.name, 'Formula', formula || undefined), 'Calorie - Burned') });
 			else
 				itemList.push({
-					title: 'Type',
-					hint: typeTitle[column.type],
+					title: t('Type'),
+					hint: t(typeTitle[column.type]),
 					childList: columnTypeList
 						.filter((type) => type !== 'Formula')
-						.map((type) => ({ title: typeTitle[type], checked: type === column.type, run: () => this.setColumn(column.name, 'Type', type) })),
+						.map((type) => ({ title: t(typeTitle[type]), checked: type === column.type, run: () => this.setColumn(column.name, 'Type', type) })),
 				});
 			itemList.push(
-				{ title: 'Sort ascending', checked: sort && !sort.down, separatorBefore: true, run: () => this.setProperty('Sort', new Map([[column.name, 'Up']])) },
-				{ title: 'Sort descending', checked: sort?.down === true, run: () => this.setProperty('Sort', new Map([[column.name, 'Down']])) },
+				{ title: t('Sort ascending'), checked: sort && !sort.down, separatorBefore: true, run: () => this.setProperty('Sort', new Map([[column.name, 'Up']])) },
+				{ title: t('Sort descending'), checked: sort?.down === true, run: () => this.setProperty('Sort', new Map([[column.name, 'Down']])) },
 			);
-			if (sort) itemList.push({ title: 'Clear sort', run: () => this.setProperty('Sort', undefined) });
-			itemList.push({ title: 'Filter', run: () => this.askFor('Filter', this.model.filter ?? `${filterName(column.name)} ${date ? '>= 2026-01-01' : column.valueType === 'Number' ? '> 0' : '= '}`, (filter) => this.setProperty('Filter', filter.trim() || undefined), 'Calorie > 300 and Workout = Legs') });
+			if (sort) itemList.push({ title: t('Clear sort'), run: () => this.setProperty('Sort', undefined) });
+			itemList.push({ title: t('Filter'), run: () => this.askFor(t('Filter'), this.model.filter ?? `${filterName(column.name)} ${date ? '>= 2026-01-01' : column.valueType === 'Number' ? '> 0' : '= '}`, (filter) => this.setProperty('Filter', filter.trim() || undefined), 'Calorie > 300 and Workout = Legs') });
 			if (date)
 				itemList.push({
-					title: 'Group by',
-					childList: periodList.map((period: Period) => ({ title: period, checked: this.model.group?.column === column.name && this.model.group.period === period, run: () => this.setProperty('Group', new Map([[column.name, period]])) })),
+					title: t('Group by'),
+					childList: periodList.map((period: Period) => ({ title: t(period), checked: this.model.group?.column === column.name && this.model.group.period === period, run: () => this.setProperty('Group', new Map([[column.name, period]])) })),
 				});
-			else itemList.push({ title: 'Group by this column', checked: this.model.group?.column === column.name, run: () => this.setProperty('Group', column.name) });
-			if (this.model.group) itemList.push({ title: 'Ungroup', run: () => this.setProperty('Group', undefined) });
+			else itemList.push({ title: t('Group by this column'), checked: this.model.group?.column === column.name, run: () => this.setProperty('Group', column.name) });
+			if (this.model.group) itemList.push({ title: t('Ungroup'), run: () => this.setProperty('Group', undefined) });
 			itemList.push({
-				title: 'Summary',
+				title: t('Summary'),
 				separatorBefore: true,
-				hint: column.summary === 'None' ? '' : summaryTitle[column.summary],
-				childList: summaryChoiceList(column).map((summary: Summary) => ({ title: summaryTitle[summary], checked: summary === column.summary, run: () => this.setColumn(column.name, 'Summary', summary === 'None' ? undefined : summary) })),
+				hint: column.summary === 'None' ? '' : t(summaryTitle[column.summary]),
+				childList: summaryChoiceList(column).map((summary: Summary) => ({ title: t(summaryTitle[summary]), checked: summary === column.summary, run: () => this.setColumn(column.name, 'Summary', summary === 'None' ? undefined : summary) })),
 			});
-			if ((column.type === 'Choice' || column.type === 'List') && column.formula === undefined) itemList.push({ title: 'Choices', separatorBefore: true, childList: this.choiceEntryList(column, rect) });
+			if (column.type === 'Tag' && column.formula === undefined) itemList.push({ title: t('Edit tags'), separatorBefore: true, run: () => this.openTagPanel(column, rect) });
 			if (column.valueType === 'Number') {
 				itemList.push(
-					{ title: 'Unit', hint: column.unit ?? '', run: () => this.askFor('Unit', column.unit ?? '', (unit) => this.setColumn(column.name, 'Unit', unit.trim() || undefined), 'kcal, kg, $, €') },
+					{ title: t('Unit'), hint: column.unit ?? '', run: () => this.askFor(t('Unit'), column.unit ?? '', (unit) => this.setColumn(column.name, 'Unit', unit.trim() || undefined), 'kcal, kg, $, €') },
 					{
-						title: 'Decimal places',
-						hint: column.decimal === undefined ? 'Auto' : String(column.decimal),
-						childList: [undefined, 0, 1, 2, 3].map((digit) => ({ title: digit === undefined ? 'As written' : String(digit), checked: column.decimal === digit, run: () => this.setColumn(column.name, 'Decimal', digit) })),
+						title: t('Decimal places'),
+						hint: column.decimal === undefined ? t('Auto') : String(column.decimal),
+						childList: [undefined, 0, 1, 2, 3].map((digit) => ({ title: digit === undefined ? t('As written') : String(digit), checked: column.decimal === digit, run: () => this.setColumn(column.name, 'Decimal', digit) })),
 					},
 				);
 			}
-			if (column.valueType === 'Number' || date) itemList.push({ title: 'Analyze', run: () => this.openAnalyze(columnIndex) });
-			itemList.push({ title: 'Hide', separatorBefore: true, run: () => this.setHidden(column.name, true) });
+			if (column.valueType === 'Number' || date) itemList.push({ title: t('Analyze'), run: () => this.openAnalyze(columnIndex) });
+			itemList.push({ title: t('Hide'), separatorBefore: true, run: () => this.setHidden(column.name, true) });
 			if (csv) {
 				itemList.push(
-					{ title: 'Insert left', run: () => this.askFor('New column', '', (name) => this.addColumn(name, column.index)) },
-					{ title: 'Insert right', run: () => this.askFor('New column', '', (name) => this.addColumn(name, column.index + 1)) },
+					{ title: t('Insert left'), run: () => this.askFor(t('New column'), '', (name, type) => this.addColumn(name, column.index, type), t('Name'), 'Text') },
+					{ title: t('Insert right'), run: () => this.askFor(t('New column'), '', (name, type) => this.addColumn(name, column.index + 1, type), t('Name'), 'Text') },
 				);
-				if (column.index > 0) itemList.push({ title: 'Move left', run: () => this.setBody(moveColumn(this.model, column.index, column.index - 1)) });
-				if (column.index >= 0 && column.index < (this.model.recordList[0]?.cellList.length ?? 0) - 1) itemList.push({ title: 'Move right', run: () => this.setBody(moveColumn(this.model, column.index, column.index + 1)) });
+				if (column.index > 0) itemList.push({ title: t('Move left'), run: () => this.setBody(moveColumn(this.model, column.index, column.index - 1)) });
+				if (column.index >= 0 && column.index < (this.model.recordList[0]?.cellList.length ?? 0) - 1) itemList.push({ title: t('Move right'), run: () => this.setBody(moveColumn(this.model, column.index, column.index + 1)) });
 			}
-			itemList.push({ title: 'Add a formula column', run: () => this.addFormulaColumn() });
-			if (csv || column.formula !== undefined) itemList.push({ title: 'Delete column', danger: true, separatorBefore: true, run: () => this.deleteColumn(column) });
+			itemList.push({ title: t('Add a formula column'), run: () => this.addFormulaColumn() });
+			if (csv || column.formula !== undefined) itemList.push({ title: t('Delete column'), danger: true, separatorBefore: true, run: () => this.deleteColumn(column) });
 		} else {
-			if (column.valueType === 'Number' || date) itemList.push({ title: 'Analyze', run: () => this.openAnalyze(columnIndex) });
+			if (column.valueType === 'Number' || date) itemList.push({ title: t('Analyze'), run: () => this.openAnalyze(columnIndex) });
 		}
 		if (itemList.length) this.openMenu(rect, itemList);
 	}
@@ -1235,14 +1491,18 @@ class TableView {
 		this.setProperty('Hidden', list.length ? list : undefined);
 	}
 
-	private addColumn(name: string, at: number): void {
+	/** A new column (with the type picked for it: one undo step). */
+	private addColumn(name: string, at: number, type?: ColumnType): void {
 		const clean = name.trim();
 		if (!clean) return;
-		this.setBody(insertColumn(this.model, at, clean));
+		this.noteModel().transact(() => {
+			this.setBody(insertColumn(this.model, at, clean));
+			if (type && type !== 'Text') this.setColumn(clean, 'Type', type);
+		});
 	}
 
 	private addFormulaColumn(): void {
-		this.askFor('Formula column name', '', (name) => {
+		this.askFor(t('Formula column name'), '', (name) => {
 			const clean = name.trim();
 			if (!clean) return;
 			const numberColumn = this.model.columnList.find((column) => column.valueType === 'Number');
@@ -1286,13 +1546,13 @@ class TableView {
 	private rowMenu(at: number, rect: DOMRect): void {
 		const row = this.shownRowList[at];
 		if (!row) return;
-		const itemList: MenuEntry[] = [{ title: 'Open as a form', run: () => this.openRowForm(row) }];
-		if (row.path) itemList.push({ title: 'Open note', run: () => this.index()?.open(row.path!) });
+		const itemList: MenuEntry[] = [{ title: t('Open as a form'), run: () => this.openRowForm(row) }];
+		if (row.path) itemList.push({ title: t('Open note'), run: () => this.index()?.open(row.path!) });
 		if (this.model.kind === 'Csv') {
 			const order = (): (number | readonly string[])[] => this.model.recordList.map((_, index) => index);
 			itemList.push(
 				{
-					title: 'Insert above',
+					title: t('Insert above'),
 					separatorBefore: true,
 					run: () => {
 						const list = order();
@@ -1300,9 +1560,9 @@ class TableView {
 						this.setBody(rewriteRecord(this.model, list));
 					},
 				},
-				{ title: 'Insert below', run: () => this.addRow(new Map(), row) },
+				{ title: t('Insert below'), run: () => this.addRow(new Map(), row) },
 				{
-					title: 'Duplicate',
+					title: t('Duplicate'),
 					run: () => {
 						const list = order();
 						// the copy is the same row: no "(1)" or "copy" added to it
@@ -1311,7 +1571,7 @@ class TableView {
 					},
 				},
 				{
-					title: 'Delete row',
+					title: t('Delete row'),
 					danger: true,
 					separatorBefore: true,
 					run: () => this.setBody(rewriteRecord(this.model, order().filter((index) => index !== row.index))),
@@ -1333,16 +1593,16 @@ class TableView {
 		if (!column) return;
 		this.openMenu(
 			rect,
-			summaryChoiceList(column).map((summary) => ({ title: summaryTitle[summary], checked: summary === column.summary, run: () => this.setColumn(column.name, 'Summary', summary === 'None' ? undefined : summary) })),
+			summaryChoiceList(column).map((summary) => ({ title: t(summaryTitle[summary]), checked: summary === column.summary, run: () => this.setColumn(column.name, 'Summary', summary === 'None' ? undefined : summary) })),
 		);
 	}
 
 	private chipMenu(kind: string, rect: DOMRect): void {
-		if (kind === 'Filter') this.askFor('Filter', this.model.filter ?? '', (filter) => this.setProperty('Filter', filter.trim() || undefined), 'Calorie > 300 and Workout = Legs');
+		if (kind === 'Filter') this.askFor(t('Filter'), this.model.filter ?? '', (filter) => this.setProperty('Filter', filter.trim() || undefined), 'Calorie > 300 and Workout = Legs');
 		else if (kind === 'Hidden')
 			this.openMenu(
 				rect,
-				this.model.columnList.filter((column) => column.hidden).map((column) => ({ title: `Show ${column.name}`, run: () => this.setHidden(column.name, false) })),
+				this.model.columnList.filter((column) => column.hidden).map((column) => ({ title: tr`Show ${column.name}`, run: () => this.setHidden(column.name, false) })),
 			);
 		else if (kind === 'Sort') {
 			const sort = this.model.sortList[0];
@@ -1368,6 +1628,27 @@ class TableView {
 				return;
 			}
 			const target = event.target as HTMLElement;
+			// the tag editor's × on a chip, and its menu of every tag
+			const tagInput = target.closest('.oi-table-tag-editor')?.querySelector<HTMLInputElement>('input[data-tag]');
+			if (tagInput && this.editing) {
+				const remove = target.closest<HTMLElement>('[data-tag-remove]');
+				if (remove) {
+					this.tagDraft = this.tagDraft.filter((_, index) => index !== Number(remove.dataset.tagRemove));
+					this.redrawTagEditor(tagInput, tagInput.value);
+					return;
+				}
+				if (target.closest('[data-tag-menu]')) {
+					const place = this.editing;
+					const rect = target.closest('td')!.getBoundingClientRect();
+					this.commitEditor();
+					const row = this.shownRowList[place.row];
+					const columnIndex = this.shownColumnList[place.column];
+					if (row && columnIndex !== undefined) this.choiceMenu(row, columnIndex, rect);
+					return;
+				}
+				tagInput.focus({ preventScroll: true });
+				return;
+			}
 			const actionElement = target.closest<HTMLElement>('[data-action]');
 			const action = actionElement?.dataset.action;
 			const rect = actionElement?.getBoundingClientRect();
@@ -1390,7 +1671,7 @@ class TableView {
 					this.moreMenu(rect!);
 					return;
 				case 'Title':
-					this.askFor('Title', this.title() ?? '', (title) => this.setProperty('Title', title.trim() || undefined), 'Gym log');
+					this.askFor(t('Title'), this.title() ?? '', (title) => this.setProperty('Title', title.trim() || undefined), 'Gym log');
 					return;
 				case 'OpenFile':
 					if (this.data?.path) this.index()?.open(this.data.path);
@@ -1413,17 +1694,17 @@ class TableView {
 					return;
 				}
 				case 'AddColumn':
-					this.askFor('New column', '', (name) => this.addColumn(name, this.model.recordList[0]?.cellList.length ?? 0));
+					this.askFor(t('New column'), '', (name, type) => this.addColumn(name, this.model.recordList[0]?.cellList.length ?? 0, type), t('Name'), 'Text');
 					return;
 				case 'AddRow': {
 					const lane = actionElement!.dataset.lane;
 					const boardColumn = this.boardColumn();
-					this.addRow(lane !== undefined && boardColumn !== undefined ? new Map([[boardColumn, lane]]) : new Map());
 					if (this.show() === 'Table' && this.model.kind === 'Csv') {
-						// type into the new row's first cell right away
-						const at = this.model.sortList.length || this.model.group ? undefined : this.shownRowList.length;
+						// type into the new row's first cell right away: set before the row is written, since writing draws again
+						const at = this.model.sortList.length || this.model.group || this.search ? undefined : this.shownRowList.length;
 						if (at !== undefined) this.editing = { row: at, column: 0 };
 					}
+					this.addRow(lane !== undefined && boardColumn !== undefined ? new Map([[boardColumn, lane]]) : new Map());
 					return;
 				}
 				case 'ShowAll':
@@ -1436,6 +1717,15 @@ class TableView {
 				case 'AskDone':
 					this.finishAsk(true);
 					return;
+				case undefined:
+					// a type picked for the new column: the name typed so far stays
+					if (target.closest('[data-ask-type]') && this.ask) {
+						const type = target.closest<HTMLElement>('[data-ask-type]')!.dataset.askType as ColumnType;
+						this.ask.type = type;
+						for (const button of this.root.querySelectorAll<HTMLElement>('[data-ask-type]')) button.setAttribute('aria-checked', String(button.dataset.askType === type));
+						this.root.querySelector<HTMLInputElement>('[data-field="ask"]')?.focus();
+					}
+					break;
 				case 'AskCancel':
 					this.finishAsk(false);
 					return;
@@ -1473,10 +1763,16 @@ class TableView {
 				if (row) this.rowDrag = { row, pointerId: event.pointerId, startY: event.clientY, moving: false, target: Number(handle.dataset.row) };
 				return;
 			}
+			const head = target.closest<HTMLElement>('.oi-table-head');
+			if (head && !this.readOnly() && this.model.kind === 'Csv') {
+				const column = this.model.columnList[this.shownColumnList[Number(head.dataset.column)] ?? -1];
+				if (column && column.index >= 0) this.columnDrag = { from: column.index, pointerId: event.pointerId, startX: event.clientX, moving: false, target: column.index };
+				return;
+			}
 			const card = target.closest<HTMLElement>('.oi-table-card');
 			if (card && this.show() === 'Board' && !this.readOnly()) {
 				const row = this.shownRowList[Number(card.dataset.row)];
-				if (row) this.cardDrag = { row, pointerId: event.pointerId, startX: event.clientX, startY: event.clientY, moving: false };
+				if (row) this.cardDrag = { row, pointerId: event.pointerId, startX: event.clientX, startY: event.clientY, moving: false, from: card.closest<HTMLElement>('.oi-table-lane')?.dataset.lane ?? '' };
 				return;
 			}
 			if (target.closest('input, button, a, textarea, select')) return;
@@ -1503,6 +1799,7 @@ class TableView {
 			}
 			if (this.rowDrag && event.pointerId === this.rowDrag.pointerId) this.moveRowDrag(event);
 			if (this.cardDrag && event.pointerId === this.cardDrag.pointerId) this.moveCardDrag(event);
+			if (this.columnDrag && event.pointerId === this.columnDrag.pointerId) this.moveColumnDrag(event);
 		});
 		const end = (event: PointerEvent): void => {
 			if (this.press && event.pointerId === this.press.pointerId) {
@@ -1512,10 +1809,30 @@ class TableView {
 			}
 			if (this.rowDrag && event.pointerId === this.rowDrag.pointerId) this.endRowDrag(event.type === 'pointerup');
 			if (this.cardDrag && event.pointerId === this.cardDrag.pointerId) this.endCardDrag(event);
+			if (this.columnDrag && event.pointerId === this.columnDrag.pointerId) this.endColumnDrag(event.type === 'pointerup');
 		};
 		root.addEventListener('pointerup', end);
 		root.addEventListener('pointercancel', end);
 		root.addEventListener('keydown', (event) => this.onKey(event));
+		// a Tag field of the row form suggests tags in the app's own list: a pick takes the place of the tag being typed
+		const tagFieldSet = new WeakSet<HTMLInputElement>();
+		root.addEventListener('focusin', (event) => {
+			const input = event.target;
+			if (!(input instanceof HTMLInputElement) || input.dataset.tagField === undefined || tagFieldSet.has(input)) return;
+			const column = this.model.columnList[Number(input.dataset.form)];
+			if (!column) return;
+			tagFieldSet.add(input);
+			comboField(this.menu(), input, {
+				sort: false,
+				itemList: () => this.tagOfferList(column, tagListOf(input.value)),
+				onPick: (tag) => {
+					const at = input.value.lastIndexOf(',');
+					const kept = tagListOf(at < 0 ? '' : input.value.slice(0, at));
+					input.value = `${tagText([...kept, tag])}, `;
+					input.dispatchEvent(new Event('change', { bubbles: true }));
+				},
+			});
+		});
 		root.addEventListener('input', (event) => {
 			const target = event.target as HTMLInputElement | HTMLTextAreaElement;
 			if (target.dataset.field === 'search') {
@@ -1523,6 +1840,8 @@ class TableView {
 				this.selection = undefined;
 				this.render();
 			} else if (target.dataset.field === 'source') this.setBody(target.value);
+			// a pasted "a, b" becomes chips at once
+			else if (target instanceof HTMLInputElement && target.dataset.tag !== undefined && target.value.includes(',') && (target.value.match(/"/g)?.length ?? 0) % 2 === 0) this.takeTypedTag(target);
 		});
 		root.addEventListener('change', (event) => {
 			const target = event.target as HTMLInputElement;
@@ -1567,7 +1886,7 @@ class TableView {
 		const ask = this.ask;
 		const value = this.root.querySelector<HTMLInputElement>('[data-field="ask"]')?.value ?? '';
 		this.ask = undefined;
-		if (done && ask) ask.onDone(value);
+		if (done && ask) ask.onDone(value, ask.type);
 		this.render();
 	}
 
@@ -1585,6 +1904,28 @@ class TableView {
 				this.finishAsk(false);
 			}
 			return;
+		}
+		if (field === 'cell' && this.editing && target instanceof HTMLInputElement && target.dataset.tag !== undefined && !event.isComposing) {
+			// a comma or Enter makes a chip (a comma inside "quotes" is part of the tag); Backspace in an empty field takes the last one back
+			const quoting = /^\s*"/.test(target.value) && (target.value.match(/"/g)?.length ?? 0) % 2 === 1;
+			if (event.key === ',' && quoting) return;
+			if ((event.key === ',' || (event.key === 'Enter' && !event.shiftKey)) && this.takeTypedTag(target)) {
+				event.preventDefault();
+				event.stopPropagation();
+				return;
+			}
+			if (event.key === ',') {
+				event.preventDefault();
+				event.stopPropagation();
+				return;
+			}
+			if (event.key === 'Backspace' && target.value === '' && this.tagDraft.length) {
+				event.preventDefault();
+				event.stopPropagation();
+				this.tagDraft = this.tagDraft.slice(0, -1);
+				this.redrawTagEditor(target, '');
+				return;
+			}
 		}
 		if (field === 'cell' && this.editing) {
 			const place = this.editing;
@@ -1670,7 +2011,14 @@ class TableView {
 		if (!drag.moving) {
 			drag.moving = true;
 			this.root.classList.add('oi-table-dragging');
+			this.capture(event.pointerId);
+			const source = this.root.querySelector<HTMLElement>(`tbody tr[data-row="${this.shownRowList.indexOf(drag.row)}"]`);
+			if (source) {
+				source.classList.add('oi-table-row-lifted');
+				drag.ghost = new Ghost(this.root, rowGhostOf(source), event, source.getBoundingClientRect());
+			}
 		}
+		drag.ghost?.move(event);
 		const rowElementList = [...this.root.querySelectorAll<HTMLElement>('tbody tr[data-row]')];
 		let target = rowElementList.length;
 		for (const element of rowElementList) {
@@ -1691,6 +2039,7 @@ class TableView {
 		const drag = this.rowDrag!;
 		this.rowDrag = undefined;
 		this.root.classList.remove('oi-table-dragging');
+		drag.ghost?.remove();
 		if (!drag.moving) return;
 		this.swallowClick = true;
 		setTimeout(() => (this.swallowClick = false), 0);
@@ -1706,6 +2055,64 @@ class TableView {
 		this.setBody(rewriteRecord(this.model, order));
 	}
 
+	/** Keeps a drag's pointer events on the table while the pointer is outside it. */
+	private capture(pointerId: number): void {
+		try {
+			this.root.setPointerCapture(pointerId);
+		} catch {
+			// a pointer that is gone: the drag ends on its own
+		}
+	}
+
+	private moveColumnDrag(event: PointerEvent): void {
+		const drag = this.columnDrag!;
+		if (!drag.moving && Math.abs(event.clientX - drag.startX) < 5) return;
+		const headList = [...this.root.querySelectorAll<HTMLElement>('thead th[data-column]')].filter((element) => (this.model.columnList[this.shownColumnList[Number(element.dataset.column)] ?? -1]?.index ?? -1) >= 0);
+		if (!drag.moving) {
+			drag.moving = true;
+			this.root.classList.add('oi-table-dragging');
+			this.capture(event.pointerId);
+			const source = headList.find((element) => this.model.columnList[this.shownColumnList[Number(element.dataset.column)]!]!.index === drag.from);
+			if (source) drag.ghost = new Ghost(this.root, columnGhostOf(source), event, source.getBoundingClientRect());
+		}
+		drag.ghost?.move(event);
+		// the place it goes: before the first column whose middle is right of the pointer
+		let target = this.model.recordList[0]?.cellList.length ?? 0;
+		let before: HTMLElement | undefined;
+		for (const element of headList) {
+			const rect = element.getBoundingClientRect();
+			if (event.clientX < rect.left + rect.width / 2) {
+				target = this.model.columnList[this.shownColumnList[Number(element.dataset.column)]!]!.index;
+				before = element;
+				break;
+			}
+		}
+		drag.target = target;
+		for (const element of this.root.querySelectorAll('.oi-table-column-drop-before, .oi-table-column-drop-after')) element.classList.remove('oi-table-column-drop-before', 'oi-table-column-drop-after');
+		const mark = (place: string | undefined, name: string): void => {
+			if (place !== undefined) for (const element of this.root.querySelectorAll(`.oi-table-grid [data-column="${place}"]`)) element.classList.add(name);
+		};
+		if (before) mark(before.dataset.column, 'oi-table-column-drop-before');
+		else mark(headList.at(-1)?.dataset.column, 'oi-table-column-drop-after');
+	}
+
+	private endColumnDrag(drop: boolean): void {
+		const drag = this.columnDrag!;
+		this.columnDrag = undefined;
+		this.root.classList.remove('oi-table-dragging');
+		drag.ghost?.remove();
+		if (!drag.moving) return;
+		this.swallowClick = true;
+		setTimeout(() => (this.swallowClick = false), 0);
+		// moving before itself or just after it changes nothing
+		const to = drag.target > drag.from ? drag.target - 1 : drag.target;
+		if (!drop || to === drag.from) {
+			this.render();
+			return;
+		}
+		this.setBody(moveColumn(this.model, drag.from, to));
+	}
+
 	private moveCardDrag(event: PointerEvent): void {
 		const drag = this.cardDrag!;
 		if (!drag.moving && Math.hypot(event.clientX - drag.startX, event.clientY - drag.startY) < 5) return;
@@ -1714,7 +2121,10 @@ class TableView {
 			const card = this.root.querySelector<HTMLElement>(`.oi-table-card[data-row="${this.shownRowList.indexOf(drag.row)}"]`);
 			card?.classList.add('oi-table-card-lifted');
 			this.root.classList.add('oi-table-dragging');
+			this.capture(event.pointerId);
+			if (card) drag.ghost = new Ghost(this.root, card.cloneNode(true) as HTMLElement, event, card.getBoundingClientRect());
 		}
+		drag.ghost?.move(event);
 		for (const lane of this.root.querySelectorAll<HTMLElement>('.oi-table-lane')) {
 			const rect = lane.getBoundingClientRect();
 			lane.classList.toggle('oi-table-lane-target', event.clientX >= rect.left && event.clientX <= rect.right);
@@ -1725,6 +2135,7 @@ class TableView {
 		const drag = this.cardDrag!;
 		this.cardDrag = undefined;
 		this.root.classList.remove('oi-table-dragging');
+		drag.ghost?.remove();
 		if (!drag.moving) return;
 		this.swallowClick = true;
 		setTimeout(() => (this.swallowClick = false), 0);
@@ -1738,13 +2149,75 @@ class TableView {
 			return;
 		}
 		const value = lane.dataset.lane ?? '';
-		const current = cellValue(this.model.columnList[columnIndex]!.type, drag.row.cellList[this.model.columnList[columnIndex]!.index] ?? '');
-		if ((Array.isArray(current) ? current[0] : current) === value) {
+		const column = this.model.columnList[columnIndex]!;
+		if (value === drag.from) {
 			this.render();
 			return;
 		}
-		this.writeCell(drag.row, columnIndex, value);
+		if (column.type !== 'Tag') {
+			this.writeCell(drag.row, columnIndex, value);
+			return;
+		}
+		// tags: the lane it left loses its tag and the lane it went to gains one; the others stay
+		const same = (left: string, right: string): boolean => left.toLowerCase() === right.toLowerCase();
+		const list = tagListOf(drag.row.cellList[column.index] ?? '').filter((tag) => !same(tag, drag.from));
+		if (value && !list.some((tag) => same(tag, value))) list.push(value);
+		this.writeCell(drag.row, columnIndex, tagText(list));
 	}
+}
+
+/**
+ * What follows the pointer while a row, a card, or a column is dragged: a copy of it, drawn over the
+ * page (inside the table, so its look and the theme come along). Fixed to the window, wherever the
+ * page puts the containing block of fixed boxes.
+ */
+class Ghost {
+	private readonly element: HTMLElement;
+	private readonly origin: { x: number; y: number };
+	private readonly offset: { x: number; y: number };
+
+	constructor(host: HTMLElement, content: HTMLElement, event: PointerEvent, rect: DOMRect) {
+		this.element = document.createElement('div');
+		this.element.className = 'oi-table-ghost';
+		this.element.setAttribute('aria-hidden', 'true');
+		this.element.style.width = `${Math.min(rect.width, 640)}px`;
+		this.element.append(content);
+		host.append(this.element);
+		const at = this.element.getBoundingClientRect();
+		this.origin = { x: at.left, y: at.top };
+		this.offset = { x: event.clientX - rect.left, y: event.clientY - rect.top };
+		this.move(event);
+	}
+
+	move(event: PointerEvent): void {
+		this.element.style.transform = `translate(${event.clientX - this.offset.x - this.origin.x}px, ${event.clientY - this.offset.y - this.origin.y}px)`;
+	}
+
+	remove(): void {
+		this.element.remove();
+	}
+}
+
+/** A row as a one-row table, its cells as wide as in the grid. */
+function rowGhostOf(row: HTMLElement): HTMLElement {
+	const table = document.createElement('table');
+	table.className = 'oi-table-grid';
+	const body = document.createElement('tbody');
+	const copy = row.cloneNode(true) as HTMLElement;
+	copy.classList.remove('oi-table-row-lifted');
+	const widthList = [...row.children].map((cell) => (cell as HTMLElement).getBoundingClientRect().width);
+	[...copy.children].forEach((cell, index) => ((cell as HTMLElement).style.width = `${widthList[index]}px`));
+	body.append(copy);
+	table.append(body);
+	return table;
+}
+
+/** A column's header, as a chip. */
+function columnGhostOf(head: HTMLElement): HTMLElement {
+	const copy = document.createElement('div');
+	copy.className = 'oi-table-ghost-head';
+	copy.innerHTML = head.innerHTML;
+	return copy;
 }
 
 const round = (value: number): string => (Math.round(value * 100) / 100).toLocaleString('en-US', { maximumFractionDigits: 2 });

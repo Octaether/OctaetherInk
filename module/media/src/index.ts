@@ -38,7 +38,7 @@ const mediaStyle = `
 .oi-media-sized .oi-media-box, .oi-media-sized .oi-image { width: 100%; }
 .oi-read-only .oi-image.oi-zoomable { cursor: zoom-in; }
 .oi-media-caption { margin-top: 0.4em; color: var(--oi-color-text-muted); font-size: 0.9em; line-height: 1.5; }
-.oi-media-source { font-family: var(--oi-font-code); font-size: 0.8em; opacity: 0.8; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.oi-media-source { min-width: 0; width: 100%; font-family: var(--oi-font-code); font-size: 0.8em; opacity: 0.8; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .oi-read-only .oi-media-source { display: none; }
 .oi-video .oi-media-box { width: var(--oi-media-width, 100%); }
 .oi-video.oi-media-sized .oi-media-box { width: 100%; }
@@ -199,7 +199,7 @@ function drawVideo(frame: HTMLElement, block: ResolvedBlock, context: RenderCont
 		frame.innerHTML =
 			`${open}<div class="oi-media-box oi-video-frame"><iframe src="${escapeHtml(embedUrl(video, start, { loop, muted }))}" title="${escapeHtml(title)}" loading="lazy"` +
 			' allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen" allowfullscreen referrerpolicy="strict-origin-when-cross-origin"' +
-			` sandbox="allow-scripts allow-same-origin allow-presentation allow-popups"></iframe></div>${caption}</figure>`;
+			` sandbox="allow-scripts allow-same-origin allow-popups"></iframe></div>${caption}</figure>`;
 		return;
 	}
 	frame.innerHTML = `${open}<div class="oi-media-box"><video class="oi-video-file" controls preload="metadata" playsinline data-oi-interactive${loop ? ' loop' : ''}${muted ? ' muted' : ''}></video></div>${caption}</figure>`;
@@ -218,6 +218,7 @@ function drawVideo(frame: HTMLElement, block: ResolvedBlock, context: RenderCont
 const imageBlockType: BlockTypeDefinition = {
 	name: 'Image',
 	content: 'Raw',
+	guide: () => import('./guide').then((module) => module.imageGuide),
 	argument: 'Source',
 	// the frame sits where the Image.Align setting says unless the block says Align itself
 	defaultProperty: (setting) => new Map([['Align', setting('Image.Align') === 'Left' ? 'Start' : setting('Image.Align') === 'Right' ? 'End' : 'Center']]),
@@ -233,6 +234,7 @@ const imageBlockType: BlockTypeDefinition = {
 const videoBlockType: BlockTypeDefinition = {
 	name: 'Video',
 	content: 'Raw',
+	guide: () => import('./guide').then((module) => module.videoGuide),
 	argument: 'Source',
 	defaultProperty: () => new Map([['Align', 'Center']]),
 	render: renderer(drawVideo),
@@ -247,6 +249,7 @@ export const imageModule: ModuleDefinition = {
 	kind: 'Module',
 	name: 'Image',
 	publisher: 'Octaether',
+	language: { 'zh-Hans': () => import('./language/zh-Hans').then((module) => module.default) },
 	version: '1.0.0',
 	title: 'Image',
 	explain:
@@ -262,6 +265,7 @@ export const videoModule: ModuleDefinition = {
 	kind: 'Module',
 	name: 'Video',
 	publisher: 'Octaether',
+	language: { 'zh-Hans': () => import('./language/zh-Hans').then((module) => module.default) },
 	version: '1.0.0',
 	title: 'Video',
 	explain:

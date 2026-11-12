@@ -7,6 +7,7 @@ import { textModule } from '@octaether/module-text';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { plotModule } from '../src';
 import { dateTickList, numberTickList } from '../src/axis';
+import { gridArrowList } from '../src/field';
 import { fitTrend, trendText } from '../src/fit';
 import { implicitMesh, multiply, orbitMatrix, perspective, project, surfaceMesh } from '../src/mesh';
 import { parsePlot, splitStyle } from '../src/parse';
@@ -198,7 +199,7 @@ describe('the Plot block', () => {
 	it('draws curves and lists the lines with their colors', async () => {
 		const { root } = await mount('Plot:\n\ty = x^2\n\tmean([1, 2, 3])\n');
 		expect(root.querySelectorAll('svg path[stroke]').length).toBeGreaterThan(0);
-		const rowList = [...root.querySelectorAll('.oi-plot-row')].map((row) => row.textContent);
+		const rowList = [...root.querySelectorAll('.oi-plot-row:not(.oi-plot-row-new)')].map((row) => row.textContent);
 		expect(rowList).toEqual(['y = x^2', 'mean([1, 2, 3])= 2']);
 	});
 
@@ -393,10 +394,11 @@ describe('the editing layer', () => {
 		expect(model.document.itemList[0]!.body).toBe('y = x^2\na = 2');
 	});
 
-	it('adds a line from the button, and an emptied line goes', async () => {
+	it('adds a line in the blank line at the end, and an emptied line goes', async () => {
 		const { model, root } = await mountPlot('Plot:\n\ty = x\n\ty = 2x\n');
-		(root.querySelector('[data-action="AddMenu"]') as HTMLElement).click();
+		root.querySelector<HTMLInputElement>('input[data-field="newLine"]')!.dispatchEvent(new FocusEvent('focusin', { bubbles: true }));
 		const input = root.querySelector<HTMLInputElement>('input[data-field="line"]')!;
+		expect(input.dataset.line).toBe('2');
 		input.value = '(1, 2)';
 		key(input, 'Escape');
 		expect(model.document.itemList[0]!.body).toBe('y = x\ny = 2x');
@@ -447,25 +449,103 @@ describe('the editing layer', () => {
 	});
 
 	it('adds from a menu of what can be added, also by typing /', async () => {
-		const opened: MenuEntry[][] = [];
-		const { model, root } = await mountPlot('Plot:\n\ty = x\n', { open: ({ itemList }: { itemList: MenuEntry[] }) => opened.push(itemList), close: () => undefined, prompt: async () => undefined });
-		(root.querySelector('[data-action="AddMenu"]') as HTMLElement).click();
-		const titleList = opened.at(-1)!.map((item) => item.title);
-		expect(titleList).toEqual(expect.arrayContaining(['Function', 'Number with a slider', 'Point', 'Curve in x and y', 'Chart a table']));
-		opened.at(-1)!.find((item) => item.title === 'Point')!.run!();
+		// the "/" menu: it filters by what is typed after the / while the line keeps the keys
+		const opened: { itemList: MenuEntry[]; query: string[]; onClose?(): void }[] = [];
+		const queryMenu = {
+			open: () => undefined,
+			close: () => undefined,
+			prompt: async () => undefined,
+			openQuery: ({ itemList, onClose }: { itemList: MenuEntry[]; onClose?(): void }) => {
+				const entry = { itemList, query: [] as string[], onClose };
+				opened.push(entry);
+				return { setQuery: (query: string) => entry.query.push(query), place: () => undefined, close: () => entry.onClose?.() };
+			},
+		};
+		const { model, root } = await mountPlot('Plot:\n\ty = x\n', queryMenu);
+		root.querySelector<HTMLInputElement>('input[data-field="newLine"]')!.dispatchEvent(new FocusEvent('focusin', { bubbles: true }));
 		const input = root.querySelector<HTMLInputElement>('input[data-field="line"]')!;
-		expect(input.value).toBe('P = (1, 2)');
-		key(input, 'Enter');
+		input.value = '/po';
+		input.dispatchEvent(new Event('input', { bubbles: true }));
+		const titleList = opened.at(-1)!.itemList.map((item) => item.title);
+		expect(opened.at(-1)!.query).toEqual(['po']);
+		// a graph: its own lines, a comment, and the switch to 3D (no chart of a table)
+		expect(titleList).toEqual(expect.arrayContaining(['Function', 'Number with a slider', 'Point', 'Curve in x and y', 'Vector field', 'Comment', 'Make it 3D']));
+		expect(titleList).not.toContain('Chart a table');
+		opened.at(-1)!.itemList.find((item) => item.title === 'Point')!.run!();
+		const picked = root.querySelector<HTMLInputElement>('input[data-field="line"]')!;
+		expect(picked.value).toBe('P = (1, 2)');
+		key(picked, 'Enter');
 		expect(model.document.itemList[0]!.body).toBe('y = x\nP = (1, 2)');
-		// a lone / on the new line opens the same menu
+		// Esc closes the menu, and the / goes
 		const next = root.querySelector<HTMLInputElement>('input[data-field="line"]')!;
 		next.value = '/';
 		next.dispatchEvent(new Event('input', { bubbles: true }));
-		opened.at(-1)!.find((item) => item.title === 'Number with a slider')!.run!();
-		const typed = root.querySelector<HTMLInputElement>('input[data-field="line"]')!;
-		expect(typed.value).toBe('a = 1');
-		key(typed, 'Escape');
+		opened.at(-1)!.onClose!();
+		expect(root.querySelector<HTMLInputElement>('input[data-field="line"]')!.value).toBe('');
+		key(root.querySelector<HTMLInputElement>('input[data-field="line"]')!, 'Escape');
 		expect(model.document.itemList[0]!.body).toBe('y = x\nP = (1, 2)');
+	});
+
+	it('plays two sliders at once, each stopped on its own', async () => {
+		const { model, root } = await mountPlot('Plot:\n\ty = a x + b\n\ta = 1 {Slider: [0, 4]}\n\tb = 0 {Slider: [0, 4]}\n');
+		const play = (name: string): HTMLElement => root.querySelector<HTMLElement>(`.oi-plot-row-slider[data-name="${name}"] [data-action="Play"]`)!;
+		play('a').click();
+		play('b').click();
+		await new Promise((resolve) => setTimeout(resolve, 120));
+		expect(play('a').getAttribute('aria-label')).toBe('Pause a');
+		expect(play('b').getAttribute('aria-label')).toBe('Pause b');
+		const moved = (name: string): number => Number(root.querySelector<HTMLInputElement>(`.oi-plot-row-slider[data-name="${name}"] input[type="range"]`)!.value);
+		expect(moved('b')).toBeGreaterThan(0);
+		// stopping one writes where it stopped; the other plays on
+		play('b').click();
+		expect(play('b').getAttribute('aria-label')).toBe('Play b');
+		expect(play('a').getAttribute('aria-label')).toBe('Pause a');
+		expect(model.document.itemList[0]!.body).not.toContain('b = 0 ');
+		play('a').click();
+	});
+
+	it('shows a comment, draws a field, and sorts out what a plot of one kind can’t draw', async () => {
+		const { model, root } = await mountPlot('Plot:\n\t# the flow around a point\n\tF(x, y) = (-y, x) {Gradient: [Blue, Red]}\n\t(1, 2, 3)\n');
+		expect(root.querySelector('.oi-plot-comment')!.textContent).toBe('the flow around a point');
+		// a 3D point made the plot 3D; Make it 2D leaves it in the list, saying so
+		model.setProperty(model.document.itemList[0]!.key, 'Dimension', 2);
+		for (let tries = 0; tries < 40 && !root.querySelector('.oi-plot-row-misfit'); tries++) await new Promise((resolve) => setTimeout(resolve, 10));
+		const misfit = document.querySelector('.oi-plot-row-misfit')!;
+		expect(misfit.getAttribute('data-line')).toBe('2');
+		expect(misfit.querySelector('.oi-plot-misfit')!.textContent).toBe('Drawn in 3D only');
+		expect(misfit.querySelector('[data-fix="Space"]')!.textContent).toBe('Make it 3D');
+		// the field's arrows, in the gradient's colors
+		const arrowPath = [...document.querySelectorAll<SVGPathElement>('.oi-plot svg path[style]')];
+		expect(arrowPath.length).toBeGreaterThan(1);
+		expect(arrowPath.some((path) => path.getAttribute('style')!.includes('color-mix'))).toBe(true);
+		expect(parsePlot('(-y, x)').itemList[0]!.kind).toBe('Field');
+		expect(parsePlot('F(x, y, z) = (-y, x, 1)').itemList[0]).toMatchObject({ kind: 'Field', space: true });
+		// a chart and a graph line: the line goes into a plot of its own
+		const chart = await mountPlot('Table {Title: Gym log}:\n\tDate,Weight\n\t2026-11-01,72\n\t2026-11-02,71\n\nPlot {Data: Gym log}:\n\t(Date, Weight) {Kind: Line}\n\ty = x\n');
+		for (let tries = 0; tries < 60 && !document.querySelector('[data-fix="Split"]'); tries++) await new Promise((resolve) => setTimeout(resolve, 10));
+		document.querySelector<HTMLElement>('[data-fix="Split"]')!.click();
+		const plotList = chart.model.document.itemList.filter((item) => item.type === 'Plot');
+		expect(plotList.map((item) => item.body)).toEqual(['(Date, Weight) {Kind: Line}', 'y = x']);
+		expect(plotList[1]!.property.get('Data')).toBe('Gym log');
+	});
+
+	it('puts a field’s arrows on the plot’s own grid: they stay put and grow with a zoom, until more fill in', () => {
+		const program = parsePlot('F(x, y) = (-y, x)');
+		const evaluated = evaluateProgram(program, new Map(), new Map());
+		const item = program.itemList[0]!;
+		const wide = gridArrowList(item, evaluated, [{ range: [-8, 8], count: 8 }, { range: [-8, 8], count: 8 }]);
+		const near = gridArrowList(item, evaluated, [{ range: [-3, 5], count: 8 }, { range: [-4, 4], count: 8 }]);
+		// round steps of the plot's numbers, arrows at their multiples
+		expect(wide.stepList).toEqual([2, 2]);
+		expect(near.stepList).toEqual([1, 1]);
+		expect(wide.arrowList.map((arrow) => arrow.at[0])).toContain(2);
+		// zoomed in (half the span), a step halves: every arrow before is still where it was
+		const key = (arrow: { at: number[] }): string => arrow.at.join(',');
+		const nearSet = new Set(near.arrowList.map(key));
+		expect(wide.arrowList.filter((arrow) => arrow.at[0]! >= -3 && arrow.at[0]! <= 5 && Math.abs(arrow.at[1]!) <= 4).every((arrow) => nearSet.has(key(arrow)))).toBe(true);
+		// only what is in view, the step's multiples from end to end
+		expect(wide.arrowList.every((arrow) => Math.abs(arrow.at[0]!) <= 8 && arrow.at[0]! % 2 === 0)).toBe(true);
+		expect(new Set(wide.arrowList.map((arrow) => arrow.at[0])).size).toBe(9);
 	});
 
 	it('marks the block broken only for a real mistake (not while a line is typed)', async () => {

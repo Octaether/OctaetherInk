@@ -9,7 +9,6 @@ export const tableStyle = `
 .oi-table-title:hover:not([disabled]) { background: var(--oi-color-surface2); }
 .oi-table-title-empty { color: var(--oi-color-text-muted); font-weight: 400; font-size: 0.92em; }
 .oi-table-title[disabled] { cursor: default; }
-.oi-table-pill-own { background: color-mix(in srgb, var(--oi-pill) 22%, transparent); color: color-mix(in srgb, var(--oi-pill) 72%, var(--oi-color-text)); }
 .oi-table-segment-row { display: inline-flex; border: 1px solid var(--oi-color-border); border-radius: 7px; overflow: hidden; }
 .oi-table-segment { border: 0; background: none; color: var(--oi-color-text-muted); font: inherit; font-size: 0.88em; padding: 3px 9px; cursor: pointer; }
 .oi-table-segment + .oi-table-segment { border-left: 1px solid var(--oi-color-border); }
@@ -55,8 +54,38 @@ tr:hover .oi-table-row-handle, .oi-table-row-handle:focus-visible { opacity: 0.8
 .oi-table-editing { padding: 0 !important; box-shadow: inset 0 0 0 2px var(--oi-color-accent); background: var(--oi-color-background); }
 .oi-table-editing input { width: 100%; min-width: 7em; height: 30px; box-sizing: border-box; border: 0; outline: 0; padding: 4px 9px; font: inherit; background: transparent; color: inherit; }
 .oi-table-check { width: 15px; height: 15px; margin: 0; accent-color: var(--oi-color-accent); cursor: pointer; }
-.oi-table-pill { display: inline-block; padding: 1px 8px; margin: 1px 4px 1px 0; border-radius: 999px; font-size: 0.9em; background: var(--oi-color-surface2); }
-${hueList.map((hue, index) => `.oi-table-pill[data-hue="${index}"] { background: color-mix(in srgb, ${hue} 20%, transparent); color: color-mix(in srgb, ${hue} 70%, var(--oi-color-text)); }`).join('\n')}
+/* a tag's chip: its column's own color, else the vault's color for the tag (--oi-tag-*, set by the app), else a hue by its place */
+.oi-table-pill { display: inline-flex; align-items: center; padding: 1px 8px; margin: 1px 4px 1px 0; border-radius: 999px; font-size: 0.9em; line-height: 1.5; white-space: nowrap; background: var(--oi-tag-back, var(--oi-hue-back, var(--oi-color-surface2))); color: var(--oi-tag-text, var(--oi-hue-text, inherit)); }
+${hueList.map((hue, index) => `.oi-table-pill[data-hue="${index}"], .oi-table-tag-swatch[data-hue="${index}"] { --oi-hue-back: color-mix(in srgb, ${hue} 20%, transparent); --oi-hue-text: color-mix(in srgb, ${hue} 70%, var(--oi-color-text)); }`).join('\n')}
+.oi-table-pill.oi-table-pill-own { background: color-mix(in srgb, var(--oi-pill) 22%, transparent); color: color-mix(in srgb, var(--oi-pill) 72%, var(--oi-color-text)); }
+.oi-table-ask-type { display: inline-flex; flex-wrap: wrap; gap: 2px; }
+.oi-table-ask-type button { display: inline-flex; align-items: center; gap: 4px; padding: 3px 7px; border: 1px solid transparent; border-radius: 6px; background: none; color: var(--oi-color-text-muted); font: inherit; font-size: 0.88em; cursor: pointer; }
+.oi-table-ask-type button:hover { background: var(--oi-color-surface2); }
+.oi-table-ask-type button[aria-checked="true"] { border-color: var(--oi-color-accent); color: var(--oi-color-text); background: var(--oi-color-accent-soft); }
+.oi-table-tag-editor { display: flex; flex-wrap: wrap; align-items: center; gap: 2px 0; min-height: 30px; padding: 2px 4px 2px 8px; box-sizing: border-box; }
+.oi-table-editing .oi-table-tag-input { flex: 1; width: auto; min-width: 6ch; height: 24px; padding: 2px 4px; }
+/* a column's tags, in one panel */
+.oi-table-tag-panel { position: fixed; z-index: 60; width: min(19em, calc(100vw - 16px)); max-height: min(70vh, 30em); display: flex; flex-direction: column; gap: 6px; padding: 8px 10px 10px; background: var(--oi-color-background); color: var(--oi-color-text); border: 1px solid var(--oi-color-border); border-radius: 10px; box-shadow: 0 10px 30px color-mix(in srgb, #000 18%, transparent); font-size: 0.9rem; }
+.oi-table-tag-panel-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.oi-table-tag-panel-list { overflow: auto; display: flex; flex-direction: column; gap: 1px; margin: 0 -4px; padding: 0 4px; }
+.oi-table-tag-panel-row { display: flex; align-items: center; gap: 6px; padding: 2px 2px; border-radius: 6px; border-top: 2px solid transparent; border-bottom: 2px solid transparent; }
+.oi-table-tag-panel-row:hover { background: var(--oi-color-surface); }
+.oi-table-tag-panel-row.oi-table-tag-moving { opacity: 0.45; }
+.oi-table-tag-panel-row.oi-table-tag-drop-before { border-top-color: var(--oi-color-accent); }
+.oi-table-tag-panel-row.oi-table-tag-drop-after { border-bottom-color: var(--oi-color-accent); }
+.oi-table-tag-handle { display: inline-grid; place-items: center; color: var(--oi-color-text-muted); cursor: grab; touch-action: none; }
+.oi-table-tag-swatch { flex: none; width: 14px; height: 14px; padding: 0; border: 0; border-radius: 50%; cursor: pointer; background: var(--oi-tag-text, var(--oi-hue-text, var(--oi-color-text-muted))); }
+.oi-table-tag-swatch[style*="--oi-pill"] { background: var(--oi-pill); }
+.oi-table-tag-name, .oi-table-tag-add { flex: 1; min-width: 0; font: inherit; color: inherit; background: transparent; border: 1px solid transparent; border-radius: 5px; padding: 2px 5px; }
+.oi-table-tag-name:hover { border-color: var(--oi-color-border); }
+.oi-table-tag-name:focus, .oi-table-tag-add:focus { outline: none; border-color: var(--oi-color-accent); background: var(--oi-color-background); }
+.oi-table-tag-add { flex: none; border-color: var(--oi-color-border); padding: 4px 7px; }
+.oi-table-tag-count { min-width: 1.6em; text-align: right; color: var(--oi-color-text-muted); font-size: 0.85em; font-variant-numeric: tabular-nums; }
+.oi-table-tag-panel-note { margin: 0; color: var(--oi-color-text-muted); font-size: 0.8em; }
+.oi-table-pill-remove { display: inline-grid; place-items: center; width: 15px; height: 15px; margin: 0 -4px 0 3px; padding: 0; border: 0; border-radius: 50%; background: none; color: inherit; opacity: 0.6; cursor: pointer; }
+.oi-table-pill-remove:hover { opacity: 1; background: color-mix(in srgb, currentColor 15%, transparent); }
+.oi-table-tag-more { display: inline-grid; place-items: center; width: 22px; height: 22px; padding: 0; border: 0; border-radius: 5px; background: none; color: var(--oi-color-text-muted); cursor: pointer; }
+.oi-table-tag-more:hover { background: var(--oi-color-surface2); color: var(--oi-color-text); }
 .oi-table-link { color: var(--oi-color-accent); text-decoration: none; cursor: pointer; }
 .oi-table-link:hover { text-decoration: underline; }
 .oi-table-file { border: 0; background: none; font: inherit; padding: 0 0 0 4px; }
@@ -95,7 +124,15 @@ ${hueList.map((hue, index) => `.oi-table-pill[data-hue="${index}"] { background:
 .oi-table-list .oi-table-card-title { margin: 0; }
 .oi-table-card { background: var(--oi-color-background); border: 1px solid var(--oi-color-border); border-radius: 10px; padding: 8px 10px; cursor: pointer; box-shadow: 0 1px 2px color-mix(in srgb, var(--oi-color-text) 8%, transparent); }
 .oi-table-card:hover { border-color: color-mix(in srgb, var(--oi-color-accent) 50%, var(--oi-color-border)); }
-.oi-table-card-lifted { opacity: 0.55; }
+.oi-table-card-lifted, .oi-table-row-lifted td { opacity: 0.4; }
+/* what follows the pointer in a drag */
+.oi-table-ghost { position: fixed; left: 0; top: 0; z-index: 80; pointer-events: none; box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18); border-radius: 6px; overflow: hidden; background: var(--oi-color-background); opacity: 0.95; }
+.oi-table-ghost .oi-table-grid { min-width: 0; width: 100%; }
+.oi-table-ghost .oi-table-card { margin: 0; }
+.oi-table-ghost-head { display: flex; align-items: center; gap: 6px; padding: 6px 10px; font-weight: 600; background: var(--oi-table-header-background, var(--oi-color-surface1)); }
+.oi-table-ghost-head .oi-table-head { pointer-events: none; }
+.oi-table-column-drop-before { box-shadow: inset 2px 0 0 var(--oi-color-accent) !important; }
+.oi-table-column-drop-after { box-shadow: inset -2px 0 0 var(--oi-color-accent) !important; }
 .oi-table-card-title { font-weight: 600; margin-bottom: 4px; overflow-wrap: anywhere; }
 .oi-table-untitled { color: var(--oi-color-text-muted); font-weight: 400; }
 .oi-table-field { display: flex; gap: 6px; font-size: 0.9em; line-height: 1.6; }

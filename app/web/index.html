@@ -20,6 +20,7 @@
 				<button type="button" class="ribbon-button vault-only" id="ribbonSearch" data-command="Search.Vault" data-tip="Search.Vault" aria-label="Search every note"></button>
 				<button type="button" class="ribbon-button vault-only" id="ribbonGraph" data-command="Graph.Open" data-tip="Graph.Open" aria-label="Open graph view"></button>
 				<button type="button" class="ribbon-button" id="ribbonNew" data-command="Note.Create" data-tip="Note.Create" aria-label="New note"></button>
+				<button type="button" class="ribbon-button" id="ribbonAI" data-command="AI.Chat" data-tip="AI.Chat" aria-label="Open the AI chat" hidden></button>
 				<button type="button" class="ribbon-button" id="ribbonPalette" data-command="Command.Palette" data-tip="Command.Palette" aria-label="Open command palette"></button>
 				<div class="ribbon-space"></div>
 				<button type="button" class="ribbon-button" id="ribbonHelp" data-command="Guide.Open" data-tip="Guide.Open" aria-label="Open the welcome guide"></button>
@@ -54,6 +55,7 @@
 					</div>
 					<div class="graph-host" id="graphHost"></div>
 					<div class="file-view" id="fileView" hidden></div>
+						<div class="panel-host" id="panelHost" hidden></div>
 				</main>
 			</div>
 		</div>
@@ -64,7 +66,7 @@
 		</div>
 		<div class="drop-line" id="dropLine" hidden></div>
 		<div id="layer"></div>
-		<input type="file" id="fileInput" accept=".oi,.md,.txt,text/plain" hidden />
+		<input type="file" id="fileInput" accept=".oi,.md,.txt,.zip,text/plain,application/zip" hidden />
 		<script type="module" src="/src/main.ts"></script>
 	</body>
 </html>

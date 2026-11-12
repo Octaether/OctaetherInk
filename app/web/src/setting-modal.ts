@@ -5,7 +5,9 @@ import type { PropertyValue } from '@octaether/core-format';
 import type { CommandRegistry } from '@octaether/core-edit';
 import type { Registry, ThemeRegistry } from '@octaether/core-render';
 import type { Definition, SettingDefinition, StatusItemDefinition } from '@octaether/core-sdk';
+import { t } from '@octaether/core-sdk';
 import { normalizeHex } from './color';
+import { languageList, resolveLanguage, saveLanguage, savedLanguage } from './language';
 import { renderHotkeyEditor } from './hotkey-editor';
 import { markIcon } from './icon';
 import type { SettingStore } from './setting-store';
@@ -30,6 +32,8 @@ export interface SettingModalOption {
 	storageText(): string;
 	version: string;
 	formatName: string;
+	/** After the language was chosen: the app starts again in it (everything saved first). */
+	restart(): void;
 }
 
 export type SettingSection = 'Editor' | 'File' | 'Appearance' | 'Hotkey' | 'Module' | 'Plugin' | 'About';
@@ -42,11 +46,13 @@ function control(definition: SettingDefinition, value: PropertyValue | undefined
 	if (definition.type === 'Choice') {
 		return `<select data-setting="${definition.id}" aria-label="${label}">${(definition.choiceList ?? []).map((choice) => `<option${choice === value ? ' selected' : ''}>${escapeHtml(choice)}</option>`).join('')}</select>`;
 	}
+	// a button that runs a command (the AI plugin's Connect): what it opens takes the place of this window
+	if (definition.type === 'Action') return `<button type="button" class="setting-button" data-run="${escapeHtml(definition.command ?? '')}">${escapeHtml(definition.action ?? definition.title)}</button>`;
 	if (definition.type === 'Color') {
 		const hex = typeof value === 'string' ? (normalizeHex(value) ?? '') : '';
 		return (
-			`<span class="color-control"><input type="color" data-color-pick="${definition.id}" value="${escapeHtml(hex || defaultColor)}" aria-label="Pick ${label}">` +
-			`<input class="color-hex" data-setting="${definition.id}" value="${escapeHtml(hex)}" placeholder="Default" maxlength="7" spellcheck="false" aria-label="${label} (hex)">` +
+			`<span class="color-control"><input type="color" data-color-pick="${definition.id}" value="${escapeHtml(hex || defaultColor)}" aria-label="${escapeHtml(t('Pick {name}', { name: t(definition.title) }))}">` +
+			`<input class="color-hex" data-setting="${definition.id}" value="${escapeHtml(hex)}" placeholder="Default" maxlength="7" spellcheck="false" aria-label="${escapeHtml(t('{name} (hex)', { name: t(definition.title) }))}">` +
 			`<button type="button" class="setting-button" data-color-reset="${definition.id}" title="Back to the default"${hex ? '' : ' disabled'} aria-label="Back to the default">↺</button></span>`
 		);
 	}
@@ -54,15 +60,26 @@ function control(definition: SettingDefinition, value: PropertyValue | undefined
 }
 
 function settingRow(definition: SettingDefinition, value: PropertyValue | undefined, defaultColor: string): string {
+	// a control of the plugin's own: across the whole row, under its name
+	if (definition.type === 'Custom') return `<div class="setting-row setting-row-custom"><div class="setting-text"><div class="setting-name">${escapeHtml(definition.title)}</div><div class="setting-explain">${escapeHtml(definition.explain)}</div></div><div class="setting-custom" data-custom="${escapeHtml(definition.id)}"></div></div>`;
 	return `<div class="setting-row"><div class="setting-text"><div class="setting-name">${escapeHtml(definition.title)}</div><div class="setting-explain">${escapeHtml(definition.explain)}</div></div><div class="setting-control">${control(definition, value, defaultColor)}</div></div>`;
 }
 
+/** Where Setting opens again after the app restarts for a new language. */
+export const reopenKey = 'OctaetherInk.Setting.Reopen';
+
 export function openSettingModal(option: SettingModalOption, start: SettingSection | `Module:${string}` = 'Editor'): void {
+	let unmountPage: (() => void) | undefined;
 	openModal('setting-modal', (modal, close) => {
 		modal.innerHTML = `<nav class="setting-nav" aria-label="Setting">${sectionList.map((name) => `<button type="button" data-section="${name}">${name}</button>`).join('')}</nav><section class="setting-body"></section><button type="button" class="modal-close" aria-label="Close">${markIcon.CrossLarge}</button>`;
 		const body = modal.querySelector<HTMLElement>('.setting-body')!;
 		modal.querySelector('.modal-close')!.addEventListener('click', close);
 		let shown: SettingSection | `Module:${string}` = start;
+		let unmountList: (() => void)[] = [];
+		const unmount = (): void => {
+			for (const stop of unmountList) stop();
+			unmountList = [];
+		};
 		const row = (definition: SettingDefinition): string => settingRow(definition, option.setting.get(definition.id), option.defaultColor(definition.id));
 
 		const bindSetting = (): void => {
@@ -86,6 +103,12 @@ export function openSettingModal(option: SettingModalOption, start: SettingSecti
 					option.setting.set(id, value);
 					// a color shows its reset; an alias change may clash with another module's; a feature's switch changes what it needs
 					if (definition?.type === 'Color' || /\.Alias(?:Marker)?$/.test(id) || option.registry.featureList().some((item) => item.feature.id === id)) show(shown);
+				});
+			}
+			for (const button of body.querySelectorAll<HTMLButtonElement>('[data-run]')) {
+				button.addEventListener('click', () => {
+					close();
+					option.commandRegistry.run(button.dataset.run!);
 				});
 			}
 			for (const picker of body.querySelectorAll<HTMLInputElement>('[data-color-pick]')) {
@@ -155,14 +178,14 @@ export function openSettingModal(option: SettingModalOption, start: SettingSecti
 			const back = definition.kind === 'Module' ? 'Module' : 'Plugin';
 			const problemList = option.registry.aliasState().problemList.filter((problem) => problem.name === definition.name);
 			return (
-				`<button type="button" class="setting-back" data-back="${back}">‹ ${back}</button>` +
+				`<button type="button" class="setting-back" data-back="${back}">‹ ${escapeHtml(t(back))}</button>` +
 				`<h2>${escapeHtml(definition.title)}</h2><p class="setting-explain">${escapeHtml(definition.explain)}</p>` +
 				problemList.map((problem) => `<p class="setting-problem" role="alert">${escapeHtml(problem.message)}</p>`).join('') +
-				`<div class="setting-row"><div class="setting-text"><div class="setting-name">On${core ? '<span class="setting-badge">always on</span>' : ''}</div><div class="setting-explain">${definition.kind === 'Module' ? 'Off: its blocks show their text in an outlined box, and nothing is lost.' : 'Off: the function goes away; its files stay.'}</div></div><div class="setting-control"><label class="switch"><input type="checkbox" data-name="${definition.name}"${enabled ? ' checked' : ''}${core ? ' disabled' : ''} aria-label="${escapeHtml(definition.title)} on"><span></span></label></div></div>` +
+				`<div class="setting-row"><div class="setting-text"><div class="setting-name">On${core ? '<span class="setting-badge">always on</span>' : ''}</div><div class="setting-explain">${definition.kind === 'Module' ? 'Off: its blocks show their text in an outlined box, and nothing is lost.' : 'Off: the function goes away; its files stay.'}</div></div><div class="setting-control"><label class="switch"><input type="checkbox" data-name="${definition.name}"${enabled ? ' checked' : ''}${core ? ' disabled' : ''} aria-label="${escapeHtml(t('{name} on', { name: t(definition.title) }))}"><span></span></label></div></div>` +
 				usedBySection(definition) +
 				(settingList.length ? settingList.map(row).join('') : (definition.featureList ?? []).length > 0 ? '' : '<p class="setting-explain">No setting of its own.</p>') +
 				featureSection(definition) +
-				`<p class="setting-meta">${escapeHtml(definition.publisher)}.${escapeHtml(definition.name)} · version ${escapeHtml(definition.version)}</p>`
+				`<p class="setting-meta">${escapeHtml(definition.publisher)}.${escapeHtml(definition.name)} · ${escapeHtml(t('version {version}', { version: definition.version }))}</p>`
 			);
 		};
 
@@ -186,6 +209,8 @@ export function openSettingModal(option: SettingModalOption, start: SettingSecti
 				const choiceList = ['System', ...option.themeRegistry.list().map((theme) => theme.name)];
 				html =
 					'<h2>Appearance</h2>' +
+					// each language under its own name; the app starts again in the one chosen
+					`<div class="setting-row"><div class="setting-text"><div class="setting-name">Language</div><div class="setting-explain">The language of the app and the welcome guide. Match system follows your device. What a note is written in (Math:, Code:, True) stays the same in every language.</div></div><div class="setting-control"><select data-language aria-label="Language"><option value="System"${savedLanguage() === 'System' ? ' selected' : ''}>${escapeHtml(t('Match system'))} (${escapeHtml(resolveLanguage('System').title)})</option>${languageList.map((language) => `<option data-oi-literal value="${escapeHtml(language.id)}"${savedLanguage() === language.id ? ' selected' : ''}>${escapeHtml(language.title)}</option>`).join('')}</select></div></div>` +
 					`<div class="setting-row"><div class="setting-text"><div class="setting-name">Theme</div><div class="setting-explain">The color set every block uses. Match system follows your device's light or dark mode.</div></div><div class="setting-control"><select data-theme aria-label="Theme">${choiceList.map((item) => `<option value="${escapeHtml(item)}"${item === current ? ' selected' : ''}>${item === 'System' ? 'Match system' : escapeHtml(item)}</option>`).join('')}</select></div></div>` +
 					option.appSettingList
 						.filter((item) => item.id.startsWith('Appearance.'))
@@ -207,7 +232,7 @@ export function openSettingModal(option: SettingModalOption, start: SettingSecti
 						.map((definition) => {
 							const core = option.registry.isCore(definition);
 							const count = ownSettingList(definition).length;
-							return `<div class="setting-row"><button type="button" class="setting-text setting-open" data-open="${definition.name}"><div class="setting-name">${escapeHtml(definition.title)}${core ? '<span class="setting-badge">always on</span>' : ''}</div><div class="setting-explain">${escapeHtml(definition.explain)}</div>${count ? `<div class="setting-more">Setting (${count}) ›</div>` : ''}</button><div class="setting-control"><label class="switch"><input type="checkbox" data-name="${definition.name}"${option.registry.isEnabled(definition.name) ? ' checked' : ''}${core ? ' disabled' : ''} aria-label="${escapeHtml(definition.title)}"><span></span></label></div></div>`;
+							return `<div class="setting-row"><button type="button" class="setting-text setting-open" data-open="${definition.name}"><div class="setting-name">${escapeHtml(definition.title)}${core ? '<span class="setting-badge">always on</span>' : ''}</div><div class="setting-explain">${escapeHtml(definition.explain)}</div>${count ? `<div class="setting-more">${escapeHtml(t('Setting ({count})', { count }))} ›</div>` : ''}</button><div class="setting-control"><label class="switch"><input type="checkbox" data-name="${definition.name}"${option.registry.isEnabled(definition.name) ? ' checked' : ''}${core ? ' disabled' : ''} aria-label="${escapeHtml(definition.title)}"><span></span></label></div></div>`;
 						})
 						.join('');
 			} else if (name === 'About') {
@@ -216,10 +241,25 @@ export function openSettingModal(option: SettingModalOption, start: SettingSecti
 					`<p><b>Octaether Ink</b> (OI) ${escapeHtml(option.version)} · <a href="https://octaether.com" target="_blank" rel="noopener noreferrer">octaether.com</a> · MIT licence</p>` +
 					`<p class="setting-explain">Notes are plain <code>.oi</code> text files (format “${escapeHtml(option.formatName)}”). Everything is a block; every block type comes from a module, every system function from a plugin. Settings and hotkeys are saved in ${escapeHtml(option.storageText())}.</p>` +
 					`<p><a href="https://github.com/Octaether/OctaetherInk" target="_blank" rel="noopener noreferrer">GitHub repository</a> — browse the source code or report an issue.</p>` +
-					`<h3>Support</h3><p class="setting-explain">Octaether Ink is free, open source, and has no ads or account. If it helps you, you can support its work on ${supportLinkHtml()}.</p>`;
+					`<h3>Support</h3><p class="setting-explain">${escapeHtml(t('Octaether Ink is free, open source, and has no ads or account. If it helps you, you can support its work on {link}.')).replace('{link}', supportLinkHtml())}</p>`;
 			}
+			unmount();
 			body.innerHTML = html;
+			for (const element of body.querySelectorAll<HTMLElement>('[data-custom]')) {
+				const stop = option.setting.definition(element.dataset.custom!)?.mount?.(element);
+				if (stop) unmountList.push(stop);
+			}
 			bindSetting();
+			body.querySelector<HTMLSelectElement>('[data-language]')?.addEventListener('change', (event) => {
+				saveLanguage((event.target as HTMLSelectElement).value);
+				// the app starts again in the new language, and comes back to this page where it was
+				try {
+					sessionStorage.setItem(reopenKey, JSON.stringify({ page: shown, scroll: body.scrollTop }));
+				} catch {
+					// a browser that keeps nothing: Setting stays closed after the restart
+				}
+				option.restart();
+			});
 			body.querySelector<HTMLSelectElement>('[data-theme]')?.addEventListener('change', (event) => {
 				option.chooseTheme((event.target as HTMLSelectElement).value);
 				show(shown);
@@ -248,6 +288,7 @@ export function openSettingModal(option: SettingModalOption, start: SettingSecti
 			body.scrollTop = name === previous ? scroll : 0;
 		};
 		for (const button of modal.querySelectorAll<HTMLButtonElement>('[data-section]')) button.addEventListener('click', () => show(button.dataset.section as SettingSection));
+		unmountPage = unmount;
 		show(start);
-	});
+	}, () => unmountPage?.());
 }

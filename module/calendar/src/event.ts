@@ -139,7 +139,7 @@ export function noteEventList(noteList: readonly NoteSummary[], dateKey: string)
 export function tableEventList(reference: string, snapshot: TableSnapshot): CalendarEvent[] {
 	const dateColumn = snapshot.columnList.find((column) => column.type === 'Date' || column.type === 'DateTime');
 	if (!dateColumn) return [];
-	const nameColumn = snapshot.columnList.find((column) => column !== dateColumn && ['Text', 'Choice', 'Link'].includes(column.type));
+	const nameColumn = snapshot.columnList.find((column) => column !== dateColumn && ['Text', 'Tag', 'Link'].includes(column.type));
 	const list: CalendarEvent[] = [];
 	dateColumn.valueList.forEach((value, row) => {
 		if (typeof value !== 'number') return;

@@ -49,8 +49,9 @@ export function evaluateProgram(program: PlotProgram, override: ReadonlyMap<stri
 		if (error instanceof ExpressionError) problemList.push({ line: item.line, start: item.offset + error.start, end: item.offset + Math.max(error.end, error.start + 1), message: error.message });
 		else problemList.push({ line: item.line, start: item.offset, end: item.offset + item.text.length, message: error instanceof Error ? error.message : String(error) });
 	};
+	// functions of your own (a named field, F(x, y) = (…), can be called too)
 	for (const item of program.itemList) {
-		if (item.kind !== 'Function') continue;
+		if (item.kind !== 'Function' && !(item.kind === 'Field' && item.name)) continue;
 		const run = compiled(item.right!);
 		const parameterList = item.parameterList ?? [];
 		functionMap[item.name!] = (...argumentList) => {

@@ -10,7 +10,7 @@
 //
 // What it gives back is a theme color's name (`Accent`) or `#rrggbb`, so notes keep plain values.
 
-import { type ColorPicker, type PluginDefinition, colorPickerExtension, escapeHtml, normalizeHex } from '@octaether/core-sdk';
+import { type ColorPicker, type GradientPicker, type HotkeyLookup, type PluginDefinition, colorPickerExtension, escapeHtml, gradientPickerExtension, hotkeyExtension, normalizeHex, t, tr } from '@octaether/core-sdk';
 
 /** Theme colors: a name the note keeps (it follows the theme), and its CSS variable. */
 export const themeColorList: readonly { name: string; title: string; variable: string }[] = [
@@ -200,25 +200,25 @@ export function createColorPicker(): ColorPicker {
 		let typed = normalizeHex(current) ?? recentColorList()[0] ?? '#b5452c';
 
 		const swatch = (color: string, css: string, title: string, remove?: string): string =>
-			`<button type="button" class="oi-palette-swatch" data-color="${escapeHtml(color)}"${remove ? ` data-remove="${escapeHtml(remove)}"` : ''} style="--swatch: ${escapeHtml(css)}" title="${escapeHtml(editing && remove ? `Remove ${title}` : title)}" aria-label="${escapeHtml(editing && remove ? `Remove ${title}` : title)}" aria-pressed="${current.toLowerCase() === color.toLowerCase()}"></button>`;
+			`<button type="button" class="oi-palette-swatch" data-color="${escapeHtml(color)}"${remove ? ` data-remove="${escapeHtml(remove)}"` : ''} style="--swatch: ${escapeHtml(css)}" title="${escapeHtml(editing && remove ? tr`Remove ${t(title)}` : t(title))}" aria-label="${escapeHtml(editing && remove ? tr`Remove ${t(title)}` : t(title))}" aria-pressed="${current.toLowerCase() === color.toLowerCase()}"></button>`;
 		const draw = (): void => {
 			const state = readPaletteState();
 			const palette = state.list.find((item) => item.name === state.current);
 			const recentList = recentColorList();
 			menu.classList.toggle('oi-palette-editing', editing);
 			menu.innerHTML =
-				`<div class="oi-palette-head"><span class="oi-palette-title">${escapeHtml(option.title ?? 'Color')}</span><button type="button" class="oi-palette-link" data-action="Edit" aria-pressed="${editing}" title="Remove colors from the palette or the recent ones">${editing ? 'Done' : 'Edit'}</button></div>` +
-				`<div><div class="oi-palette-label"><span>Theme</span></div><div class="oi-palette-row">${themeColorList.map((item) => swatch(item.name, `var(${item.variable})`, item.title)).join('')}</div></div>` +
-				`<div><div class="oi-palette-label"><select aria-label="Palette">${state.list.map((item) => `<option${item.name === state.current ? ' selected' : ''}>${escapeHtml(item.name)}</option>`).join('')}</select>` +
-				(editing && palette ? '<button type="button" class="oi-palette-link" data-action="DeletePalette" title="Delete this palette">Delete</button>' : '<button type="button" class="oi-palette-link" data-action="Import" title="A palette from a file: Adobe .ase, GIMP .gpl, or text with hex codes">Import</button>') +
+				`<div class="oi-palette-head"><span class="oi-palette-title">${escapeHtml(option.title ?? t('Color'))}</span><button type="button" class="oi-palette-link" data-action="Edit" aria-pressed="${editing}" title="${t('Remove colors from the palette or the recent ones')}">${editing ? t('Done') : t('Edit')}</button></div>` +
+				`<div><div class="oi-palette-label"><span>${t('Theme')}</span></div><div class="oi-palette-row">${themeColorList.map((item) => swatch(item.name, `var(${item.variable})`, item.title)).join('')}</div></div>` +
+				`<div><div class="oi-palette-label"><select aria-label="${t('Palette')}">${state.list.map((item) => `<option${item.name === state.current ? ' selected' : ''}>${escapeHtml(item.name)}</option>`).join('')}</select>` +
+				(editing && palette ? `<button type="button" class="oi-palette-link" data-action="DeletePalette" title="${t('Delete this palette')}">${t('Delete')}</button>` : `<button type="button" class="oi-palette-link" data-action="Import" title="${t('A palette from a file: Adobe .ase, GIMP .gpl, or text with hex codes')}">${t('Import')}</button>`) +
 				`</div><div class="oi-palette-row">${(palette?.colorList ?? []).map((hex) => swatch(hex, hex, hex, 'Palette')).join('')}` +
-				(palette && !editing ? `<button type="button" class="oi-palette-add" data-action="AddColor" title="Add the color below to this palette" aria-label="Add the color below to this palette">${plusMark}</button>` : '') +
+				(palette && !editing ? `<button type="button" class="oi-palette-add" data-action="AddColor" title="${t('Add the color below to this palette')}" aria-label="${t('Add the color below to this palette')}">${plusMark}</button>` : '') +
 				'</div></div>' +
 				(recentList.length > 0
-					? `<div><div class="oi-palette-label"><span>Recent</span>${editing ? '<button type="button" class="oi-palette-link" data-action="ClearRecent">Clear</button>' : ''}</div><div class="oi-palette-row">${recentList.map((hex) => swatch(hex, hex, hex, 'Recent')).join('')}</div></div>`
+					? `<div><div class="oi-palette-label"><span>${t('Recent')}</span>${editing ? `<button type="button" class="oi-palette-link" data-action="ClearRecent">${t('Clear')}</button>` : ''}</div><div class="oi-palette-row">${recentList.map((hex) => swatch(hex, hex, hex, 'Recent')).join('')}</div></div>`
 					: '') +
-				`<div class="oi-palette-custom"><input type="color" value="${typed}" aria-label="Pick any color"><input class="oi-palette-hex" value="${typed}" size="7" maxlength="7" spellcheck="false" aria-label="Hex code"><button type="button" class="oi-palette-use">Use</button></div>` +
-				'<button type="button" class="oi-palette-none" data-color="">No color</button>';
+				`<div class="oi-palette-custom"><input type="color" value="${typed}" aria-label="${t('Pick any color')}"><input class="oi-palette-hex" value="${typed}" size="7" maxlength="7" spellcheck="false" aria-label="${t('Hex code')}"><button type="button" class="oi-palette-use">${t('Use')}</button></div>` +
+				(option.none === false ? '' : `<button type="button" class="oi-palette-none" data-color="">${t('No color')}</button>`);
 			const picker = menu.querySelector<HTMLInputElement>('input[type="color"]')!;
 			const text = menu.querySelector<HTMLInputElement>('.oi-palette-hex')!;
 			picker.addEventListener('input', () => {
@@ -358,17 +358,41 @@ export const palettePlugin: PluginDefinition = {
 	kind: 'Plugin',
 	name: 'Palette',
 	publisher: 'Octaether',
+	language: { 'zh-Hans': () => import('./language/zh-Hans').then((module) => module.default) },
 	version: '0.2.0',
 	title: 'Palette',
 	explain:
-		'Colors for everything that colors (atoms, bonds, arrows, and text in the drawing tool; text colors), in one menu: the theme’s colors, a palette (Element and Basic to start; import Adobe .ase, GIMP .gpl, or any list of hex codes), the colors you used lately, and any color or hex code. Without it, nothing offers colors.',
-	provide: ['ColorPicker'],
+		'Colors for everything that colors (atoms, bonds, arrows, and text in the drawing tool; text colors; a vector field’s gradient), in one menu: the theme’s colors, a palette (Element and Basic to start; import Adobe .ase, GIMP .gpl, or any list of hex codes), the colors you used lately, and any color or hex code. Without it, nothing offers colors.',
+	provide: ['ColorPicker', 'GradientPicker'],
 	activate(context) {
 		const picker = createColorPicker();
 		const remove = context.registerExtension<ColorPicker>(colorPickerExtension, picker);
+		// a theme color's name shows as its variable; anything else is a CSS color already
+		const cssOf = (color: string): string => {
+			const theme = themeColorList.find((item) => item.name === color);
+			return theme ? `var(${theme.variable})` : color;
+		};
+		// the gradient picker loads the first time it opens
+		let loaded: GradientPicker | undefined;
+		let gone = false;
+		const gradient: GradientPicker = {
+			open(option) {
+				if (loaded) return loaded.open(option);
+				void import('./gradient').then((module) => {
+					if (gone) return;
+					loaded ??= module.createGradientPicker(() => picker, cssOf, style, () => context.extension<HotkeyLookup>(hotkeyExtension));
+					loaded.open(option);
+				});
+			},
+			close: () => loaded?.close(),
+		};
+		const removeGradient = context.registerExtension<GradientPicker>(gradientPickerExtension, gradient);
 		return () => {
+			gone = true;
 			picker.close();
+			gradient.close();
 			remove();
+			removeGradient();
 		};
 	},
 };

@@ -10,7 +10,7 @@ export const baseStyle = `
 	overflow-wrap: anywhere;
 }
 .oi-note ::selection { background: var(--oi-color-selection); }
-.oi-frame { position: relative; box-sizing: border-box; min-width: 0; }
+.oi-frame { position: relative; box-sizing: border-box; min-width: 0; max-width: 100%; }
 .oi-content { min-width: 0; }
 .oi-flow, .oi-child { display: flex; flex-direction: column; gap: 0.75em; min-width: 0; }
 .oi-child { margin-top: 0.75em; }

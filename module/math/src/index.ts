@@ -80,6 +80,7 @@ function draw(frame: HTMLElement, block: ResolvedBlock, context: RenderContext):
 const mathBlockType: BlockTypeDefinition = {
 	name: 'Math',
 	content: 'Raw',
+	guide: () => import('./guide').then((module) => module.mathGuide),
 	// $$x^2$$ on one line, or $$ … $$ around several, as in Obsidian
 	aliasList: [{ marker: '$$', opening: 'Body' }],
 	render: {
@@ -108,6 +109,7 @@ export const mathModule: ModuleDefinition = {
 	kind: 'Module',
 	name: 'Math',
 	publisher: 'Octaether',
+	language: { 'zh-Hans': () => import('./language/zh-Hans').then((module) => module.default) },
 	version: '1.0.0',
 	title: 'Math',
 	explain:

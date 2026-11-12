@@ -3,6 +3,7 @@
 // Macros are your own commands: a list of steps (any command, e.g. "toggle a setting"), with
 // hotkeys of their own. Everything is saved in the browser and in the vault's .oi/Hotkey.oi.
 
+import { t } from '@octaether/core-sdk';
 import { type CommandRegistry, eventChord, isApplePlatform, parseHotkey } from '@octaether/core-edit';
 import type { SettingDefinition } from '@octaether/core-sdk';
 import { markIcon } from './icon';
@@ -85,12 +86,12 @@ export function renderHotkeyEditor(container: HTMLElement, option: HotkeyEditorO
 					const chipList = keyList
 						.map((key) => {
 							const clash = (conflict.get(`${(parseHotkey(key) ?? [key]).join(' ')}|${when}`) ?? []).filter((other) => other !== command.id);
-							return `<span class="key-chip${clash.length ? ' conflict' : ''}"${clash.length ? ` title="Also used by: ${escapeHtml(clash.map((other) => option.commandRegistry.get(other)?.title ?? other).join(', '))}"` : ''}><kbd>${escapeHtml(option.keyText(key))}</kbd><button type="button" data-remove-key="${escapeHtml(key)}" data-command="${escapeHtml(command.id)}" aria-label="Remove ${escapeHtml(option.keyText(key))}">${markIcon.Cross}</button></span>`;
+							return `<span class="key-chip${clash.length ? ' conflict' : ''}"${clash.length ? ` title="Also used by: ${escapeHtml(clash.map((other) => option.commandRegistry.get(other)?.title ?? other).join(', '))}"` : ''}><kbd>${escapeHtml(option.keyText(key))}</kbd><button type="button" data-remove-key="${escapeHtml(key)}" data-command="${escapeHtml(command.id)}" aria-label="${escapeHtml(t('Remove {key}', { key: option.keyText(key) }))}">${markIcon.Cross}</button></span>`;
 						})
 						.join('');
 					return (
 						`<div class="hotkey-row"><div class="hotkey-command"><span>${escapeHtml(command.title)}</span><small>${escapeHtml(command.id)}</small></div>` +
-						`<div class="hotkey-key-list">${chipList}<button type="button" class="key-add" data-record="${escapeHtml(command.id)}" title="Add a key" aria-label="Add a key for ${escapeHtml(command.title)}">${markIcon.Plus}</button></div>` +
+						`<div class="hotkey-key-list">${chipList}<button type="button" class="key-add" data-record="${escapeHtml(command.id)}" title="Add a key" aria-label="${escapeHtml(t('Add a key for {command}', { command: t(command.title) }))}">${markIcon.Plus}</button></div>` +
 						`${option.setting.isCustomized(command.id) ? `<button type="button" class="key-reset" data-reset="${escapeHtml(command.id)}" title="Back to the default keys" aria-label="Back to the default keys">↺</button>` : '<span class="key-reset-space"></span>'}</div>`
 					);
 				})
@@ -106,7 +107,7 @@ export function renderHotkeyEditor(container: HTMLElement, option: HotkeyEditorO
 			next.setSelectionRange(position, position);
 		});
 		container.querySelector('[data-action="ResetAll"]')!.addEventListener('click', () => {
-			void confirmDialog('Put every hotkey back to its default? (Macros stay.)', 'Reset all').then((ok) => {
+			void confirmDialog(t('Put every hotkey back to its default? (Macros stay.)'), t('Reset all')).then((ok) => {
 				if (!ok) return;
 				option.setting.resetAllKey();
 				option.onChange();

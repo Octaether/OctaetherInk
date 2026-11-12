@@ -1,0 +1,61 @@
+---
+Created: 2026-09-30 12:00 -04:00
+Format: Oi 1
+---
+
+Property:
+	Tag: [Guide, Module]
+	Module: Table
+
+**Table** 模块把数据以 CSV 形式保存在笔记中，你可以像电子表格一样直接输入。每一列都知道自己的类型，表尾可以求和或求平均，表格还能显示为卡片组成的 Board 或列表。[[Plot]] 可以绘制表格，[[Calendar]] 可以显示表格中的日期。返回 [[Welcome]]。
+
+## 在表格中输入
+
+Table {Title: Expenses, Column: {Amount: {Unit: $, Summary: Sum}}}:
+	Date,Item,Category,Amount
+	2026-11-01,买菜,Food,54.20
+	2026-11-03,公交月票,Transport,30
+	2026-11-05,咖啡,Food,4.50
+	2026-11-08,书,Other,18
+
+- **点击单元格**即可输入。`Enter` 向下，`Tab` 向右，`Esc` 离开。复选框列点击即可勾选。
+- **拖过多个单元格**来选中它们：下方会显示计数、总和与平均值。`Ctrl+C` 复制，`Delete` 清空。
+- 把 Excel、Google 表格或 Numbers 中的行**粘贴**到单元格上：表格会自动扩展。
+- **点击列名**可以重命名、更改类型、排序、筛选、分组、选择汇总方式、设置单位（kcal、$、kg）、隐藏、添加列，或 *分析* 它（平均值、中位数、离散程度和直方图）。
+- 行左侧的**把手**可以拖动这一行，或打开它的菜单：插入、创建副本（副本保持相同的文字）或删除。
+- 工具栏中的 **CSV** 显示表格背后的文本。
+- **标题**（工具栏第一项 *添加标题*）为表格命名：图像（`Plot {Data: Gym log}`）、日历（`Calendar {Data: Gym log}`）和其他笔记通过它找到表格。⋯ 菜单 → *为此表格绘图* 会在下方添加它的图像。
+- **选项：** 点击 Choice（或 List）单元格会打开它的选项：选一个、添加一个或清空。*编辑选项*（也在列菜单 → *选项* 中）可以为选项上色、重命名（所有单元格随之更新）、调整顺序和删除。
+
+## 公式、筛选和分组
+
+Table {Column: {Calorie: {Unit: kcal, Summary: Average}, Net: {Formula: "Calorie - Burned", Unit: kcal}}, Filter: "Calorie > 1900", Group: {Date: Week}}:
+	Date,Workout,Calorie,Burned
+	2026-11-02,Legs,2100,520
+	2026-11-03,Rest,1850,
+	2026-11-04,Push,1980,410
+	2026-11-06,Pull,2050,450
+	2026-11-09,Legs,2200,540
+
+- `Formula` 用其他列计算出一列：`Calorie - Burned`、`round(Weight * 2.2, 1)`、`{Calorie > 2000: "High", "Normal"}`。带空格的列名用 `_` 书写（`Body_fat`）。
+- `Filter` 保留符合条件的行（`Workout = Legs and Calorie > 2000`），`Sort` 为它们排序（`{Date: Down}`），`Group` 把它们归组，日期可以按日、周、月或年分组，每组都有小计。
+- 工具栏中的小标签显示当前开启的选项；× 可以关闭它。
+
+## 文件中的表格
+
+Table {Column: {Amount: {Unit: $, Summary: Sum}}, Group: {Date: Month}}: Expense.csv
+
+- `Table: Expense.csv` 显示一个**文件**：`.csv`、`.tsv`，或 Excel `.xlsx` 中的一个工作表（`Sheet: Budget` 选择工作表）。你输入的内容会写入文件，所以 Excel、Numbers 和 Google 表格也能看到。在工作簿中，只写入你修改的单元格：它的样式、公式和其他工作表都保持 Excel 原来的样子。
+- 笔记保存表格的外观（单位、汇总、筛选、排序、分组、布局）；文件保存数据行。多篇笔记可以用不同方式显示同一个文件。
+- ⋯ 菜单可以把表格的行**移到 CSV 文件**中，或把文件的行**带回**笔记（文件保留）。在左侧的文件列表中打开一个 `.csv`，可以把它单独作为表格查看。
+
+## 作为数据库的表格
+
+Table {Show: Board, Column: {Status: {Type: Choice, Choice: [To read, Reading, Done]}}}:
+	Title,Author,Status
+	哥德尔、艾舍尔、巴赫,侯世达,Reading
+	费曼物理学讲义,理查德·费曼,To read
+	平面国,埃德温·艾勃特,Done
+
+- **Board** 按某个 Choice 列把行分到各条泳道中：把卡片拖到另一条泳道即可修改。**Gallery** 显示卡片，**List** 每行一条。点击卡片可以用表单编辑。
+- `Source: "Reading/"`（一个文件夹）或 `Source: "tag:Book"` 让**每篇笔记成为一行**：笔记的属性就是各列，修改的单元格会写入那篇笔记，*新建* 会在该文件夹中创建一篇笔记。

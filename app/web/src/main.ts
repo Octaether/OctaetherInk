@@ -25,7 +25,40 @@ import {
 	turnInto,
 } from '@octaether/core-edit';
 import { type HostService, Registry, RenderHost, type TemplateEntry, ThemeRegistry, applyThemeVariable, installBaseStyle, readLayout, themeContext } from '@octaether/core-render';
-import { type AssetResolver, type ColorPicker, type CommandDefinition, type Definition, type HotkeyLookup, type MenuEntry, type PopupMenu, type SettingDefinition, assetExtension, colorPickerExtension, hotkeyExtension, menuExtension, noteIndexExtension } from '@octaether/core-sdk';
+import {
+	type AssetResolver,
+	type BlockGuide,
+	type ColorPicker,
+	type CommandDefinition,
+	type Definition,
+	type HotkeyLookup,
+	type MenuEntry,
+	type NoteEditor,
+	type NoteScope,
+	type NoteTarget,
+	type PopupMenu,
+	type SettingDefinition,
+	assetExtension,
+	blockGuideExtension,
+	colorPickerExtension,
+	hotkeyExtension,
+	menuExtension,
+	type CommandAccess,
+	type PanelDefinition,
+	type PanelHost,
+	type VaultChange,
+	type VaultFile,
+	commandExtension,
+	noteEditorExtension,
+	noteIndexExtension,
+	panelExtension,
+	tagExtension,
+	type TagAccess,
+	type NoteIndex,
+	t,
+	vaultFileExtension,
+	tr,
+} from '@octaether/core-sdk';
 import { type FileSystem, MemoryFileSystem, Vault, baseName, extensionOf, isDataFile, isNote, joinPath, linkTargetOf, mediaKindOf, mediaTypeOf, nameProblem, parentPath, stemOf } from '@octaether/core-vault';
 import { calendarModule } from '@octaether/module-calendar';
 import { chemModule } from '@octaether/module-chem';
@@ -41,33 +74,38 @@ import { openPropertyForm, propertyModule } from '@octaether/module-property';
 import { tableModule } from '@octaether/module-table';
 import { textModule } from '@octaether/module-text';
 import { tikzModule } from '@octaether/module-tikz';
+import { aiPlugin } from '@octaether/plugin-ai';
 import { palettePlugin } from '@octaether/plugin-palette';
 import { themePlugin } from '@octaether/plugin-theme';
 import { accentToken, normalizeHex } from './color';
 import { BrowserFileSystem, DirectoryFileSystem, canOpenFolder, downloadBlob, downloadText, ensurePermission } from './file-system';
 import { FindBar, NoteFindTarget, SourceFindTarget } from './find-bar';
 import { setupFormatBar } from './format-bar';
-import { GraphView } from './graph-view';
+import type { GraphView } from './graph-view';
 import { setupGutter } from './gutter';
 import { setupHoverHighlight } from './hover-highlight';
 import { icon } from './icon';
+import { currentLanguage, startLanguage } from './language';
 import { NoteHead, headerKeyList, propertyBlockOf, systemKeySet } from './note-head';
 import { createNoteIndex } from './note-index';
 import { NoteModel } from '@octaether/core-model';
 import { bestFuzzyScore, openCommandPalette, openPicker } from './palette';
 import { SettingStore } from './setting-store';
-import { openSettingModal } from './setting-modal';
-import { Sidebar, vaultPathType } from './sidebar';
+import type { openSettingModal as OpenSettingModal } from './setting-modal';
+import { type OpenHow, Sidebar, vaultPathType } from './sidebar';
 import { SourceEditor } from './source-editor';
 import { StartScreen } from './start-screen';
 import { StatusBar } from './status-bar';
 import { type RecentEntry, clearLast, createId, forgetRecent, idbGet, idbSet, lastEntry, readJson, recentList, rememberRecent, storageKey, writeJson } from './storage';
 import { TabBar } from './tab-bar';
+import { cssColorOf, tagColorCss, tagColorMap, tagColorSetting, withTagColor } from './tag-color';
 import { Menu, type MenuItem, closeAllMenu, confirmDialog, currentMenu, escapeHtml, openModal, promptDialog, toast } from './ui';
-import { type Tab, Workspace, newNoteText, nowText } from './workspace';
+import { type Tab, Workspace, newNoteText, nowText, paneIdListOf } from './workspace';
 import { type ZipEntry, makeZip } from './zip';
+// the one place the version is written: the repository's package.json (README §12.3)
+import { version as packageVersion } from '../../../package.json';
 
-export const appVersion = '1.0.0';
+export const appVersion: string = packageVersion;
 export type ViewMode = 'Source' | 'Edit' | 'Read';
 
 function element<T extends HTMLElement>(id: string): T {
@@ -86,6 +124,7 @@ const appSettingList: SettingDefinition[] = [
 		explain: 'How a block switches into editing. SingleClick edits right where you click. DoubleClick avoids accidental edits while reading or scrolling on a tablet. HotkeyOnly keeps notes still until you select a block and press Enter.',
 	},
 	{ id: 'Editor.DefaultView', title: 'View for a note you open', type: 'Choice', choiceList: ['Edit', 'Read', 'Source'], default: 'Edit', explain: 'Edit: blocks turn into text where you click. Read: nothing changes by accident. Source: the whole note as text, like a code editor.' },
+	{ id: 'Editor.SyncScroll', title: 'Scroll panes together', type: 'Toggle', default: true, explain: 'When two panes show the same note (its source beside it, say), scrolling one scrolls the other to the same place.' },
 	{ id: 'Editor.ReadableWidth', title: 'Readable line length', type: 'Toggle', default: true, explain: 'Keeps lines about 750 px wide on a big screen. Off: text uses the whole window.' },
 	{
 		id: 'Editor.BlockHandle',
@@ -161,6 +200,7 @@ const definitionList: Definition[] = [
 	htmlModule,
 	themePlugin,
 	palettePlugin,
+	aiPlugin,
 ];
 for (const definition of definitionList) registry.add(definition, enabledState[definition.name] ?? true);
 // the modules' own settings, and the alias switch and symbols of each block type that has aliases
@@ -182,7 +222,8 @@ const service: HostService = {
 		refreshDefaultBinding();
 		return () => {
 			remove();
-			for (const binding of bindingList) moduleBindingList.splice(moduleBindingList.indexOf(binding), 1);
+			// a cleanup may run twice (the module's own, then the registry's): a binding already gone must not take another's place
+			for (const binding of bindingList) if (moduleBindingList.includes(binding)) moduleBindingList.splice(moduleBindingList.indexOf(binding), 1);
 			refreshDefaultBinding();
 		};
 	},
@@ -214,7 +255,7 @@ function applySavedTheme(): void {
 /** Chooses a theme (or System) and keeps it. */
 function chooseTheme(name: string): void {
 	if (name !== 'System' && !themeRegistry.get(name)) {
-		toast(`No theme “${name}”. The themes are: ${themeRegistry.list().map((theme) => theme.name).join(', ')}.`);
+		toast(tr`No theme “${name}”. The themes are: ${themeRegistry.list().map((theme) => theme.name).join(', ')}.`);
 		return;
 	}
 	setting.set('Theme.Active', name);
@@ -227,6 +268,81 @@ themeRegistry.subscribe(() => {
 	applySavedTheme();
 	applyChromeTheme();
 });
+// plugin pages in tabs: there before plugins start, since they add their pages as they start
+const panelDefinitionMap = new Map<string, PanelDefinition>();
+registry.registerExtension(panelExtension, {
+	register(panel) {
+		panelDefinitionMap.set(panel.id, panel);
+		return () => {
+			if (panelDefinitionMap.get(panel.id) !== panel) return;
+			panelDefinitionMap.delete(panel.id);
+			// its open tabs say it is gone
+			for (const [tabId, page] of panelPageMap) {
+				if (page.id !== panel.id) continue;
+				page.handle?.destroy();
+				page.element.remove();
+				panelPageMap.delete(tabId);
+			}
+			showTab();
+		};
+	},
+	open(id, state, option = {}) {
+		const panel = { id, state, title: option.title ?? panelDefinitionMap.get(id)?.title ?? '' };
+		if (workspace.kind === 'None' && !option.background) {
+			// nothing open: the page needs a tab bar to sit in, so the quick notes open first
+			void openQuickNote().then(() => workspace.openPanel(panel, { background: option.background }));
+			return;
+		}
+		if (option.beside && !option.background) {
+			openBeside(panel);
+			return;
+		}
+		workspace.openPanel(panel, { background: option.background });
+	},
+	show(id) {
+		const front = workspace.paneList.map((pane) => workspace.activeTabOf(pane.id)).find((tab) => tab?.view === 'Panel' && tab.panel?.id === id);
+		const tab = front ?? workspace.tabList.find((item) => item.view === 'Panel' && item.panel?.id === id);
+		if (!tab) return false;
+		if (tab.pane) workspace.focusPane(tab.pane);
+		workspace.activateTab(tab.id);
+		return true;
+	},
+	current() {
+		const tab = workspace.tab;
+		return tab?.view === 'Panel' && tab.panel ? { id: tab.panel.id, state: tab.panel.state } : undefined;
+	},
+	subscribe(listener) {
+		return workspace.subscribe((event) => {
+			if (event === 'Tab' || event === 'Note') listener();
+		});
+	},
+} satisfies PanelHost);
+
+/** A plugin's page in a pane beside the note: the pane there already, or a new one on the right. */
+function openBeside(panel: { id: string; state: string; title: string }): void {
+	const open = workspace.tabList.find((tab) => tab.view === 'Panel' && tab.panel?.id === panel.id && tab.panel.state === panel.state);
+	if (open) {
+		if (open.pane) workspace.focusPane(open.pane);
+		workspace.activateTab(open.id);
+		return;
+	}
+	// a pane that shows a page of this kind takes it; else any other pane; else a new one on the right
+	const other = workspace.paneList.filter((pane) => pane.id !== workspace.paneId);
+	const target = other.find((pane) => workspace.activeTabOf(pane.id)?.panel?.id === panel.id) ?? other.at(-1);
+	if (target) {
+		workspace.focusPane(target.id);
+		workspace.openPanel(panel);
+		return;
+	}
+	session.close();
+	sourceEditor?.flush();
+	if (!workspace.splitPane('Right')) {
+		workspace.openPanel(panel);
+		return;
+	}
+	// the new pane's copy of the note becomes the page
+	workspace.openPanel(panel, { newTab: false, history: true });
+}
 registry.attach(service);
 
 /** Your accent color is laid over every theme (with a soft version mixed for light or dark). */
@@ -295,6 +411,8 @@ function assetUrl(source: string): Promise<string | undefined> {
 }
 
 registry.registerExtension(assetExtension, { url: assetUrl } satisfies AssetResolver);
+// how each block type that is on is written, in its module's own words (what the AI plugin reads)
+registry.registerExtension(blockGuideExtension, { list: () => registry.guideList() } satisfies BlockGuide);
 // the vault's notes, for calendars and tables of notes
 registry.registerExtension(
 	noteIndexExtension,
@@ -307,6 +425,8 @@ registry.registerExtension(
 );
 // the app's menus, for modules' own (a table's column menu, a calendar event's)
 const menuItemOf = (entry: MenuEntry): MenuItem => ({
+	// a module's menu holds names of yours (columns, choices) beside its own words: it says them itself
+	literal: true,
 	title: entry.title,
 	explain: entry.explain,
 	hint: entry.hint,
@@ -319,8 +439,13 @@ const menuItemOf = (entry: MenuEntry): MenuItem => ({
 });
 registry.registerExtension(menuExtension, {
 	open: ({ x, y, itemList, search, onClose }) => void new Menu(itemList.map(menuItemOf), { x, y, search, onClose }),
+	openQuery: ({ x, y, itemList, emptyText, free, onClose }) => {
+		const menu = new Menu(itemList.map(menuItemOf), { x, y, externalQuery: true, emptyText, free, onClose });
+		return { setQuery: (query) => menu.setQuery(query), place: (left, top, above) => menu.place(left, top, above), close: () => menu.close() };
+	},
 	close: () => closeAllMenu(),
 	prompt: (message, value, action) => promptDialog(message, value, action),
+	confirm: (message, action, danger) => confirmDialog(message, action, danger),
 } satisfies PopupMenu);
 
 let viewMode: ViewMode = (setting.get('Editor.DefaultView') as ViewMode | undefined) ?? 'Edit';
@@ -333,6 +458,8 @@ let applyingSource = false;
 /** The tab and note on screen, to keep each tab's scroll position when switching. */
 let shownTab: Tab | undefined;
 let shownModel: import('@octaether/core-model').NoteModel | undefined;
+/** The note shown last (its path follows a rename), for a plugin's page in front of it: what the AI's chat is about. */
+let lastNote: import('./workspace').OpenNote | undefined;
 
 function placeSlashMenu(): void {
 	if (!slashMenu || !slashAnchor) return;
@@ -381,7 +508,7 @@ const noteHead = new NoteHead(element('noteHead'), {
 		const note = workspace.note;
 		if (!note) return false;
 		if (note.external && workspace.kind === 'Vault') {
-			toast('This note isn’t in the vault. Save it into the vault first (Ctrl+S).');
+			toast(t('This note isn’t in the vault. Save it into the vault first (Ctrl+S).'));
 			return false;
 		}
 		return (await workspace.rename(note.path, name)) !== undefined;
@@ -404,36 +531,85 @@ const sourceFindTarget = new SourceFindTarget(
 	() => sourceEditor?.flush(),
 );
 
-const graphView = new GraphView(element('graphHost'), {
-	vault: () => workspace.vault,
-	currentPath: () => {
-		const note = workspace.tab?.note;
-		return note && !note.external ? note.path : undefined;
-	},
-	openNote: (path) => void workspace.openNote(path),
-	searchTag: (tag) => openVaultSearch(`tag:${tag}`),
-	close: () => void workspace.hideGraph(),
+// The graph view and the settings come in their own files, fetched right after the app starts
+// (the first screen doesn't wait for them); `ready` waits, so they open at once afterwards.
+let graphViewShown: GraphView | undefined;
+const graphLoad = import('./graph-view').then(({ GraphView: View }) => {
+	graphViewShown = new View(element('graphHost'), {
+		vault: () => workspace.vault,
+		currentPath: () => {
+			const note = workspace.tab?.note;
+			return note && !note.external ? note.path : undefined;
+		},
+		openNote: (path) => void workspace.openNote(path),
+		searchTag: (tag) => openVaultSearch(`tag:${tag}`),
+		tagColor: (tag) => {
+			const color = tagColorMap(setting.get(tagColorSetting)).get(tag.toLowerCase())?.color;
+			const css = color ? cssColorOf(color) : undefined;
+			const variable = css && /^var\((--[\w-]+)\)$/.exec(css);
+			return variable ? getComputedStyle(document.documentElement).getPropertyValue(variable[1]!).trim() || undefined : css;
+		},
+		tagMenu: (tag, x, y) => tagMenu(tag, x, y),
+		close: () => void workspace.hideGraph(),
+	});
+	if (graphShown()) graphViewShown.show();
+	return graphViewShown;
 });
+const graphView = {
+	show: (): void => void graphLoad.then((view) => graphShown() && view.show()),
+	hide: (): void => graphViewShown?.hide(),
+	rebuild: (): void => graphViewShown?.rebuild(),
+};
+let openSettingModal: typeof OpenSettingModal | undefined;
+const settingLoad = import('./setting-modal').then((module) => (openSettingModal = module.openSettingModal));
+
+/**
+ * Opens a note or a file of the vault. Here: in the tab in front. Background: a tab of its own,
+ * behind the one in front (Ctrl+click, a middle-click). NewTab (a double-click): a tab of its own;
+ * when the first click of it showed the file here, this tab goes back to what it showed before.
+ */
+async function openHow(path: string, how: OpenHow): Promise<void> {
+	const open = (option: { newTab?: boolean; background?: boolean }): Promise<unknown> => (isNote(path) ? workspace.openNote(path, option) : Promise.resolve(workspace.openFile(path, option)));
+	if (how === 'Here') {
+		await open({});
+		return;
+	}
+	if (how === 'Background') {
+		await open({ newTab: true, background: true });
+		return;
+	}
+	const tab = workspace.tab;
+	const here = tab && ((tab.view === 'Note' && tab.note?.path === path) || (tab.view === 'File' && tab.file === path));
+	// alone in a tab already (nothing to go back to): it is its own tab
+	if (here && !workspace.canGoBack()) return;
+	if (here) await workspace.goBack();
+	await open({ newTab: true });
+}
 
 const sidebar = new Sidebar(element('sidebar'), {
 	workspace,
-	openNote: (path, newTab) => {
-		void workspace.openNote(path, { newTab });
-		if (window.matchMedia?.('(max-width: 640px)').matches) setSidebar(false);
+	openNote: (path, how) => {
+		void openHow(path, how);
+		if (how !== 'Background' && window.matchMedia?.('(max-width: 640px)').matches) setSidebar(false);
 	},
-	openFile: (path, newTab) => {
-		workspace.openFile(path, { newTab });
-		if (window.matchMedia?.('(max-width: 640px)').matches) setSidebar(false);
+	openFile: (path, how) => {
+		void openHow(path, how);
+		if (how !== 'Background' && window.matchMedia?.('(max-width: 640px)').matches) setSidebar(false);
 	},
 	newNote: (folder) => void createNote(folder),
 	notify: (message) => toast(message),
-	openSearchResult: (path, query, matchCase, regex, newTab) => {
-		void workspace.openNote(path, { newTab }).then((opened) => {
+	tagMenu: (tag, x, y) => tagMenu(tag, x, y),
+	openSearchResult: (path, query, matchCase, regex, how) => {
+		if (how === 'Background') {
+			void workspace.openNote(path, { newTab: true, background: true });
+			return;
+		}
+		void workspace.openNote(path, { newTab: how === 'NewTab' }).then((opened) => {
 			if (opened) findBar.open(false, query, { matchCase, regex });
 		});
 	},
 	vaultMenu: (x, y) => void openVaultMenu(x, y),
-	copyLink: (path) => void navigator.clipboard?.writeText(linkTextOf(path)).then(() => toast('Link copied.')),
+	copyLink: (path) => void navigator.clipboard?.writeText(linkTextOf(path)).then(() => toast(t('Link copied.'))),
 	canOpenFolder: canOpenFolder(),
 	moveToFolder: () => void moveToFolder(),
 	downloadAll: () => void downloadAll(),
@@ -483,7 +659,57 @@ const tabBar = new TabBar(element('tabBar'), {
 	newNote: () => void createNote(),
 	closeTab: (id) => void workspace.closeTab(id),
 	menu: (tab, x, y) => tabMenu(tab, x, y),
+	onDragStart: () => void loadPane().then((pane) => pane.armDrop(paneHost)),
 });
+
+// ---------------------------------------------------------------- panes
+
+// The screen splits into panes (pane.ts, loaded when it first does). The pane with the focus holds
+// the app's own tab bar, header, and view; each pane keeps how it shows a note (Edit, Read, Source).
+let paneModule: typeof import('./pane') | undefined;
+const loadPane = async (): Promise<typeof import('./pane')> => (paneModule ??= await import('./pane'));
+const paneHost: import('./pane').PaneHost = {
+	workspace,
+	registry,
+	themeRegistry,
+	root: document.querySelector<HTMLElement>('.workspace')!,
+	tabBar: element('tabBar'),
+	header: element('viewHeader'),
+	content: element('viewContent'),
+	mode: () => viewMode,
+	setMode: (mode) => setView(mode as ViewMode),
+	newNote: () => void createNote(),
+	closeTab: (id) => void workspace.closeTab(id),
+	tabMenu: (tab, x, y) => tabMenu(tab, x, y),
+	syncScroll: () => setting.get('Editor.SyncScroll') !== false,
+};
+let focusedPane = workspace.paneId;
+let paneShape = '';
+
+/** After the panes changed: the focus moves the app's parts (and each pane's own view), and the layout is drawn again. */
+function arrangePane(): void {
+	if (workspace.paneId !== focusedPane) {
+		const left = workspace.paneList.find((pane) => pane.id === focusedPane);
+		if (left) left.mode = viewMode;
+		// where the tab being left was scrolled to, before its view moves
+		if (shownTab) shownTab.scroll = element('viewContent').scrollTop;
+		focusedPane = workspace.paneId;
+		const mode = (workspace.pane.mode as ViewMode | undefined) ?? viewMode;
+		if (mode !== viewMode) setView(mode);
+	}
+	const shape = `${JSON.stringify(workspace.layout)} ${focusedPane}`;
+	if (shape === paneShape) return;
+	paneShape = shape;
+	if (workspace.paneList.length < 2 && !paneModule) return;
+	void loadPane().then((pane) => pane.layoutPane(paneHost));
+}
+
+/** A new pane beside the one with the focus, showing what it shows. */
+function splitPane(side: 'Right' | 'Bottom'): void {
+	session.close();
+	sourceEditor?.flush();
+	workspace.splitPane(side);
+}
 
 const statusBar = new StatusBar(element('status'), {
 	registry,
@@ -496,6 +722,7 @@ const statusBar = new StatusBar(element('status'), {
 
 const startScreen = new StartScreen(element('startScreen'), {
 	canOpenFolder: canOpenFolder(),
+	version: appVersion,
 	createVault: () => void createVault(),
 	openFolder: () => void openFolder(),
 	quickNote: () => void createNote(),
@@ -539,13 +766,17 @@ function updateLayout(): void {
 	const file = workspace.file;
 	document.body.classList.toggle('in-vault', kind === 'Vault');
 	document.body.classList.toggle('no-vault', kind !== 'Vault');
-	element('startScreen').hidden = kind !== 'None' || workspace.tabList.length > 0;
-	element('emptyView').hidden = !(kind === 'Vault' && !note && !graphOpen && !file);
-	pageElement.hidden = !note || graphOpen;
+	const start = kind === 'None' && workspace.tabList.length === 0;
+	element('startScreen').hidden = !start;
+	// the start screen is a page of its own: no Back, Forward, or view buttons over it
+	element('viewHeader').hidden = start;
+	element('emptyView').hidden = !(kind === 'Vault' && !note && !graphOpen && !file && workspace.tab?.view !== 'Panel');
+	pageElement.hidden = !note || graphOpen || workspace.tab?.view === 'Panel';
 	element('graphHost').hidden = !graphOpen;
 	element('fileView').hidden = file === undefined;
-	// the Source, Edit, and Read buttons belong to notes
-	element('viewHeader').classList.toggle('no-mode', graphOpen || file !== undefined);
+	element('panelHost').hidden = workspace.tab?.view !== 'Panel';
+	// a plugin's page has its own buttons: no Source, Edit, and Read over it
+	element('viewHeader').classList.toggle('no-mode', graphOpen || file !== undefined || workspace.tab?.view === 'Panel');
 	element('tabBar').hidden = kind === 'None';
 	// with no vault the sidebar offers vaults to open (shut unless you open it)
 	const showSidebar = sidebar.isOpen();
@@ -554,9 +785,9 @@ function updateLayout(): void {
 	element('sidebar').style.width = `${sidebar.width()}px`;
 	element('ribbonSidebar').classList.toggle('active', showSidebar);
 	element('ribbonGraph').classList.toggle('active', graphOpen);
-	element('viewHeader').classList.toggle('empty', !note && !graphOpen && !file);
+	element('viewHeader').classList.toggle('empty', !note && !graphOpen && !file && workspace.tab?.view !== 'Panel');
 	updateHeader();
-	if (kind === 'Vault' && !note && !graphOpen && !file) renderEmptyView();
+	if (kind === 'Vault' && !note && !graphOpen && !file && workspace.tab?.view !== 'Panel') renderEmptyView();
 }
 
 function renderEmptyView(): void {
@@ -581,10 +812,12 @@ function updateHeader(): void {
 		title.innerHTML = `${folder ? `<span class="view-crumb">${escapeHtml(folder.split('/').join(' / '))} / </span>` : ''}<span class="view-crumb-name">${escapeHtml(baseName(file))}</span>`;
 	} else if (note) {
 		const folder = !note.external && workspace.kind === 'Vault' ? parentPath(note.path) : '';
-		const badge = note.external && workspace.kind === 'Vault' ? '<span class="view-badge" title="Not saved in this vault">outside vault</span>' : workspace.source?.kind === 'Guide' ? '<span class="view-badge" title="The guide lives in memory: changes stay until you close it">guide</span>' : '';
+		const badge = note.external && workspace.kind === 'Vault' ? `<span class="view-badge" title="${escapeHtml(t('Not saved in this vault'))}">${escapeHtml(t('outside vault'))}</span>` : workspace.source?.kind === 'Guide' ? `<span class="view-badge" title="${escapeHtml(t('The guide lives in memory: changes stay until you close it'))}">${escapeHtml(t('guide'))}</span>` : '';
 		title.innerHTML = `${folder ? `<span class="view-crumb">${escapeHtml(folder.split('/').join(' / '))} / </span>` : ''}<span class="view-crumb-name">${escapeHtml(stemOf(note.path))}</span>${badge}`;
 	} else title.textContent = '';
-	const name = graphShown() ? 'Graph view' : file ? baseName(file) : note ? stemOf(note.path) : '';
+	const panelTitle = workspace.tab?.view === 'Panel' ? workspace.tab.panel?.title || t('New tab') : undefined;
+	if (panelTitle !== undefined) title.innerHTML = `<span class="view-crumb-name">${escapeHtml(panelTitle)}</span>`;
+	const name = panelTitle ?? (graphShown() ? t('Graph view') : file ? baseName(file) : note ? stemOf(note.path) : '');
 	document.title = name ? `${name}${workspace.source ? ` - ${workspace.source.name}` : ''} - Octaether Ink` : workspace.source ? `${workspace.source.name} - Octaether Ink` : 'Octaether Ink';
 	for (const button of document.querySelectorAll<HTMLButtonElement>('.view-mode [data-mode]')) {
 		const active = button.dataset.mode === viewMode;
@@ -615,6 +848,18 @@ function showTab(): void {
 	unsubscribeNote = undefined;
 	shownTab = tab;
 	shownModel = note?.model;
+	if (note && !note.external && tab?.view === 'Note') lastNote = note;
+	showPanel(tab?.view === 'Panel' ? tab : undefined);
+	if (tab?.view === 'Panel') {
+		host.unmount();
+		sourceEditor?.destroy();
+		sourceEditor = undefined;
+		graphView.hide();
+		renderFileView();
+		updateLayout();
+		statusBar.schedule();
+		return;
+	}
 	if (graphShown()) {
 		host.unmount();
 		sourceEditor?.destroy();
@@ -689,7 +934,7 @@ function renderFileView(): void {
 	}
 	const kind = mediaKindOf(path);
 	view.innerHTML =
-		'<div class="file-view-stage"><div class="file-view-message">Loading…</div></div>' +
+		`<div class="file-view-stage"><div class="file-view-message">${t('Loading…')}</div></div>` +
 		`<div class="file-view-meta"><span class="file-view-name">${escapeHtml(baseName(path))}</span><span class="file-view-size"></span></div>`;
 	const stage = view.querySelector<HTMLElement>('.file-view-stage')!;
 	const size = view.querySelector<HTMLElement>('.file-view-size')!;
@@ -703,7 +948,7 @@ function renderFileView(): void {
 		if (kind === 'Image') {
 			const image = document.createElement('img');
 			image.alt = baseName(path);
-			image.title = 'Click for the real size';
+			image.title = t('Click for the real size');
 			image.addEventListener('load', () => {
 				if (image.naturalWidth > 0) size.textContent = `${image.naturalWidth} × ${image.naturalHeight}`;
 			});
@@ -778,6 +1023,7 @@ function setView(mode: ViewMode): void {
 		sourceCursor = undefined;
 	}
 	viewMode = mode;
+	workspace.pane.mode = mode;
 	host.setReadOnly(mode === 'Read');
 	gutterControl.hide();
 	hoverControl.hide();
@@ -799,7 +1045,7 @@ function toggleGraph(): void {
 		return;
 	}
 	if (workspace.kind !== 'Vault') {
-		toast('The graph shows the notes of a vault. Open a folder as a vault, your quick notes, or the welcome guide.');
+		toast(t('The graph shows the notes of a vault. Open a folder as a vault, your quick notes, or the welcome guide.'));
 		return;
 	}
 	workspace.showGraph();
@@ -820,6 +1066,7 @@ function openVaultSearch(query?: string): void {
 }
 
 workspace.subscribe((event) => {
+	if (event === 'Tab') arrangePane();
 	if (event === 'Vault') {
 		// its settings are attached already (prepareVault)
 		sidebar.attach();
@@ -847,6 +1094,7 @@ workspace.subscribe((event) => {
 	} else if (event === 'Save') {
 		tabBar.render();
 	}
+	if (paneModule) paneModule.refreshPane(paneHost);
 	statusBar.schedule();
 });
 
@@ -858,7 +1106,7 @@ async function openVaultWith(fs: FileSystem, entry: RecentEntry): Promise<boolea
 		// false: an open note has changes that can't be saved and you kept it
 		if (!(await workspace.openVault(fs, { kind: entry.kind === 'Browser' ? 'Browser' : 'Folder', id: entry.id, name: entry.name, ...(entry.handle ? { handle: entry.handle as FileSystemDirectoryHandle } : {}) }, { restore: true }))) return false;
 	} catch {
-		toast(`Couldn’t open “${entry.name}”. It may have been moved or deleted.`);
+		toast(tr`Couldn’t open “${entry.name}”. It may have been moved or deleted.`);
 		await forgetRecent(entry.id);
 		if (workspace.kind === 'None') void startScreen.render(`Couldn’t find “${entry.name}”.`);
 		return false;
@@ -899,22 +1147,34 @@ async function openFolder(): Promise<void> {
  */
 async function createVault(): Promise<void> {
 	if (!window.showDirectoryPicker) {
-		toast(folderMessage);
+		toast(t(folderMessage));
 		return;
 	}
+	const handle = await newVaultFolder({
+		title: t('Create new vault'),
+		text: t('A vault is a folder of notes on your computer. The app makes the folder; any other app can open its notes too. Put it in iCloud Drive, OneDrive, or Dropbox and it follows you to your other devices.'),
+		name: t('My vault'),
+		action: t('Create'),
+	});
+	// a new vault starts with a note to write in (nothing is kept if it stays blank)
+	if (handle && (await openFolderHandle(handle))) await createNote();
+}
+
+/** Asks for a name and a place, and makes that folder (empty, or new): for a new vault, and for one imported from a .zip. */
+async function newVaultFolder(option: { title: string; text: string; name: string; action: string }): Promise<FileSystemDirectoryHandle | undefined> {
 	let parent = await idbGet<FileSystemDirectoryHandle>('State', 'VaultParent');
-	const handle = await new Promise<FileSystemDirectoryHandle | undefined>((resolve) => {
+	return new Promise<FileSystemDirectoryHandle | undefined>((resolve) => {
 		let made: FileSystemDirectoryHandle | undefined;
 		openModal(
 			'dialog-modal vault-modal',
 			(modal, close) => {
 				modal.innerHTML =
-					'<h2>Create new vault</h2>' +
-					'<p class="dialog-text">A vault is a folder of notes on your computer. The app makes the folder; any other app can open its notes too.</p>' +
-					'<label class="dialog-label">Name<input class="dialog-input" value="My vault" spellcheck="false"></label>' +
-					'<div class="dialog-label">Location<div class="vault-location"><span class="vault-location-name"></span><button type="button" class="dialog-button" data-action="Choose">Choose</button></div></div>' +
+					`<h2>${escapeHtml(option.title)}</h2>` +
+					`<p class="dialog-text">${escapeHtml(option.text)}</p>` +
+					`<label class="dialog-label">${escapeHtml(t('Name'))}<input class="dialog-input" value="${escapeHtml(option.name)}" spellcheck="false"></label>` +
+					`<div class="dialog-label">${escapeHtml(t('Location'))}<div class="vault-location"><span class="vault-location-name"></span><button type="button" class="dialog-button" data-action="Choose">${escapeHtml(t('Choose'))}</button></div></div>` +
 					'<p class="dialog-problem" role="alert" hidden></p>' +
-					'<div class="dialog-row"><button type="button" class="dialog-button" data-answer="No">Cancel</button><button type="button" class="dialog-button primary" data-answer="Yes">Create</button></div>';
+					`<div class="dialog-row"><button type="button" class="dialog-button" data-answer="No">${escapeHtml(t('Cancel'))}</button><button type="button" class="dialog-button primary" data-answer="Yes">${escapeHtml(option.action)}</button></div>`;
 				const input = modal.querySelector<HTMLInputElement>('.dialog-input')!;
 				const location = modal.querySelector<HTMLElement>('.vault-location-name')!;
 				const problem = modal.querySelector<HTMLElement>('.dialog-problem')!;
@@ -953,7 +1213,7 @@ async function createVault(): Promise<void> {
 					if (!parent && !(await choose())) return;
 					const place = parent!;
 					if (!(await ensurePermission(place, true))) {
-						say(`The browser didn’t allow writing in “${place.name}”. Choose another place.`);
+						say(tr`The browser didn’t allow writing in “${place.name}”. Choose another place.`);
 						return;
 					}
 					let existing: FileSystemDirectoryHandle | undefined;
@@ -963,13 +1223,13 @@ async function createVault(): Promise<void> {
 						existing = undefined;
 					}
 					if (existing && !(await existing.keys().next()).done) {
-						say(`“${place.name}” has a folder “${name}” with files in it already. Pick another name, or open it with Open folder as vault.`);
+						say(tr`“${place.name}” has a folder “${name}” with files in it already. Pick another name, or open it with Open folder as vault.`);
 						return;
 					}
 					try {
 						made = existing ?? (await place.getDirectoryHandle(name, { create: true }));
 					} catch {
-						say(`Couldn’t make the folder “${name}” in “${place.name}”.`);
+						say(tr`Couldn’t make the folder “${name}” in “${place.name}”.`);
 						return;
 					}
 					close();
@@ -987,8 +1247,6 @@ async function createVault(): Promise<void> {
 			() => resolve(made),
 		);
 	});
-	// a new vault starts with a note to write in (nothing is kept if it stays blank)
-	if (handle && (await openFolderHandle(handle))) await createNote();
 }
 
 // The quick notes: a few notes kept in this browser, for when no vault is needed (yet). Every
@@ -1042,14 +1300,14 @@ async function moveToFolder(): Promise<void> {
 			await target.fs.writeBinary(path, file.data);
 		}
 	} catch {
-		toast(`Couldn’t write the notes into “${handle.name}”. They are still kept in this browser.`);
+		toast(tr`Couldn’t write the notes into “${handle.name}”. They are still kept in this browser.`);
 		return;
 	}
 	const noteCount = fileList.filter((file) => isNote(file.path)).length;
 	if (!(await openFolderHandle(handle))) return;
 	// all written: the browser's copies go
 	for (const entry of vault.childList('')) await vault.deleteForever(entry.path);
-	toast(`Moved ${noteCount} ${noteCount === 1 ? 'note' : 'notes'} into “${handle.name}”. They are no longer kept in the browser.`, 6000);
+	toast(noteCount === 1 ? tr`Moved 1 note into “${handle.name}”. It is no longer kept in the browser.` : tr`Moved ${noteCount} notes into “${handle.name}”. They are no longer kept in the browser.`, 6000);
 }
 
 /** Downloads the notes kept in the browser (and their pictures) as one .zip, folders kept. */
@@ -1060,7 +1318,7 @@ async function downloadAll(): Promise<void> {
 	const entryList: ZipEntry[] = [];
 	for (const file of await browserFileList(vault)) entryList.push({ path: file.path, data: new Uint8Array(await file.data.arrayBuffer()) });
 	if (entryList.length === 0) {
-		toast('There is nothing to download yet.');
+		toast(t('There is nothing to download yet.'));
 		return;
 	}
 	// today's date where you are: "Quick note 2026-10-04.zip"
@@ -1070,9 +1328,13 @@ async function downloadAll(): Promise<void> {
 async function openFile(): Promise<void> {
 	if (window.showOpenFilePicker) {
 		try {
-			const [handle] = await window.showOpenFilePicker({ types: [{ description: 'Octaether Ink note', accept: { 'text/plain': ['.oi', '.md', '.txt'] } }] });
+			const [handle] = await window.showOpenFilePicker({ types: [{ description: 'Octaether Ink note, or a vault’s .zip', accept: { 'text/plain': ['.oi', '.md', '.txt'], 'application/zip': ['.zip'] } }] });
 			if (!handle) return;
 			const file = await handle.getFile();
+			if (/\.zip$/i.test(file.name)) {
+				void importVault(file, file.name);
+				return;
+			}
 			await workspace.openText(await file.text(), file.name, { handle });
 			await rememberRecent({ id: createId(), kind: 'File', name: file.name, handle, time: Date.now() });
 		} catch {
@@ -1086,7 +1348,8 @@ async function openFile(): Promise<void> {
 element<HTMLInputElement>('fileInput').addEventListener('change', async (event) => {
 	const input = event.target as HTMLInputElement;
 	const file = input.files?.[0];
-	if (file) await workspace.openText(await file.text(), file.name, { keepVault: false });
+	if (file && /\.zip$/i.test(file.name)) void importVault(file, file.name);
+	else if (file) await workspace.openText(await file.text(), file.name, { keepVault: false });
 	input.value = '';
 });
 
@@ -1094,7 +1357,7 @@ async function openRecent(entry: RecentEntry, ask: boolean): Promise<boolean> {
 	if (entry.kind === 'Browser') return openVaultWith(new BrowserFileSystem(entry.id, entry.name), entry);
 	if (!entry.handle) return false;
 	if (!(await ensurePermission(entry.handle, ask))) {
-		if (ask) toast(`The browser didn’t allow access to “${entry.name}”.`);
+		if (ask) toast(tr`The browser didn’t allow access to “${entry.name}”.`);
 		return false;
 	}
 	if (entry.kind === 'Folder') return openVaultWith(new DirectoryFileSystem(entry.handle as FileSystemDirectoryHandle), entry);
@@ -1104,7 +1367,7 @@ async function openRecent(entry: RecentEntry, ask: boolean): Promise<boolean> {
 		await rememberRecent({ ...entry, time: Date.now() });
 		return true;
 	} catch {
-		toast(`Couldn’t find “${entry.name}”.`);
+		toast(tr`Couldn’t find “${entry.name}”.`);
 		await forgetRecent(entry.id);
 		return false;
 	}
@@ -1118,14 +1381,215 @@ async function closeVault(): Promise<void> {
 	updateLayout();
 }
 
+// ---------------------------------------------------------------- plugin pages in tabs, the vault's files, the commands (for plugins: the AI)
+
+/** The page element of each open panel tab: it stays while its tab is open, so a chat keeps streaming behind another tab. */
+const panelPageMap = new Map<string, { element: HTMLElement; id: string; state: string; handle?: { destroy(): void; shown?(): void } }>();
+
+/** Shows the page of a panel tab (making it the first time), hides the others, and lets go of pages whose tab closed. */
+function showPanel(tab: import('./workspace').Tab | undefined): void {
+	const panelHost = element('panelHost');
+	for (const [tabId, page] of panelPageMap) {
+		const open = workspace.tabList.find((item) => item.id === tabId);
+		if (!open || open.view !== 'Panel' || open.panel?.id !== page.id) {
+			page.handle?.destroy();
+			page.element.remove();
+			panelPageMap.delete(tabId);
+		} else page.element.hidden = open !== tab;
+	}
+	if (!tab?.panel) return;
+	let page = panelPageMap.get(tab.id);
+	if (!page) {
+		const pageElement = document.createElement('div');
+		pageElement.className = 'panel-page';
+		panelHost.append(pageElement);
+		page = { element: pageElement, id: tab.panel.id, state: tab.panel.state };
+		panelPageMap.set(tab.id, page);
+		const definition = panelDefinitionMap.get(tab.panel.id);
+		if (!definition) {
+			pageElement.innerHTML = `<p class="panel-missing">${escapeHtml(t('This page belongs to a plugin that is off.'))}</p>`;
+			return;
+		}
+		const tabId = tab.id;
+		const current = page;
+		page.handle = definition.mount(pageElement, tab.panel.state, {
+			setState: (state) => {
+				current.state = state;
+				workspace.updatePanel(tabId, { state });
+			},
+			setTitle: (title) => {
+				workspace.updatePanel(tabId, { title });
+				if (workspace.activeTabId === tabId) updateHeader();
+			},
+			isShown: () => workspace.activeTabId === tabId && workspace.tab?.view === 'Panel',
+		});
+	}
+	page.element.hidden = false;
+	page.handle?.shown?.();
+}
+
+
+
+registry.registerExtension(commandExtension, {
+	list: () =>
+		commandRegistry
+			.list()
+			.filter((command) => command.when === undefined && !command.id.startsWith('Macro.'))
+			.map((command) => ({ id: command.id, title: command.title, ...(command.explain ? { explain: command.explain } : {}) })),
+	run: (id, argument) => commandRegistry.run(id, argument),
+} satisfies CommandAccess);
+
+/** A picture of a note as the app draws it, made off screen so nothing on screen moves. */
+async function notePicture(path: string): Promise<Blob | undefined> {
+	const vault = workspace.vault;
+	if (!vault?.has(path) || !isNote(path)) return undefined;
+	const text = workspace.openNoteList().find((note) => note.path === path)?.model.serialize() ?? (await vault.read(path));
+	const stage = document.createElement('div');
+	stage.setAttribute('style', 'position:fixed;left:-20000px;top:0;width:760px;background:var(--oi-color-background)');
+	stage.setAttribute('aria-hidden', 'true');
+	const root = document.createElement('div');
+	stage.append(root);
+	document.body.append(stage);
+	const pictureHost = new RenderHost(root, registry, themeRegistry);
+	try {
+		pictureHost.setReadOnly(true);
+		pictureHost.mount(NoteModel.fromText(text, registry.formatOption()));
+		// modules that load on first use (plots, tables) draw a moment later
+		for (let round = 0; round < 6; round++) await new Promise((done) => setTimeout(done, 80));
+		const { elementPicture } = await import('./export-image');
+		return await elementPicture(root, { background: themeRegistry.current().token['Color.Background'] ?? '#ffffff', padding: 24, scale: 1 });
+	} catch {
+		return undefined;
+	} finally {
+		pictureHost.destroy();
+		stage.remove();
+	}
+}
+
+/** A change of the vault the plugin made, and its way back. */
+const change = (path: string, undo: () => Promise<void>): VaultChange => ({ path, undo });
+
+registry.registerExtension(vaultFileExtension, {
+	name: () => (workspace.kind === 'Vault' ? workspace.source?.name : undefined),
+	list(folder = '') {
+		const vault = workspace.vault;
+		if (!vault || workspace.kind !== 'Vault') return [];
+		const hidden = folder === '.oi' || folder.startsWith('.oi/');
+		const list = hidden ? vault.allEntryList() : vault.visibleEntryList();
+		return list.filter((entry) => folder === '' || entry.path.startsWith(`${folder}/`)).map((entry) => ({ path: entry.path, kind: entry.kind }));
+	},
+	has: (path) => workspace.kind === 'Vault' && (workspace.vault?.has(path) ?? false),
+	async read(path) {
+		const vault = workspace.vault;
+		if (!vault || workspace.kind !== 'Vault' || vault.kindOf(path) !== 'File') return undefined;
+		const open = workspace.openNoteList().find((note) => !note.external && note.path === path);
+		if (open) return open.model.serialize();
+		if (!/\.(?:oi|md|txt|csv|tsv|json|svg|html|css|js|ts|py|tex|bib|yaml|yml|xml)$/i.test(path)) return undefined;
+		return vault.read(path);
+	},
+	async write(path, text) {
+		const vault = workspace.vault;
+		if (!vault || workspace.kind !== 'Vault') throw new Error(t('No vault is open'));
+		const open = workspace.openNoteList().find((note) => !note.external && note.path === path);
+		if (open) {
+			// a note that is open changes in its tab: one undo step there, saved as typing is
+			const before = open.model.serialize();
+			open.model.setText(text);
+			await workspace.save(false, open);
+			return change(path, async () => {
+				const now = workspace.openNoteList().find((note) => note.path === path);
+				if (now) {
+					now.model.setText(before);
+					await workspace.save(false, now);
+				} else await vault.write(path, before);
+			});
+		}
+		const existed = vault.kindOf(path) === 'File';
+		const before = existed ? await vault.read(path) : undefined;
+		await vault.write(path, text);
+		return change(path, async () => {
+			if (before !== undefined) await vault.write(path, before);
+			else await workspace.trashQuietly(path);
+		});
+	},
+	async makeFolder(path) {
+		const vault = workspace.vault;
+		if (!vault || workspace.kind !== 'Vault') throw new Error(t('No vault is open'));
+		const made = await vault.createFolder(parentPath(path), baseName(path));
+		return change(made, async () => void (await workspace.trashQuietly(made)));
+	},
+	async move(path, target) {
+		const moved = await workspace.relocate(path, target);
+		return change(moved, async () => void (await workspace.relocate(moved, path)));
+	},
+	async remove(path) {
+		// only the app's own files: a note never goes without the trash
+		if (!path.startsWith('.oi/') || path.startsWith('.oi/Trash')) throw new Error(tr`Couldn’t delete “${path}”.`);
+		await workspace.vault?.deleteForever(path);
+	},
+	async trash(path) {
+		const undo = await workspace.trashQuietly(path);
+		if (!undo) throw new Error(tr`Couldn’t delete “${path}”.`);
+		return change(path, undo);
+	},
+	search(query, limit = 20) {
+		const vault = workspace.vault;
+		if (!vault || workspace.kind !== 'Vault') return [];
+		return vault
+			.search(query)
+			.slice(0, limit)
+			.map((result) => ({ path: result.path, line: result.matchList[0]?.text ?? '' }));
+	},
+	open(path, option = {}) {
+		if (isNote(path)) void workspace.openNote(path, { newTab: option.background === true, background: option.background });
+		else workspace.openFile(path, { newTab: option.background === true, background: option.background });
+	},
+	picture: notePicture,
+	// with a plugin's page in front (the chat), the note you were last looking at, as VS Code's chat does
+	currentPath: () => (workspace.note && !workspace.note.external ? workspace.note.path : lastNote && !lastNote.external && workspace.vault?.has(lastNote.path) ? lastNote.path : undefined),
+} satisfies VaultFile);
+
+// ---------------------------------------------------------------- export and import (transfer.ts, loaded when first used)
+
+const transferApp = (): import('./transfer').TransferApp => ({
+	workspace,
+	session,
+	host,
+	noteElement,
+	themeRegistry,
+	registry,
+	viewMode: () => viewMode,
+	setView,
+	graphShown,
+	newVaultFolder,
+	openFolderHandle,
+	openQuickNote,
+	quickNote,
+});
+const transfer = (): Promise<typeof import('./transfer')> => import('./transfer');
+const exportPicture = async (key?: string): Promise<void> => (await transfer()).exportPicture(transferApp(), key);
+const exportMarkdown = async (): Promise<void> => (await transfer()).exportMarkdown(transferApp());
+const exportVault = async (): Promise<void> => (await transfer()).exportVault(transferApp());
+const chooseVaultZip = (): void => void transfer().then((module) => module.chooseVaultZip(transferApp()));
+const importVault = async (file: Blob, name: string): Promise<void> => (await transfer()).importVault(transferApp(), file, name);
+
 // The welcome guide: a small vault in memory, one note per module plus an overview, all linked,
 // so links, tabs, and the graph work in it (with a picture for the Image guide). Changes stay
 // until it is closed. Its files load the first time it opens (the page prefetches them).
-const guideLoaderMap = import.meta.glob('../../../sample/Guide/*.{oi,svg,csv}', { query: '?raw', import: 'default' }) as Record<string, () => Promise<string>>;
+// A language has its own notes in sample/Guide/<id>/, under the same names; one it lacks is the English one.
+const guideLoaderMap = import.meta.glob(['../../../sample/Guide/*.{oi,svg,csv}', '../../../sample/Guide/*/*.oi'], { query: '?raw', import: 'default' }) as Record<string, () => Promise<string>>;
 let guideFileMap: Record<string, string> | undefined;
 
 async function guideFile(): Promise<Record<string, string>> {
-	guideFileMap ??= Object.fromEntries(await Promise.all(Object.entries(guideLoaderMap).map(async ([path, load]) => [path.split('/').pop()!, await load()] as const)));
+	if (guideFileMap) return guideFileMap;
+	const own = `/Guide/${currentLanguage().id}/`;
+	const pick = (folder: (path: string) => boolean): Promise<(readonly [string, string])[]> =>
+		Promise.all(
+			Object.entries(guideLoaderMap)
+				.filter(([path]) => folder(path))
+				.map(async ([path, load]) => [path.split('/').pop()!, await load()] as const),
+		);
+	guideFileMap = Object.fromEntries([...(await pick((path) => /\/Guide\/[^/]+$/.test(path))), ...(await pick((path) => path.includes(own)))]);
 	return guideFileMap;
 }
 
@@ -1134,7 +1598,7 @@ async function openGuide(): Promise<void> {
 		await workspace.openNote('Welcome.oi');
 		return;
 	}
-	if (!(await workspace.openVault(new MemoryFileSystem('Welcome guide', await guideFile()), { kind: 'Guide', id: 'guide', name: 'Welcome guide' }))) return;
+	if (!(await workspace.openVault(new MemoryFileSystem(t('Welcome guide'), await guideFile()), { kind: 'Guide', id: 'guide', name: t('Welcome guide') }))) return;
 	await workspace.openNote('Welcome.oi');
 }
 
@@ -1150,7 +1614,7 @@ async function addMediaFile(fileList: readonly File[], targetKey?: string): Prom
 	const vault = workspace.vault;
 	if (!note) return;
 	if (!vault || note.external) {
-		toast('Open a vault first: a pasted picture is saved as a file next to your notes.');
+		toast(t('Open a vault first: a pasted picture is saved as a file next to your notes.'));
 		return;
 	}
 	const folderSetting = String(setting.get('File.AttachmentFolder') ?? '').trim();
@@ -1170,7 +1634,7 @@ async function addMediaFile(fileList: readonly File[], targetKey?: string): Prom
 		try {
 			path = await vault.addFile(folder, name, file);
 		} catch (error) {
-			toast(`Couldn’t save “${name}”: ${error instanceof Error ? error.message : String(error)}`);
+			toast(tr`Couldn’t save “${name}”: ${error instanceof Error ? error.message : String(error)}`);
 			return;
 		}
 		const blockType = type.startsWith('video/') ? 'Video' : 'Image';
@@ -1262,15 +1726,17 @@ const vaultIcon = (kind: RecentEntry['kind'] | 'Guide'): string => (kind === 'Br
 async function openVaultMenu(x: number, y: number): Promise<void> {
 	const current = workspace.source;
 	const itemList: MenuItem[] = [];
-	if (current) itemList.push({ title: current.name, icon: vaultIcon(current.kind), hint: '✓', run: () => undefined });
+	if (current) itemList.push({ title: current.name, literal: true, icon: vaultIcon(current.kind), hint: '✓', run: () => undefined });
 	for (const entry of await vaultEntryList()) {
 		if (entry.id === current?.id) continue;
-		itemList.push({ title: entry.name, icon: vaultIcon(entry.kind), ...(entry.kind === 'Browser' ? { hint: 'in this browser' } : {}), run: () => void openRecent(entry, true) });
+		itemList.push({ title: entry.name, literal: true, icon: vaultIcon(entry.kind), ...(entry.kind === 'Browser' ? { hint: t('in this browser') } : {}), run: () => void openRecent(entry, true) });
 	}
 	itemList.push(
 		{ title: 'Create new vault', icon: icon.FolderPlus, separatorBefore: true, run: () => void createVault() },
 		{ title: 'Open folder as vault', icon: icon.FolderOpen, hint: hotkeyText('Vault.Open'), run: () => void openFolder() },
+		{ title: 'Import a vault from .zip', separatorBefore: true, run: () => chooseVaultZip() },
 	);
+	if (current) itemList.push({ title: 'Export this vault as .zip', run: () => void exportVault() });
 	if (current) itemList.push({ title: current.kind === 'Guide' ? 'Close the guide' : 'Close vault', separatorBefore: true, run: () => void closeVault() });
 	const menu = new Menu(itemList, { x, y });
 	// the menu opens above the button
@@ -1313,17 +1779,33 @@ async function switchVault(): Promise<void> {
 }
 
 function tabMenu(tab: Tab, x: number, y: number): void {
-	const index = workspace.tabList.indexOf(tab);
+	const index = workspace.paneTabList(tab.pane).indexOf(tab);
 	const note = tab.note;
 	const inVault = note && !note.external && workspace.kind === 'Vault';
 	new Menu(
 		[
 			{ title: 'Close', hint: hotkeyText('Tab.Close'), run: () => void workspace.closeTab(tab.id) },
-			{ title: 'Close every other tab', run: () => void closeTabList(workspace.tabList.filter((item) => item !== tab)) },
-			{ title: 'Close every tab to the right', run: () => void closeTabList(workspace.tabList.slice(index + 1)) },
+			{ title: 'Close every other tab', run: () => void closeTabList(workspace.paneTabList(tab.pane).filter((item) => item !== tab)) },
+			{ title: 'Close every tab to the right', run: () => void closeTabList(workspace.paneTabList(tab.pane).slice(index + 1)) },
+			{
+				title: 'Split right',
+				hint: hotkeyText('Pane.SplitRight'),
+				separatorBefore: true,
+				run: () => {
+					workspace.activateTab(tab.id);
+					splitPane('Right');
+				},
+			},
+			{
+				title: 'Split down',
+				run: () => {
+					workspace.activateTab(tab.id);
+					splitPane('Bottom');
+				},
+			},
 			...(inVault
 				? [
-						{ title: 'Copy link', separatorBefore: true, run: () => void navigator.clipboard?.writeText(`[[${linkTargetOf(stemOf(note.path))}]]`).then(() => toast('Link copied.')) },
+						{ title: 'Copy link', separatorBefore: true, run: () => void navigator.clipboard?.writeText(`[[${linkTargetOf(stemOf(note.path))}]]`).then(() => toast(t('Link copied.'))) },
 						{
 							title: 'Show in the sidebar',
 							run: () => {
@@ -1348,7 +1830,7 @@ function openTrash(): void {
 	const vault = workspace.vault;
 	if (!vault) return;
 	if (workspace.source?.kind === 'Browser') {
-		toast('Quick notes have no trash: a deleted one comes back only with the Undo button shown for a few seconds right after deleting it.', 6000);
+		toast(t('Quick notes have no trash: a deleted one comes back only with the Undo button shown for a few seconds right after deleting it.'), 6000);
 		return;
 	}
 	openModal('trash-modal', (modal, close) => {
@@ -1364,7 +1846,7 @@ function openTrash(): void {
 				button.addEventListener('click', () => {
 					const entry = list[Number(button.dataset.restore)]!;
 					void vault.restore(entry.path).then((path) => {
-						toast(`Restored “${stemOf(path)}”.`);
+						toast(tr`Restored “${stemOf(path)}”.`);
 						render();
 					});
 				});
@@ -1372,11 +1854,11 @@ function openTrash(): void {
 			for (const button of modal.querySelectorAll<HTMLButtonElement>('[data-remove]')) {
 				button.addEventListener('click', () => {
 					const entry = list[Number(button.dataset.remove)]!;
-					void confirmDialog(`Delete “${stemOf(entry.path)}” for good?`, 'Delete', true).then((ok) => (ok ? vault.deleteForever(entry.path).then(render) : undefined));
+					void confirmDialog(tr`Delete “${stemOf(entry.path)}” for good?`, t('Delete'), true).then((ok) => (ok ? vault.deleteForever(entry.path).then(render) : undefined));
 				});
 			}
 			modal.querySelector('[data-action="Empty"]')?.addEventListener('click', () => {
-				void confirmDialog('Empty the trash? Everything in it is deleted for good.', 'Empty trash', true).then((ok) => (ok ? vault.emptyTrash().then(render) : undefined));
+				void confirmDialog(t('Empty the trash? Everything in it is deleted for good.'), t('Empty trash'), true).then((ok) => (ok ? vault.emptyTrash().then(render) : undefined));
 			});
 			modal.querySelector('[data-action="Close"]')!.addEventListener('click', close);
 		};
@@ -1436,30 +1918,30 @@ async function createNamedNote(name: string, folder = workspace.newNoteFolder(),
 }
 
 /** A click on [[Note]]: open it (or make it, as in Obsidian); Ctrl/Cmd+click opens a new tab. */
-async function followLink(target: string, newTab: boolean): Promise<void> {
+async function followLink(target: string, newTab: boolean, background = false): Promise<void> {
 	const vault = workspace.vault;
 	if (!vault) {
-		toast('Links between notes work inside a vault. Open a folder as a vault, your quick notes, or the welcome guide.');
+		toast(t('Links between notes work inside a vault. Open a folder as a vault, your quick notes, or the welcome guide.'));
 		return;
 	}
 	const name = target.split('#')[0]!.trim();
 	const from = workspace.note && !workspace.note.external ? workspace.note.path : undefined;
 	const path = vault.resolve(name, from);
 	if (path) {
-		await workspace.openNote(path, { newTab });
+		await workspace.openNote(path, { newTab, background });
 		return;
 	}
 	// [[Cell.png]]: a picture, a video, or a sound opens on its own, as in Obsidian
 	const file = vault.findFile(name, from ?? '');
 	if (file && (mediaKindOf(file) || isDataFile(file))) {
-		workspace.openFile(file, { newTab });
+		workspace.openFile(file, { newTab, background });
 		return;
 	}
 	if (file) {
-		toast(`No module opens .${file.split('.').pop()} files yet.`);
+		toast(tr`No module opens .${file.split('.').pop() ?? ''} files yet.`);
 		return;
 	}
-	if (await confirmDialog(`“${name}” doesn’t exist yet. Create it?`, 'Create')) await createNamedNote(name.split('/').pop()!, name.includes('/') ? parentPath(`${name}.oi`) : workspace.newNoteFolder(), newTab);
+	if (await confirmDialog(tr`“${name}” doesn’t exist yet. Create it?`, t('Create'))) await createNamedNote(name.split('/').pop()!, name.includes('/') ? parentPath(`${name}.oi`) : workspace.newNoteFolder(), newTab);
 }
 
 host.root.addEventListener('click', (event) => {
@@ -1467,18 +1949,87 @@ host.root.addEventListener('click', (event) => {
 	const link = target.closest<HTMLElement>('[data-oi-link]');
 	if (link) {
 		event.preventDefault();
-		void followLink(link.dataset.oiLink!, event.ctrlKey || event.metaKey);
+		const behind = event.ctrlKey || event.metaKey;
+		void followLink(link.dataset.oiLink!, behind, behind);
 		return;
 	}
 	const tag = target.closest<HTMLElement>('[data-oi-tag]');
 	if (tag && viewMode !== 'Edit') openVaultSearch(`tag:${tag.dataset.oiTag}`);
 });
+
+// ---------------------------------------------------------------- tag colors
+
+/** Tints every #tag and tag chip of a colored tag, in every note, property, and table. */
+function applyTagColor(): void {
+	let element = document.getElementById('oiTagColor');
+	if (!element) {
+		element = document.createElement('style');
+		element.id = 'oiTagColor';
+		document.head.append(element);
+	}
+	element.textContent = tagColorCss(setting.get(tagColorSetting));
+}
+applyTagColor();
+
+/** A tag's menu (a #tag in the text, a tag in the properties): its color for the whole vault, and the notes that have it. */
+function tagMenu(tag: string, x: number, y: number): void {
+	const picker = colorPicker();
+	const current = tagColorMap(setting.get(tagColorSetting)).get(tag.toLowerCase())?.color;
+	const itemList: MenuItem[] = [];
+	if (picker)
+		itemList.push({
+			title: 'Tag color',
+			explain: 'The same color wherever this tag is',
+			run: () => picker.open({ x, y: y + 8, current, title: `#${tag}`, onPick: (color) => setting.set(tagColorSetting, withTagColor(setting.get(tagColorSetting), tag, color)) }),
+		});
+	if (current) itemList.push({ title: 'Remove tag color', run: () => setting.set(tagColorSetting, withTagColor(setting.get(tagColorSetting), tag, undefined)) });
+	itemList.push({ title: 'Notes with this tag', separatorBefore: itemList.length > 0, run: () => openVaultSearch(`tag:${tag}`) });
+	if (workspace.vault) itemList.push({ title: 'Rename everywhere', explain: 'In properties, #tags in text, and tables', run: () => void renameTag(tag) });
+	new Menu(itemList, { x, y });
+}
+
+/** Renames a tag in every note of the vault (asked first, with how many notes change); its color goes with it. */
+async function renameTag(tag: string): Promise<void> {
+	const index = registry.extension<NoteIndex>(noteIndexExtension);
+	if (!index) return;
+	const to = (await promptDialog(tr`Rename the tag ${tag} everywhere to`, tag, t('Rename')))?.trim();
+	if (!to || to === tag) return;
+	const { renameTagEverywhere } = await import('./tag-rename');
+	const { noteList } = await renameTagEverywhere(index, tag, to, true);
+	if (noteList.length === 0) {
+		toast(tr`No note has the tag ${tag}.`);
+		return;
+	}
+	if (!(await confirmDialog(noteList.length === 1 ? tr`Rename ${tag} to ${to} in 1 note?` : tr`Rename ${tag} to ${to} in ${noteList.length} notes?`, t('Rename')))) return;
+	await renameTagEverywhere(index, tag, to);
+	const color = tagColorMap(setting.get(tagColorSetting)).get(tag.toLowerCase())?.color;
+	if (color) setting.set(tagColorSetting, withTagColor(withTagColor(setting.get(tagColorSetting), tag, undefined), to, color));
+	toast(noteList.length === 1 ? tr`Renamed in 1 note.` : tr`Renamed in ${noteList.length} notes.`);
+}
+
+registry.registerExtension(tagExtension, {
+	colorOf: (tag) => tagColorMap(setting.get(tagColorSetting)).get(tag.toLowerCase())?.color,
+	setColor: (tag, color) => setting.set(tagColorSetting, withTagColor(setting.get(tagColorSetting), tag, color)),
+	openMenu: (tag, x, y) => tagMenu(tag, x, y),
+} satisfies TagAccess);
+// before the block's own menu: a right-click on a tag is about the tag
+host.root.addEventListener(
+	'contextmenu',
+	(event) => {
+		const tag = (event.target as Element).closest<HTMLElement>('[data-oi-tag]');
+		if (!tag?.dataset.oiTag) return;
+		event.preventDefault();
+		event.stopPropagation();
+		tagMenu(tag.dataset.oiTag, event.clientX, event.clientY);
+	},
+	true,
+);
 // a middle-click on a link opens it in a new tab
 host.root.addEventListener('auxclick', (event) => {
 	const link = (event.target as Element).closest<HTMLElement>('[data-oi-link]');
 	if (event.button !== 1 || !link) return;
 	event.preventDefault();
-	void followLink(link.dataset.oiLink!, true);
+	void followLink(link.dataset.oiLink!, true, true);
 });
 
 // clicking below the last block continues writing there
@@ -1564,7 +2115,7 @@ function moveHeaderProperty(): void {
 		for (const entry of entryList) note.setNoteProperty(entry.key!, undefined);
 		insertTemplate(note, null, null, `Property:\n${lineList.join('\n')}`);
 	});
-	toast(`Moved ${headerKeyList(note).length === 0 ? 'them' : 'what could be moved'} into a Property block. Ctrl+Z puts them back.`);
+	toast(headerKeyList(note).length === 0 ? t('Moved them into a Property block. Ctrl+Z puts them back.') : t('Moved what could be moved into a Property block. Ctrl+Z puts them back.'));
 }
 
 function templateItemList(run: (template: TemplateEntry) => void): MenuItem[] {
@@ -1642,6 +2193,23 @@ function blockMenu(key: string, x: number, y: number): void {
 			}),
 		});
 	}
+	if (commandRegistry.get('AI.Ask')) {
+		itemList.push({
+			title: 'Ask AI',
+			icon: icon.Sparkle,
+			hint: hotkeyText('AI.Ask'),
+			explain: hasText ? 'About the selected text' : 'About this block',
+			separatorBefore: true,
+			run: () => {
+				// without highlighted text the request is about the block: it is selected, not edited
+				if (!hasText) {
+					session.close();
+					session.select(key);
+				}
+				commandRegistry.run('AI.Ask');
+			},
+		});
+	}
 	itemList.push({ title: 'Add block below', icon: icon.Plus, itemList: templateItemList((template) => insertBlock(template.source, { parentKey: note.placeOf(key).parentKey, afterKey: key })) });
 	// anywhere inside a column (or on a grid) a new column can go beside it
 	let columnKey: string | undefined;
@@ -1662,6 +2230,7 @@ function blockMenu(key: string, x: number, y: number): void {
 		itemList.push({ title: 'Add column to the left', run: () => insertColumn(column, 'Left') }, { title: 'Add column to the right', run: () => insertColumn(column, 'Right') });
 	}
 	itemList.push(
+		{ title: 'Save as picture', run: () => void exportPicture(key) },
 		{ title: 'Duplicate', hint: hotkeyText('Block.Duplicate'), separatorBefore: true, run: () => duplicateBlock(note, key) },
 		{ title: 'Move up', hint: hotkeyText('Block.MoveUp'), run: () => moveBlock(note, key, -1) },
 		{ title: 'Move down', hint: hotkeyText('Block.MoveDown'), run: () => moveBlock(note, key, 1) },
@@ -1703,6 +2272,7 @@ const apple = isApplePlatform();
 appBindingList = [
 	inBrowserTab ? { key: 'Alt+N', command: 'Note.Create', when: 'NotTyping' } : { key: 'Mod+N', command: 'Note.Create' },
 	inBrowserTab ? { key: 'Alt+W', command: 'Tab.Close', when: 'NotTyping' } : { key: 'Mod+W', command: 'Tab.Close' },
+	{ key: 'Mod+\\', command: 'Pane.SplitRight' },
 	{ key: 'Alt+PageDown', command: 'Tab.Next' },
 	{ key: 'Alt+PageUp', command: 'Tab.Previous' },
 	{ key: 'Mod+O', command: 'Note.Switch' },
@@ -1722,7 +2292,6 @@ appBindingList = [
 	// undo works from anywhere: the note's text, its name, its properties (see Edit.Undo)
 	{ key: 'Mod+Z', command: 'Edit.Undo', when: 'GlobalUndo' },
 	{ key: 'Mod+Shift+Z', command: 'Edit.Redo', when: 'GlobalUndo' },
-	{ key: 'Mod+Y', command: 'Edit.Redo', when: 'GlobalUndo' },
 	{ key: 'Mod+B', command: 'Format.Bold' },
 	{ key: 'Mod+I', command: 'Format.Italic' },
 	{ key: 'Mod+Shift+X', command: 'Format.Strike' },
@@ -1750,6 +2319,177 @@ const hotkeyLookup: HotkeyLookup = {
 };
 registry.registerExtension(hotkeyExtension, hotkeyLookup);
 
+// ---------------------------------------------------------------- the note on screen, for plugins that write into it (AI)
+
+/** A block with what it holds, as OI text at level 0. */
+function blockText(note: NoteModel, key: string): string {
+	const node = note.get(key)!;
+	return serializeNode(node, registry.formatOption())
+		.map((line) => line.replace(new RegExp(`^\\t{${node.level}}`), ''))
+		.join('\n');
+}
+
+/** A note's text in two parts: the app's `---` header, and its blocks. */
+function splitHeader(note: NoteModel): { head: string; body: string } {
+	const text = note.serialize();
+	const match = note.document.front ? /^﻿?---\r?\n(?:[\s\S]*?\r?\n)?---[ \t]*(?:\r?\n|$)/.exec(text) : null;
+	return match ? { head: match[0], body: text.slice(match[0].length) } : { head: '', body: text };
+}
+
+/**
+ * The note on screen and what is selected in it, for a plugin that writes there later (the AI's
+ * answer comes after a while): highlighted characters in the block being edited (or in the Source
+ * view), a selected block, or the whole note. `apply` checks that the place is still what it was.
+ */
+function captureNote(): NoteTarget | undefined {
+	const open = workspace.note;
+	if (!open || graphShown()) return undefined;
+	const note = open.model;
+	const name = stemOf(open.path);
+	const alive = (): boolean => workspace.note?.model === note;
+	const clean = (source: string): string => source.replace(/\r\n/g, '\n').replace(/^(?:[ \t]*\n)+/, '').replace(/\s+$/, '');
+	const show = (key: string | undefined): void => {
+		if (!key || viewMode === 'Source') return;
+		session.select(key);
+		host.frameOf(key)?.scrollIntoView({ block: 'nearest' });
+	};
+	const replaceNote = (text: string): boolean => {
+		session.close();
+		const { head } = splitHeader(note);
+		note.setText(`${head}${head ? '\n' : ''}${text}\n`);
+		return true;
+	};
+
+	// the Source view: the selection is characters of the note's text
+	if (viewMode === 'Source' && sourceEditor) {
+		sourceEditor.flush();
+		const { selectionStart: start, selectionEnd: end, value } = sourceEditor.textarea;
+		const make = (scope: NoteScope): NoteTarget => ({
+			name,
+			text: splitHeader(note).body,
+			scope,
+			selection: scope === 'Text' ? value.slice(start, end) : '',
+			apply(source, where) {
+				const text = clean(source);
+				if (!alive() || text === '') return false;
+				if (scope === 'Note') {
+					if (where === 'Replace') return replaceNote(text);
+					insertTemplate(note, null, note.document.itemList.at(-1)?.key ?? null, text);
+					return true;
+				}
+				const now = note.serialize();
+				if (now.slice(start, end) !== value.slice(start, end)) return false;
+				if (where === 'Replace') {
+					note.setText(now.slice(0, start) + text + now.slice(end));
+					return true;
+				}
+				// under the block the selection ends in: past the indented lines that still belong to it
+				const lineList = now.split('\n');
+				let at = now.slice(0, end).split('\n').length;
+				for (;;) {
+					let look = at;
+					while (look < lineList.length && lineList[look]!.trim() === '') look++;
+					if (look < lineList.length && /^(?:\t| {4})/.test(lineList[look]!)) at = look + 1;
+					else break;
+				}
+				const before = lineList.slice(0, at);
+				const after = lineList.slice(at);
+				while (before.length > 0 && before.at(-1)!.trim() === '') before.pop();
+				while (after.length > 0 && after[0]!.trim() === '') after.shift();
+				note.setText([...before, '', ...text.split('\n'), '', ...after].join('\n').replace(/\n*$/, '\n'));
+				return true;
+			},
+			whole: () => make('Note'),
+		});
+		return make(start !== end ? 'Text' : 'Note');
+	}
+
+	const range = session.textRange();
+	const editingKey = session.editingKey();
+	const area = session.activeTextarea();
+	const selectedKey = range?.source === 'View' ? range.key : session.selected();
+	let scope: NoteScope = 'Note';
+	let key = editingKey;
+	let selection = '';
+	if (area && editingKey && range?.source === 'Editor' && range.start !== range.end) {
+		scope = 'Text';
+		selection = area.value.slice(range.start, range.end);
+	} else if (!editingKey && selectedKey && note.get(selectedKey)) {
+		scope = 'Block';
+		key = selectedKey;
+		selection = blockText(note, selectedKey);
+	}
+	const start = range?.start ?? 0;
+	const end = range?.end ?? 0;
+	const type = key ? note.get(key)?.type : undefined;
+	/** Under a block; when closing its editor dropped it (an empty line), where it was. */
+	const insertUnder = (anchor: string | undefined, text: string): boolean => {
+		let parentKey: string | null = null;
+		let afterKey: string | null = note.document.itemList.at(-1)?.key ?? null;
+		if (anchor && note.get(anchor)) {
+			const place = note.placeOf(anchor);
+			const fallback = place.list[place.index - 1]?.key ?? null;
+			session.close();
+			parentKey = place.parentKey;
+			afterKey = note.get(anchor) ? anchor : fallback;
+		} else session.close();
+		show(insertTemplate(note, parentKey, afterKey, text)[0]);
+		return true;
+	};
+	const make = (made: NoteScope): NoteTarget => ({
+		name,
+		text: splitHeader(note).body,
+		scope: made,
+		selection: made === 'Note' ? '' : selection,
+		...(type && made !== 'Note' ? { type } : {}),
+		apply(source, where) {
+			const text = clean(source);
+			if (!alive() || text === '' || viewMode === 'Source') return false;
+			if (viewMode === 'Read') setView('Edit');
+			if (made === 'Note') return where === 'Replace' ? replaceNote(text) : insertUnder(key, text);
+			if (!key || !note.get(key)) return false;
+			if (where === 'After') return insertUnder(key, text);
+			if (made === 'Text') {
+				// as if typed over the selection in the block's editor, which must still hold it
+				if (session.editingKey() !== key) session.edit(key);
+				if (session.activeTextarea()?.value.slice(start, end) !== selection) return false;
+				session.replace(key, (value) => ({ text: value.slice(0, start) + text + value.slice(end), start, end: start + text.length }));
+				return true;
+			}
+			if (blockText(note, key) !== selection) return false;
+			session.close();
+			session.select(undefined);
+			const { parentKey } = note.placeOf(key);
+			const keyList: string[] = [];
+			const old = key;
+			note.transact(() => {
+				let after = old;
+				for (const node of note.parseFragment(text)) keyList.push((after = note.insert(parentKey, after, node)));
+				note.delete(old);
+			});
+			show(keyList[0]);
+			return true;
+		},
+		whole: () => make('Note'),
+	});
+	return make(scope);
+}
+
+registry.registerExtension(noteEditorExtension, {
+	capture: captureNote,
+	preview(target) {
+		// a note of its own, drawn by the same modules and theme, that nothing can edit
+		const previewModel = NoteModel.fromText('', registry.formatOption());
+		const previewHost = new RenderHost(target, registry, themeRegistry);
+		previewHost.setReadOnly(true);
+		previewHost.mount(previewModel);
+		return {
+			update: (source) => previewModel.setText(source.trim() === '' ? '' : `${source.replace(/\s+$/, '')}\n`),
+			destroy: () => previewHost.destroy(),
+		};
+	},
+} satisfies NoteEditor);
+
 /** `Mod+Shift+M` → `Ctrl+Shift+M` (or `⌘⇧M` style on Apple devices). */
 function keyText(key: string): string {
 	return apple ? key.replace(/Mod/g, '⌘').replace(/Alt/g, '⌥').replace(/Shift/g, '⇧').replace(/\+/g, '') : key.replace(/Mod/g, 'Ctrl');
@@ -1766,7 +2506,7 @@ function toggleSetting(argument: unknown): void {
 	const id = String(argument ?? '');
 	const definition = setting.definition(id);
 	if (!definition) {
-		toast(`No setting “${id}”.`);
+		toast(tr`No setting “${id}”.`);
 		return;
 	}
 	let value: PropertyValue;
@@ -1777,7 +2517,7 @@ function toggleSetting(argument: unknown): void {
 	} else return;
 	if (id === 'Theme.Active') chooseTheme(String(value));
 	else setting.set(id, value);
-	toast(`${definition.title}: ${value === true ? 'On' : value === false ? 'Off' : String(value)}`);
+	toast(`${t(definition.title)}: ${value === true ? t('On') : value === false ? t('Off') : String(value)}`);
 }
 
 /**
@@ -1833,7 +2573,22 @@ const commandList: CommandDefinition[] = [
 			if (note) downloadText(note.path.split('/').pop()!.endsWith('.oi') ? note.path.split('/').pop()! : `${stemOf(note.path)}.oi`, note.model.serialize());
 		},
 	},
+	{ id: 'Note.ExportPicture', title: 'Export the note as a picture (.png)', run: () => void exportPicture() },
+	{ id: 'Note.ExportMarkdown', title: 'Export the note as Markdown (.md)', explain: 'Blocks Markdown can’t hold go beside it as pictures, in a .zip', run: () => void exportMarkdown() },
+	{ id: 'Block.ExportPicture', title: 'Save the block as a picture (.png)', run: () => activeKey() && void exportPicture(activeKey()) },
+	{ id: 'Vault.Export', title: 'Export the vault as .zip', run: () => void exportVault() },
+	{ id: 'Vault.Import', title: 'Import a vault from .zip', run: () => chooseVaultZip() },
 	{ id: 'Tab.Close', title: 'Close the tab', run: () => void workspace.closeTab() },
+	{ id: 'Pane.SplitRight', title: 'Split right: a pane beside this one', run: () => splitPane('Right') },
+	{ id: 'Pane.SplitDown', title: 'Split down: a pane below this one', run: () => splitPane('Bottom') },
+	{
+		id: 'Pane.Next',
+		title: 'Go to the next pane',
+		run: () => {
+			const order = paneIdListOf(workspace.layout);
+			workspace.focusPane(order[(order.indexOf(workspace.paneId) + 1) % order.length]!);
+		},
+	},
 	{ id: 'Tab.Next', title: 'Next tab', run: () => workspace.cycleTab(1) },
 	{ id: 'Tab.Previous', title: 'Previous tab', run: () => workspace.cycleTab(-1) },
 	{ id: 'Guide.Open', title: 'Open the welcome guide', run: () => void openGuide() },
@@ -1844,7 +2599,7 @@ const commandList: CommandDefinition[] = [
 	{ id: 'Vault.Close', title: 'Close the vault', run: () => void closeVault() },
 	{ id: 'Trash.Open', title: 'Open the trash', run: () => openTrash() },
 	{ id: 'Command.Palette', title: 'Open the command palette', run: () => openCommandPalette(commandRegistry, hotkeyText) },
-	{ id: 'Setting.Open', title: 'Open Setting', run: () => openSetting() },
+	{ id: 'Setting.Open', title: 'Open Setting', explain: 'Argument: a page (Editor, Appearance, or Module:AI for a module’s or plugin’s own)', run: (argument) => openSetting(typeof argument === 'string' && argument ? argument : undefined) },
 	{
 		id: 'Theme.Switch',
 		title: 'Switch theme',
@@ -1862,7 +2617,7 @@ const commandList: CommandDefinition[] = [
 			const list = themeRegistry.list();
 			const next = list[(list.findIndex((theme) => theme.name === themeRegistry.current().name) + 1) % list.length]!.name;
 			chooseTheme(next);
-			toast(`Theme: ${next}`);
+			toast(tr`Theme: ${next}`);
 		},
 	},
 	{ id: 'Setting.Toggle', title: 'Toggle a setting', explain: 'Argument: the setting’s ID, e.g. Code.LineNumber', run: toggleSetting },
@@ -1998,7 +2753,7 @@ element('moreButton').addEventListener('click', (event) => {
 	if (file) {
 		new Menu(
 			[
-				{ title: 'Copy link', run: () => void navigator.clipboard?.writeText(linkTextOf(file)).then(() => toast('Link copied.')) },
+				{ title: 'Copy link', run: () => void navigator.clipboard?.writeText(linkTextOf(file)).then(() => toast(t('Link copied.'))) },
 				{
 					title: 'Show in the sidebar',
 					run: () => {
@@ -2031,11 +2786,21 @@ element('moreButton').addEventListener('click', (event) => {
 			{ title: 'Add a property', hint: hotkeyText('Property.Add'), run: () => addProperty() },
 			...(viewMode === 'Read' ? [] : [{ title: 'Page layout', itemList: pageLayoutItemList() }]),
 			{ title: 'Find in the note', hint: hotkeyText('Find.Open'), run: () => commandRegistry.run('Find.Open') },
-			{ title: 'Export (download .oi)', run: () => commandRegistry.run('Note.Export') },
-			{ title: 'Print or save as PDF', run: () => window.print() },
+			{
+				title: 'Export',
+				itemList: [
+					{ title: 'OI note (.oi)', explain: 'The note as it is', run: () => commandRegistry.run('Note.Export') },
+					{ title: 'Markdown (.md)', explain: 'For other apps; plots and drawings as pictures', run: () => void exportMarkdown() },
+					{ title: 'Picture (.png)', explain: 'What the screen shows, in this theme', run: () => void exportPicture() },
+					{ title: 'Print or save as PDF', run: () => window.print() },
+				],
+			},
+			{ title: 'Split right', hint: hotkeyText('Pane.SplitRight'), separatorBefore: true, run: () => splitPane('Right') },
+			{ title: 'Split down', run: () => splitPane('Bottom') },
+			...(workspace.paneList.length > 1 ? [{ title: 'Scroll panes together', icon: setting.get('Editor.SyncScroll') !== false ? '✓' : undefined, run: () => setting.set('Editor.SyncScroll', setting.get('Editor.SyncScroll') === false) }] : []),
 			...(inVault
 				? [
-						{ title: 'Copy link', run: () => void navigator.clipboard?.writeText(`[[${linkTargetOf(stemOf(note.path))}]]`).then(() => toast('Link copied.')) },
+						{ title: 'Copy link', separatorBefore: true, run: () => void navigator.clipboard?.writeText(`[[${linkTargetOf(stemOf(note.path))}]]`).then(() => toast(t('Link copied.'))) },
 						{ title: workspace.deletesForGood() ? 'Delete the note' : 'Move to trash', danger: true, separatorBefore: true, run: () => void workspace.delete(note.path) },
 					]
 				: []),
@@ -2045,7 +2810,11 @@ element('moreButton').addEventListener('click', (event) => {
 	);
 });
 
-function openSetting(): void {
+function openSetting(start?: string): void {
+	if (!openSettingModal) {
+		void settingLoad.then(() => openSetting(start));
+		return;
+	}
 	openSettingModal({
 		registry,
 		themeRegistry,
@@ -2071,7 +2840,8 @@ function openSetting(): void {
 		storageText: () => (workspace.vault && workspace.source?.kind === 'Folder' ? `this browser and in the vault (${workspace.source.name}/.oi/Setting.oi, .oi/Hotkey.oi)` : 'this browser'),
 		version: appVersion,
 		formatName,
-	});
+		restart: () => void workspace.saveAll().then(() => location.reload()),
+	}, (start as Parameters<typeof OpenSettingModal>[1]) ?? undefined);
 }
 
 /** The note's page layout (its `Layout:` header): Flow, or a Masonry Board, which uses the whole width. */
@@ -2130,6 +2900,7 @@ setting.subscribe((id) => {
 	}
 	if (id === '*' || moduleSettingSet.has(id)) registry.touch();
 	if (id === '*' || id === 'Appearance.AccentColor') applyAccentColor();
+	if (id === '*' || id === tagColorSetting) applyTagColor();
 	if (id === '*' || id === 'Theme.Active') applySavedTheme();
 	if (id === '*' || id.startsWith('Editor.') || id.startsWith('Appearance.')) {
 		applyEditorSetting();
@@ -2144,12 +2915,12 @@ function applyTip(): void {
 	for (const button of document.querySelectorAll<HTMLElement>('[data-tip]')) {
 		const command = button.dataset.tip!;
 		const key = hotkeyText(command);
-		button.title = `${commandRegistry.get(command)?.title ?? ''}${key ? ` (${key})` : ''}`;
+		button.title = `${t(commandRegistry.get(command)?.title ?? '')}${key ? ` (${key})` : ''}`;
 	}
 	for (const button of document.querySelectorAll<HTMLElement>('.view-mode [data-mode]')) {
 		const mode = button.dataset.mode!;
 		const key = hotkeyText(mode === 'Source' ? 'View.Source' : 'View.Toggle');
-		button.title = `${mode} view${key ? ` (${key})` : ''}`;
+		button.title = `${t(`${mode} view`)}${key ? ` (${key})` : ''}`;
 	}
 }
 
@@ -2159,6 +2930,7 @@ for (const [id, svg] of Object.entries({
 	ribbonSearch: icon.Search,
 	ribbonGraph: icon.Graph,
 	ribbonNew: icon.FilePlus,
+	ribbonAI: icon.Sparkle,
 	ribbonPalette: icon.Command,
 	ribbonHelp: icon.Help,
 	ribbonSetting: icon.Setting,
@@ -2176,6 +2948,10 @@ for (const [id, svg] of Object.entries({
 applyTip();
 applyChromeTheme();
 applyEditorSetting();
+// the AI button is there while the AI plugin is on
+const showAIButton = (): void => void (element('ribbonAI').hidden = !registry.isEnabled('AI'));
+registry.subscribe(showAIButton);
+showAIButton();
 host.setReadOnly(viewMode === 'Read');
 element('sourceHost').hidden = viewMode !== 'Source';
 noteElement.hidden = viewMode === 'Source';
@@ -2237,14 +3013,38 @@ document.addEventListener('visibilitychange', () => {
 // app opens from that copy at once, and a new version, fetched meanwhile, is offered with Reload
 if (import.meta.env.PROD && 'serviceWorker' in navigator) {
 	window.addEventListener('load', () => void navigator.serviceWorker.register('/sw.js').catch(() => undefined));
-	let offered = false;
+	// A new version shows by itself when that loses nothing: right away while the page was only
+	// opened (nothing clicked or typed yet), otherwise the next time the window is put aside with
+	// every note saved and no block being edited. Until then a message offers Reload, and stays.
+	let updateReady = false;
+	let touched = false;
+	let checkedAt = Date.now();
+	const script = document.querySelector<HTMLScriptElement>('script[type="module"][src]')?.src;
+	const canReload = (): boolean => session.editingKey() === undefined && !workspace.openNoteList().some((note) => !workspace.canAutoSave(note) && workspace.isDirty(note));
+	const reloadForUpdate = (): void => void workspace.saveAll().then(
+		() => location.reload(),
+		() => undefined,
+	);
+	for (const type of ['pointerdown', 'keydown'] as const) window.addEventListener(type, () => (touched = true), { capture: true, once: true, passive: true });
 	navigator.serviceWorker.addEventListener('message', (event) => {
-		if ((event.data as { type?: string } | null)?.type !== 'Updated' || offered) return;
-		offered = true;
-		toast('A new version of Octaether Ink is ready.', 20000, { title: 'Reload', run: () => location.reload() });
+		if ((event.data as { type?: string } | null)?.type !== 'Updated' || updateReady) return;
+		updateReady = true;
+		if ((!touched || document.visibilityState === 'hidden') && canReload()) reloadForUpdate();
+		else toast(t('A new version of Octaether Ink is ready.'), 86_400_000, { title: t('Reload'), run: reloadForUpdate });
 	});
+	const askWorker = (type: 'Version' | 'Check'): void => void navigator.serviceWorker.ready.then((registration) => registration.active?.postMessage({ type, script }));
 	// the worker may have fetched the new version before this page listened: it is asked once
-	void navigator.serviceWorker.ready.then((registration) => registration.active?.postMessage({ type: 'Version', script: document.querySelector<HTMLScriptElement>('script[type="module"][src]')?.src }));
+	askWorker('Version');
+	document.addEventListener('visibilitychange', () => {
+		if (document.visibilityState === 'hidden') {
+			if (updateReady && canReload()) reloadForUpdate();
+			return;
+		}
+		// a window left open for days (an installed app) never loads the page again: coming back to it looks for a new version
+		if (updateReady || Date.now() - checkedAt < 15 * 60_000) return;
+		checkedAt = Date.now();
+		askWorker('Check');
+	});
 }
 
 // the installed app opens .oi files from the computer's file manager ("Open with Octaether Ink")
@@ -2259,11 +3059,15 @@ window.launchQueue?.setConsumer((params) => {
 			await workspace.openText(await file.text(), file.name, { handle });
 			await rememberRecent({ id: createId(), kind: 'File', name: file.name, handle, time: Date.now() });
 		})
-		.catch(() => toast(`Couldn’t open “${handle.name}”.`));
+		.catch(() => toast(tr`Couldn’t open “${handle.name}”.`));
 });
 
 /** What the app opens first: the last vault or file (when allowed), a kept draft, or the start screen. */
 async function boot(): Promise<void> {
+	// the language first: nothing is drawn in English and then again in yours
+	// every module and plugin brings its own words for the language too
+	await startLanguage(undefined, registry.definitionList());
+	applyTip();
 	sidebar.attach();
 	updateLayout();
 	tabBar.render();
@@ -2286,4 +3090,24 @@ async function boot(): Promise<void> {
 
 /** For tests and the console: the app's parts. */
 export const app = { registry, host, session, workspace, setting, commandRegistry, sidebar, graphView, findBar, openVaultWith, openGuide, setView, view: () => viewMode, sourceEditor: () => sourceEditor, themeRegistry };
-export const ready = boot();
+export const ready = boot().then(async () => {
+	await Promise.all([graphLoad, settingLoad]);
+	reopenSetting();
+});
+
+/** After a restart for a new language: Setting opens again on the page it was on, scrolled as it was, with the language field focused. */
+function reopenSetting(): void {
+	let saved: { page?: unknown; scroll?: unknown } | undefined;
+	try {
+		const text = sessionStorage.getItem('OctaetherInk.Setting.Reopen');
+		sessionStorage.removeItem('OctaetherInk.Setting.Reopen');
+		saved = text ? (JSON.parse(text) as { page?: unknown; scroll?: unknown }) : undefined;
+	} catch {
+		return;
+	}
+	if (!saved || typeof saved.page !== 'string') return;
+	openSetting(saved.page);
+	const body = document.querySelector<HTMLElement>('.setting-modal .setting-body');
+	if (body && typeof saved.scroll === 'number') body.scrollTop = saved.scroll;
+	body?.querySelector<HTMLSelectElement>('[data-language]')?.focus({ preventScroll: true });
+}

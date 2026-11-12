@@ -1,0 +1,29 @@
+---
+Created: 2026-09-30 12:00 -04:00
+Format: Oi 1
+---
+
+Property:
+	Tag: [Guide, Module]
+	Module: TikZ
+
+**TikZ** 模块绘制 TikZ 的一个子集。节点标注中可以包含文字和公式，按 TikZ 的写法书写（`$x$`）。需要可以缩放和移动的函数图像，或者需要绘制数据时，请看 [[Plot]]。返回 [[Welcome]]。
+
+TikZ:
+	\draw[->] (-3.2,0) -- (3.4,0) node[right] {$x$};
+	\draw[->] (0,-1.4) -- (0,1.6) node[above] {$y$};
+	\draw[thick, Accent, domain=-3:3, samples=80] plot (\x, {sin(\x r)});
+	\node[Accent] at (2.2,1.2) {$\sin x$};
+
+## 节点和箭头
+
+TikZ:
+	\node[draw, circle] (a) at (0,0) {A};
+	\node[draw] (b) at (3,0) {B};
+	\node[draw, circle] (c) at (1.5,-1.6) {C};
+	\draw[->, thick] (a) -- (b);
+	\draw[->] (b) -- (c);
+	\draw[->, dashed] (c) -- (a);
+	\foreach \x in {0,...,4} { \fill[Accent] (\x*0.75, 1) circle (0.08); }
+
+绘图的大小在“设置 → 模块 → TikZ”中。较早的笔记可能写的是 `Diagram:`；这样的块绘制方式相同。

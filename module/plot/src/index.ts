@@ -17,6 +17,7 @@ export { parsePlot, splitStyle } from './parse';
 const plotType: BlockTypeDefinition = {
 	name: 'Plot',
 	content: 'Raw',
+	guide: () => import('./guide').then((module) => module.plotGuide),
 	render: lazyRenderer(() => import('./view').then((module) => module.plotRenderer)),
 	edit: { kind: 'SourcePreview' },
 	templateList: [
@@ -46,6 +47,7 @@ export const plotModule: ModuleDefinition = {
 	kind: 'Module',
 	name: 'Plot',
 	publisher: 'Octaether',
+	language: { 'zh-Hans': () => import('./language/zh-Hans').then((module) => module.default) },
 	version: '1.0.0',
 	title: 'Plot',
 	explain:

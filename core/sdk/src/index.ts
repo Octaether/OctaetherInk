@@ -2,8 +2,76 @@
 //   Module = adds a block type (storage + render + edit + theme protocol).
 //   Plugin = adds a system function; can extend modules through extensions.
 
-import type { BlockNode, ContentKind, PropertyMap, PropertyValue } from '@octaether/core-format';
-import type { NoteModel } from '@octaether/core-model';
+import type { BlockNode, ContentKind, PropertyMap, PropertyValue } from '@octaether/core-format';import type { NoteModel } from '@octaether/core-model';
+
+// ---------------------------------------------------------------- language
+
+let dictionary: Readonly<Record<string, string>> = {};
+/** The translations themselves: text that is in the language already is not looked up again. */
+let translatedSet = new Set<string>();
+let translating = false;
+const missingSet = new Set<string>();
+
+let tag = 'en';
+
+/** The words of the language in use: English text → its translation. None for English. The app sets it before anything is drawn.
+ * `languageTag` is the language's BCP 47 tag (`zh-Hans`), for dates and numbers drawn with `Intl`. */
+export function setDictionary(next: Readonly<Record<string, string>> | undefined, languageTag = next ? tag : 'en'): void {
+	tag = languageTag;
+	dictionary = next ?? {};
+	translatedSet = new Set(Object.values(dictionary));
+	translating = next !== undefined;
+	missingSet.clear();
+}
+
+/** The language in use as a BCP 47 tag (`en`, `zh-Hans`): give it to `Intl` so weekdays, months, and numbers read in it. */
+export function languageTag(): string {
+	return tag;
+}
+
+/** True while a language other than English is in use. */
+export function isTranslating(): boolean {
+	return translating;
+}
+
+/**
+ * The translation of text that is already on its way to the screen (a menu's title, a label in a
+ * drawn page), or undefined when the language has none, which is also remembered for
+ * `missingTextList`. For words written in code, use `t`.
+ */
+export function lookup(text: string): string | undefined {
+	if (!translating || translatedSet.has(text)) return undefined;
+	const found = dictionary[text];
+	if (found === undefined && missingSet.size < 5000) missingSet.add(text);
+	return found;
+}
+
+/** What was looked up and not found since the language was set: what a translation still lacks (for tests and translators). */
+export function missingTextList(): string[] {
+	return [...missingSet];
+}
+
+/**
+ * The app's words in the language in use. The key is the English text itself, so code reads as it
+ * always did, a missing translation shows the English, and a new language is one file of
+ * `'English': 'translation'` lines. `{name}` in the text is filled from `value`:
+ * `t('Moved {count} notes into “{name}”.', { count, name })`. Call it when the text is drawn, never
+ * once at load: the language is known only after the app starts. A block's type, its properties,
+ * and their values are syntax, not words: they are never translated.
+ */
+export function t(text: string, value?: Readonly<Record<string, string | number>>): string {
+	const found = dictionary[text] ?? text;
+	return value ? found.replace(/\{(\w+)\}/g, (whole, name: string) => (name in value ? String(value[name]) : whole)) : found;
+}
+
+/**
+ * `t` for a sentence with values in it, written as a template: tr`Couldn’t open “${name}”.` looks
+ * up `Couldn’t open “{0}”.` and puts the values back, wherever the translation wants them.
+ */
+export function tr(partList: TemplateStringsArray, ...valueList: readonly (string | number)[]): string {
+	const key = partList.reduce((text, part, index) => `${text}{${index - 1}}${part}`);
+	return t(key, Object.fromEntries(valueList.map((value, index) => [String(index), value])));
+}
 
 // ---------------------------------------------------------------- theme protocol
 
@@ -206,6 +274,14 @@ export interface BlockTypeDefinition {
 	/** Extra classes on the block's frame (e.g. to space list items tightly). */
 	frameClassList?(block: ResolvedBlock): string[];
 	templateList?: readonly BlockTemplate[];
+	/**
+	 * How to write this block, for an AI: its syntax in a few plain lines with an example (what goes after
+	 * the colon, in `{…}`, and on the lines below). The AI plugin reads the guides of the modules that are
+	 * on (`BlockGuide`), so a new module teaches the AI by itself; without one, its templates are shown.
+	 * A function loads it when it is first asked for (`() => import('./guide').then(…)`), so it costs the
+	 * app nothing until then.
+	 */
+	guide?: string | (() => Promise<string>);
 	plainText?(block: ResolvedBlock): string;
 	/** The page uses the window's whole width when this is the note's only block (a Property block aside): a Table, a Calendar. */
 	fillPage?: boolean;
@@ -235,9 +311,17 @@ export interface SettingDefinition {
 	/** Full name, e.g. `Editor.ClickToEdit`. */
 	id: string;
 	title: string;
-	/** Color: a `#rrggbb` value you pick or type ('' = the default). */
-	type: 'Choice' | 'Toggle' | 'Text' | 'Number' | 'Color';
+	/**
+	 * Color: a `#rrggbb` value you pick or type ('' = the default). Action: no value, a button that runs
+	 * `command`. Custom: no value of the app's; `mount` draws its own control across the row (the AI's connection).
+	 */
+	type: 'Choice' | 'Toggle' | 'Text' | 'Number' | 'Color' | 'Action' | 'Custom';
+	/** Custom: draws the control into `element`; returns what to do when the page goes. */
+	mount?(element: HTMLElement): (() => void) | void;
 	choiceList?: readonly string[];
+	/** Action: the command its button runs (`AI.Connect`), and the button's words (default: the title). */
+	command?: string;
+	action?: string;
 	default: PropertyValue;
 	scopeList?: readonly ('Profile' | 'Vault' | 'Device')[];
 	explain: string;
@@ -316,6 +400,12 @@ interface DefinitionBase {
 	use?: readonly string[];
 	/** The module's or plugin's own settings, shown on its page in Setting. */
 	settingList?: readonly SettingDefinition[];
+	/**
+	 * Its words in other languages, by language id (`zh-Hans`): each loads only when that language is
+	 * chosen and gives `'English text': 'translation'` for the texts it passes to `t()`, so a module
+	 * from anyone brings its own translations. A language it lacks shows its words in English.
+	 */
+	language?: Readonly<Record<string, () => Promise<Readonly<Record<string, string>>>>>;
 	statusItemList?: readonly StatusItemDefinition[];
 }
 
@@ -362,7 +452,88 @@ export interface ColorPicker {
 	 * Opens the picker at a point on screen (client px). `onPick` gets a theme color's name (`Accent`),
 	 * a hex code (`#c0392b`), or undefined for no color; closing it without a choice calls nothing.
 	 */
-	open(option: { x: number; y: number; current?: string; title?: string; onPick(color: string | undefined): void }): void;
+	open(option: { x: number; y: number; current?: string; title?: string; /** False: no "No color" (a color must be chosen, as for a gradient's). */ none?: boolean; onPick(color: string | undefined): void }): void;
+	close(): void;
+}
+
+// ---------------------------------------------------------------- tags across the vault
+
+/** The name of the extension the app registers for tags: `context.extension<TagAccess>(tagExtension)`. */
+export const tagExtension = 'Tag';
+
+export interface TagAccess {
+	/** A tag's color across the vault, as written (`Danger`, `#2f7d6d`); undefined without one. */
+	colorOf(tag: string): string | undefined;
+	/** Sets (or, with undefined, removes) a tag's color, the same in text, properties, and tables. */
+	setColor(tag: string, color: string | undefined): void;
+	/** The tag's menu (its color, the notes with it, rename everywhere) at a point on screen. */
+	openMenu(tag: string, x: number, y: number): void;
+}
+
+/** A color of a gradient, at its place along it (0 = the weak end, 1 = the strong end). */
+export interface GradientStop {
+	color: string;
+	at: number;
+}
+
+/**
+ * A gradient as written (`[Blue, "Teal 40%", Yellow]`) → its stops, in order. A color without a
+ * place sits evenly between its neighbors that have one (the ends at 0% and 100%), as in CSS.
+ */
+export function readGradient(list: readonly string[]): GradientStop[] {
+	const partList = list.map((item) => {
+		const match = /^(.*?)\s+(-?\d+(?:\.\d+)?)%$/.exec(String(item).trim());
+		return match ? { color: match[1]!.trim(), at: Math.max(0, Math.min(1, Number(match[2]) / 100)) as number | undefined } : { color: String(item).trim(), at: undefined as number | undefined };
+	});
+	if (partList.length === 0) return [];
+	if (partList[0]!.at === undefined) partList[0]!.at = 0;
+	if (partList.at(-1)!.at === undefined) partList.at(-1)!.at = partList.length === 1 ? 0 : 1;
+	for (let index = 1; index < partList.length; index++) {
+		if (partList[index]!.at !== undefined) continue;
+		let next = index;
+		while (partList[next]!.at === undefined) next++;
+		const from = partList[index - 1]!.at!;
+		const span = (partList[next]!.at! - from) / (next - index + 1);
+		for (let at = index; at < next; at++) partList[at]!.at = from + span * (at - index + 1);
+	}
+	return partList.map((part) => ({ color: part.color, at: part.at! })).sort((left, right) => left.at - right.at);
+}
+
+/** Stops → as written: a color alone where it sits evenly, `Teal 40%` where it doesn't. */
+export function writeGradient(stopList: readonly GradientStop[]): string[] {
+	const sorted = [...stopList].sort((left, right) => left.at - right.at);
+	const even = sorted.every((stop, index) => Math.abs(stop.at - (sorted.length < 2 ? 0 : index / (sorted.length - 1))) < 0.005);
+	return sorted.map((stop) => (even ? stop.color : `${stop.color} ${Math.round(stop.at * 1000) / 10}%`));
+}
+
+/** The CSS of a gradient from left to right, its colors made CSS by `cssOf` (a theme color's name → its variable). */
+export function gradientCssText(stopList: readonly GradientStop[], cssOf: (color: string) => string = (color) => color): string {
+	if (stopList.length === 1) return cssOf(stopList[0]!.color);
+	return `linear-gradient(to right, ${stopList.map((stop) => `${cssOf(stop.color)} ${(stop.at * 100).toFixed(1)}%`).join(', ')})`;
+}
+
+/** The name of the extension the Palette plugin registers for gradients: `context.extension<GradientPicker>(gradientPickerExtension)`. */
+export const gradientPickerExtension = 'GradientPicker';
+
+export interface GradientPicker {
+	/**
+	 * Opens the gradient picker at a point on screen (client px), with `current` (two or more colors,
+	 * as the color picker gives them: a theme color's name or a hex code). `onPick` gets the colors
+	 * chosen, or undefined for none (the thing's one color); closing it without a choice calls nothing.
+	 */
+	open(option: {
+		x: number;
+		y: number;
+		current?: readonly string[];
+		title?: string;
+		/** The two ends' names under the bar (default Low, High). */
+		lowTitle?: string;
+		highTitle?: string;
+		noneTitle?: string;
+		/** Each change as it is made, to show it at once; Esc gives back `current` (undefined: none). */
+		onChange?(stopList: string[] | undefined): void;
+		onPick(stopList: string[] | undefined): void;
+	}): void;
 	close(): void;
 }
 
@@ -598,12 +769,263 @@ export interface MenuEntry {
 	childList?: readonly MenuEntry[];
 }
 
+/** A menu that filters by what is typed in a field of your own (a "/" in a line), as the note's "/" menu does. */
+export interface QueryMenu {
+	/** Shows the entries that match (case aside), best first. */
+	setQuery(query: string): void;
+	/** Moves it under a point (or, with no room below, above `above`). */
+	place(x: number, y: number, above?: number): void;
+	close(): void;
+}
+
 export interface PopupMenu {
 	/** Opens a menu at a point on screen (client px); one menu is open at a time. */
 	open(option: { x: number; y: number; itemList: readonly MenuEntry[]; search?: boolean; onClose?(): void }): void;
+	/**
+	 * Opens a menu that the keys of your field drive: typing stays in the field (give the menu what is
+	 * typed with `setQuery`), while ↑ ↓ Enter Tab and Esc go to the menu. `onClose` runs however it closes.
+	 */
+	openQuery?(option: { x: number; y: number; itemList: readonly MenuEntry[]; emptyText?: string; /** Nothing picked until an arrow key, so Enter keeps what is typed. */ free?: boolean; onClose?(): void }): QueryMenu;
 	close(): void;
 	/** Asks for a line of text in the app's own dialog; undefined when cancelled. */
 	prompt(message: string, value?: string, action?: string): Promise<string | undefined>;
+	/** Asks yes or no in the app's own dialog (`danger`: the yes button warns). */
+	confirm?(message: string, action?: string, danger?: boolean): Promise<boolean>;
+}
+
+export interface ComboItem {
+	title: string;
+	/** What a pick gives (default: the title). */
+	value?: string;
+	/** Right-aligned: a count, a provider. */
+	hint?: string;
+	checked?: boolean;
+}
+
+export interface ComboOption {
+	/** What to offer; asked each time the list opens. */
+	itemList(): readonly ComboItem[];
+	onPick(value: string): void;
+	/** Sorted by title (default), or kept in the order given. */
+	sort?: boolean;
+	/** Opens as soon as the field has the focus (default: once typing, or the down arrow). */
+	openOnFocus?: boolean;
+	emptyText?: string;
+}
+
+/**
+ * A field that suggests, in the app's own menu (never the browser's list): it filters as you type,
+ * the arrow keys choose, Enter takes the one chosen (or, with none chosen, stays with the field), Esc
+ * closes. Returns its removal. Without the app's menu (a test, another host) it is a plain field.
+ */
+export function comboField(menu: PopupMenu | undefined, input: HTMLInputElement, option: ComboOption): () => void {
+	if (!menu?.openQuery) return () => undefined;
+	let open: QueryMenu | undefined;
+	const show = (): void => {
+		if (!input.isConnected) return;
+		const rect = input.getBoundingClientRect();
+		if (!open) {
+			const list = [...option.itemList()];
+			if (option.sort !== false) list.sort((left, right) => left.title.localeCompare(right.title, undefined, { sensitivity: 'base', numeric: true }));
+			if (list.length === 0) return;
+			open = menu.openQuery!({
+				x: rect.left,
+				y: rect.bottom + 2,
+				free: true,
+				itemList: list.map((item) => ({ title: item.title, ...(item.hint ? { hint: item.hint } : {}), ...(item.checked ? { checked: true } : {}), run: () => option.onPick(item.value ?? item.title) })),
+				...(option.emptyText ? { emptyText: option.emptyText } : {}),
+				onClose: () => {
+					open = undefined;
+				},
+			});
+		}
+		open.setQuery(input.value);
+		open.place(rect.left, rect.bottom + 2, rect.top);
+	};
+	const close = (): void => open?.close();
+	const onKey = (event: KeyboardEvent): void => {
+		if (!open && event.key === 'ArrowDown') {
+			event.preventDefault();
+			show();
+		}
+	};
+	const onFocus = (): void => {
+		if (option.openOnFocus) show();
+	};
+	input.addEventListener('input', show);
+	input.addEventListener('keydown', onKey);
+	input.addEventListener('focus', onFocus);
+	input.addEventListener('blur', close);
+	return () => {
+		close();
+		input.removeEventListener('input', show);
+		input.removeEventListener('keydown', onKey);
+		input.removeEventListener('focus', onFocus);
+		input.removeEventListener('blur', close);
+	};
+}
+
+// ---------------------------------------------------------------- how blocks are written (for the AI plugin)
+
+/** The name of the extension the app registers for the block types that are on: `context.extension<BlockGuide>(blockGuideExtension)`. */
+export const blockGuideExtension = 'BlockGuide';
+
+export interface BlockGuideEntry {
+	/** `Math` */
+	type: string;
+	/** The title of the module that gives it. */
+	module: string;
+	content: ContentKind;
+	/** The property the text after the colon sets (`Code` → `Language`). */
+	argument?: string;
+	/** The symbols that open it instead of `Type:`, as set now. */
+	aliasList: readonly string[];
+	/** The module's own words on how to write it (`BlockTypeDefinition.guide`). */
+	guide?: string;
+	/** Its templates' OI text, as examples for a type without a guide. */
+	exampleList: readonly string[];
+}
+
+export interface BlockGuide {
+	/** Every block type whose module is on and that is written by hand, with its guide loaded. */
+	list(): Promise<readonly BlockGuideEntry[]>;
+}
+
+// ---------------------------------------------------------------- the note on screen (for plugins that write into it)
+
+/** The name of the extension the app registers for the note on screen: `context.extension<NoteEditor>(noteEditorExtension)`. */
+export const noteEditorExtension = 'NoteEditor';
+
+/** Text: characters highlighted in a block's editor. Block: a selected block, with what it holds. Note: the whole note. */
+export type NoteScope = 'Text' | 'Block' | 'Note';
+
+/** The note on screen and what is selected in it, as it was when captured; `apply` writes into that place. */
+export interface NoteTarget {
+	/** The note's name (its file's, without `.oi`). */
+	name: string;
+	/** The note's blocks as OI text, without the app's `---` header. */
+	text: string;
+	scope: NoteScope;
+	/** The highlighted text, or the selected block's OI text; '' for the whole note. */
+	selection: string;
+	/** The type of the block the selection is in. */
+	type?: string;
+	/**
+	 * Writes OI text as one undo step. Replace: in place of the selection (of every block, for the whole
+	 * note). After: under the selection's block (for the whole note: under the block being written in,
+	 * else at the end). False when it can't (the note was closed, the block is gone or has changed).
+	 */
+	apply(source: string, where: 'Replace' | 'After'): boolean;
+	/** The same place, with the whole note as the scope. */
+	whole(): NoteTarget;
+}
+
+export interface NoteEditor {
+	/** The note on screen and its selection now; undefined when no note is shown. */
+	capture(): NoteTarget | undefined;
+	/** Draws OI text in `element` as the note would show it (read-only, with the modules that are on). */
+	preview(element: HTMLElement): { update(source: string): void; destroy(): void };
+}
+
+// ---------------------------------------------------------------- the vault's files, for a plugin that changes them (the AI)
+
+/** The name of the extension the app registers for the open vault's files: `context.extension<VaultFile>(vaultFileExtension)`. */
+export const vaultFileExtension = 'VaultFile';
+
+export interface VaultFileEntry {
+	path: string;
+	kind: 'File' | 'Folder';
+}
+
+/** A change made to the vault, and the way back while the vault stays open. */
+export interface VaultChange {
+	/** Where the file is now (a move or a rename may give it another name). */
+	path: string;
+	undo(): Promise<void>;
+}
+
+/**
+ * The open vault's files, read and changed as the app does it: a note that is open is changed in
+ * its tab (one undo step there, its unsaved edits read), links follow a move, a delete goes to the
+ * trash. Paths are from the vault's top; `.oi/` (the app's own folder) is reachable but never listed
+ * unless asked.
+ */
+export interface VaultFile {
+	/** The open vault's name, or undefined when none is open. */
+	name(): string | undefined;
+	/** Every file and folder in `folder` and under it ('' = all); `.oi/` only when it is the folder asked for. */
+	list(folder?: string): readonly VaultFileEntry[];
+	has(path: string): boolean;
+	/** A text file's text (a note's, unsaved edits included); undefined when there is no such file or it isn't text. */
+	read(path: string): Promise<string | undefined>;
+	/** Creates or replaces a text file. Missing folders are made. */
+	write(path: string, text: string): Promise<VaultChange>;
+	makeFolder(path: string): Promise<VaultChange>;
+	/** Moves or renames a file or folder (the target is the new full path); `[[links]]` to it follow. */
+	move(path: string, target: string): Promise<VaultChange>;
+	/** To the trash (or, where there is none, deleted with a copy kept for undo). */
+	trash(path: string): Promise<VaultChange>;
+	/** Deletes a file or folder of the app's own folder (`.oi/`) for good: a plugin's own data, such as a chat. */
+	remove?(path: string): Promise<void>;
+	/** Notes whose text (or name, or tags with `tag:Name`) matches, with a line where. */
+	search(query: string, limit?: number): readonly { path: string; line: string }[];
+	/** Shows a note or file in a tab (in the background: a tab behind the one in front). */
+	open(path: string, option?: { background?: boolean }): void;
+	/** A picture of a note as the app draws it (PNG), without showing it; undefined when it can't. */
+	picture(path: string): Promise<Blob | undefined>;
+	/** The note on screen, or (with a page such as the chat in front) the note shown last. */
+	currentPath(): string | undefined;
+}
+
+// ---------------------------------------------------------------- a page of a plugin's own in a tab (the AI's chat)
+
+/** The name of the extension the app registers for plugin pages in tabs: `context.extension<PanelHost>(panelExtension)`. */
+export const panelExtension = 'Panel';
+
+/** What a panel's page can do to its tab. */
+export interface PanelTab {
+	/** The page moves on to another state (a new chat got its id): kept with the tab, for when the app opens again. */
+	setState(state: string): void;
+	setTitle(title: string): void;
+	/** True while the tab is the one shown. */
+	isShown(): boolean;
+}
+
+export interface PanelDefinition {
+	/** `AI.Chat` */
+	id: string;
+	/** The tab's title before the page gives one. */
+	title: string;
+	/** Draws the page for a state (which chat) into `element`, which stays while the tab is open. */
+	mount(element: HTMLElement, state: string, tab: PanelTab): { destroy(): void; shown?(): void };
+}
+
+export interface PanelHost {
+	/** Adds a kind of page; returns its removal (its open tabs then say it is gone). */
+	register(panel: PanelDefinition): () => void;
+	/**
+	 * Opens a page in a tab: the tab showing it already, or a new one (in the background: behind the
+	 * tab in front). `beside`: in a pane beside the note (made when there is one pane), which takes the focus.
+	 */
+	open(id: string, state: string, option?: { title?: string; background?: boolean; beside?: boolean }): void;
+	/** Shows a page of this kind that is open already (one in front of a pane first); false when none is. */
+	show?(id: string): boolean;
+	/** The page in the tab with the focus, when that tab shows one. */
+	current?(): { id: string; state: string } | undefined;
+	/** Called when another tab or pane comes to the front. */
+	subscribe?(listener: () => void): () => void;
+}
+
+// ---------------------------------------------------------------- the app's commands, for a plugin that runs them (the AI)
+
+/** The name of the extension the app registers for its commands: `context.extension<CommandAccess>(commandExtension)`. */
+export const commandExtension = 'Command';
+
+export interface CommandAccess {
+	/** The commands the palette offers (not those of a context of their own, such as the drawing tool's). */
+	list(): readonly { id: string; title: string; explain?: string }[];
+	/** Runs one, as the palette would; false when there is no such command. */
+	run(id: string, argument?: unknown): boolean;
 }
 
 // ---------------------------------------------------------------- a block that lives in another note (From)

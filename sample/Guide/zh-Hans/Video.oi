@@ -1,0 +1,25 @@
+---
+Created: 2026-09-30 12:00 -04:00
+Format: Oi 1
+---
+
+Property:
+	Tag: [Guide, Module]
+	Module: Video
+
+**Video** 模块播放来自 YouTube、Vimeo 或文件的视频。一个块以 `Video:` 和地址开头，说明文字写在下方的行中。返回 [[Welcome]]；图片请看 [[Image]]。
+
+Video {Width: 480, Muted: True, Loop: True}: https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.mp4
+	一朵正在绽放的花：来自 MDN 网页文档的示例视频（CC0），由浏览器播放。
+
+## 视频从哪里来
+
+- 任何形式的 YouTube 地址，如 `https://youtu.be/…`。它在 YouTube 自己的播放器中播放，在你按下播放之前不会设置 cookie。
+- Vimeo 地址，如 `https://vimeo.com/…`。
+- 库中的视频文件（`Video: Lecture.mp4`）或网络上的视频文件。把视频粘贴或拖到笔记上即可添加。库中的视频也可以从侧边栏单独在标签页中打开。
+
+## 单个视频的设置
+
+它们写在冒号前的花括号里，与所有块一样：`Start`（`{Start: 90}` 从第 90 秒开始；带 `?t=90` 的 YouTube 地址效果相同）、`Loop`、`Muted` 和 `Width`。
+
+播放器会接管点击，所以要编辑这个块，请点击说明文字（没有说明文字时，点击视频下方的地址）。

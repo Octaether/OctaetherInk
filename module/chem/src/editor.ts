@@ -13,10 +13,10 @@
 //   keys    hover an atom and press C N O S P F H I, L (Cl), B (Br), + or −; 1 2 3 on a bond;
 //           elsewhere a key picks a tool (V select, E erase, 1 2 3 bonds, W wedge, R benzene, D lone
 //           pair, A curved arrow, T text, G color…; yours in Setting → Hotkey, the Drawing commands);
-//           Ctrl+Z / Ctrl+Y, Delete, Esc; Enter (Ctrl+Enter in the text) or Done puts it into the note
+//           Undo / Redo (your keys for them; Ctrl+Z, Ctrl+Shift+Z), Delete, Esc; Enter (Ctrl+Enter in the text) or Done puts it into the note
 
 import type { PropertyMap, PropertyValue } from '@octaether/core-format';
-import { type BoardItem, type ColorPicker, type HotkeyLookup, normalizeHex } from '@octaether/core-sdk';
+import { type BoardItem, type ColorPicker, type HotkeyLookup, normalizeHex, t } from '@octaether/core-sdk';
 import { type ArrowCurve, type ArrowKind, arrowCurve, arrowLabelPlace, arrowMarkup, autoCurve, bezierPoint, curveForOffset, nearestOnArrow, readAt, readHead, readKind, sampleCurve } from '@octaether/module-board';
 import { type BoardBlock, type BoardDrawing, type StructureDrawing, boardScale, cloneBoard, loadBoard, loadStructure, numberOf, readBoardText, syncBoard, syncStructure, writeBoard } from './drawing';
 import { characterWidth } from './formula';
@@ -183,9 +183,9 @@ const toolGroupList: readonly (ToolGroup | 'Separator')[] = [
 		memberList: [
 			{ id: 'Curved', title: 'Curved arrow: drag from a lone pair, an atom, or a bond to another (drag its middle later to bend it)', plainTitle: 'Curved arrow: drag from one thing to another (drag its middle later to bend it)', icon: svgIcon('<path d="M4 18C7 8 14 6 19 9"/><path d="m19 9-4.6-1.6M19 9l-2.6 4"/>'), tool: { kind: 'Arrow', shape: 'Curved', arrowKind: 'Single' } },
 			{ id: 'Fishhook', title: 'Fishhook arrow: one electron', chemistry: true, icon: svgIcon('<path d="M4 18C7 8 14 6 19 9"/><path d="m19 9-4.6-1.6"/>'), tool: { kind: 'Arrow', shape: 'Curved', arrowKind: 'Fishhook' } },
-			{ id: 'Reaction', title: 'Reaction arrow: drag from where it starts to where it ends', plainTitle: 'Straight arrow: drag from where it starts to where it ends', icon: svgIcon('<path d="M3 12h17"/><path d="m15 7 5 5-5 5"/>'), tool: { kind: 'Arrow', shape: 'Straight', arrowKind: 'Single' } },
-			{ id: 'Equilibrium', title: 'Equilibrium arrow', chemistry: true, icon: svgIcon('<path d="M3 9.5h17l-4-3.5"/><path d="M21 14.5H4l4 3.5"/>'), tool: { kind: 'Arrow', shape: 'Straight', arrowKind: 'Equilibrium' } },
-			{ id: 'Retro', title: 'Retrosynthesis arrow', chemistry: true, icon: svgIcon('<path d="M3 10h14"/><path d="M3 14h14"/><path d="m15 6 6 6-6 6"/>'), tool: { kind: 'Arrow', shape: 'Straight', arrowKind: 'Retro' } },
+			{ id: 'Reaction', title: 'Reaction arrow: drag from where it starts to where it ends (in 15° steps; hold Alt for any angle)', plainTitle: 'Straight arrow: drag from where it starts to where it ends (in 15° steps; hold Alt for any angle)', icon: svgIcon('<path d="M3 12h17"/><path d="m15 7 5 5-5 5"/>'), tool: { kind: 'Arrow', shape: 'Straight', arrowKind: 'Single' } },
+			{ id: 'Equilibrium', title: 'Equilibrium arrow (in 15° steps; hold Alt for any angle)', chemistry: true, icon: svgIcon('<path d="M3 9.5h17l-4-3.5"/><path d="M21 14.5H4l4 3.5"/>'), tool: { kind: 'Arrow', shape: 'Straight', arrowKind: 'Equilibrium' } },
+			{ id: 'Retro', title: 'Retrosynthesis arrow (in 15° steps; hold Alt for any angle)', chemistry: true, icon: svgIcon('<path d="M3 10h14"/><path d="M3 14h14"/><path d="m15 6 6 6-6 6"/>'), tool: { kind: 'Arrow', shape: 'Straight', arrowKind: 'Retro' } },
 		],
 	},
 	{ id: 'Text', title: 'Text', board: true, memberList: [{ id: 'Text', title: 'Text: click to write; double-click any text to change it', icon: svgIcon('<path d="M5 6h14"/><path d="M12 6v13"/><path d="M9 19h6"/>'), tool: { kind: 'Text' } }] },
@@ -409,6 +409,16 @@ export function openStructureEditor(option: StructureEditorOption): () => void {
 		if (option.hotkey) return option.hotkey.keyText(`Drawing.${tool}`);
 		return (drawingCommandList.find((command) => command.tool === tool)?.key ?? []).map(defaultKeyText).join(' · ');
 	};
+	/** Undo or Redo, by your keys for them in Setting → Hotkey (Ctrl+Z, Ctrl+Shift+Z without the app). */
+	const historyForKey = (event: KeyboardEvent, primary: boolean): 'Undo' | 'Redo' | undefined => {
+		if (option.hotkey) {
+			const command = option.hotkey.commandFor(event, 'GlobalUndo');
+			return command === 'Edit.Undo' ? 'Undo' : command === 'Edit.Redo' ? 'Redo' : undefined;
+		}
+		return primary && event.code === 'KeyZ' ? (event.shiftKey ? 'Redo' : 'Undo') : undefined;
+	};
+	/** Undo's and Redo's keys as shown, for the buttons' titles. */
+	const historyKeyText = (kind: 'Undo' | 'Redo'): string => option.hotkey?.keyText(`Edit.${kind}`) || (kind === 'Undo' ? 'Ctrl+Z' : 'Ctrl+Shift+Z');
 	/** The tool a keydown picks, by your keys (or the defaults). */
 	const toolForKey = (event: KeyboardEvent): string | undefined => {
 		if (option.hotkey) return option.hotkey.commandFor(event, 'Drawing')?.replace(/^Drawing\./, '');
@@ -428,21 +438,21 @@ export function openStructureEditor(option: StructureEditorOption): () => void {
 	backdrop.className = 'oi-draw-backdrop';
 	backdrop.dataset.oiKeepEditor = '';
 	backdrop.innerHTML =
-		'<div class="oi-draw" role="dialog" aria-modal="true" aria-label="Drawing tool">' +
-		`<div class="oi-draw-top"><span class="oi-draw-title">${boardMode ? 'Board' : 'Structure'}</span>` +
-		`<div class="oi-draw-element"${chemistry ? '' : ' hidden'} role="toolbar" aria-label="Elements">${elementButtonList.map((element) => `<button type="button" data-element="${element}" title="${element} (hover an atom and press ${element === 'Cl' ? 'L' : element === 'Br' ? 'B' : element})">${element}</button>`).join('')}<button type="button" data-element="Other" title="Another element or a label (CO₂H, Ph…)">Other</button></div>` +
+		`<div class="oi-draw" role="dialog" aria-modal="true" aria-label="${t('Drawing tool')}">` +
+		`<div class="oi-draw-top"><span class="oi-draw-title">${boardMode ? t('Board') : t('Structure')}</span>` +
+		`<div class="oi-draw-element"${chemistry ? '' : ' hidden'} role="toolbar" aria-label="${t('Elements')}">${elementButtonList.map((element) => `<button type="button" data-element="${element}" title="${element} (hover an atom and press ${element === 'Cl' ? 'L' : element === 'Br' ? 'B' : element})">${element}</button>`).join('')}<button type="button" data-element="Other" title="Another element or a label (CO₂H, Ph…)">${t('Other')}</button></div>` +
 		'<span class="oi-draw-space"></span>' +
-		'<button type="button" class="oi-draw-small" data-action="Undo" title="Undo (Ctrl+Z)">↶</button><button type="button" class="oi-draw-small" data-action="Redo" title="Redo (Ctrl+Y)">↷</button>' +
-		`<button type="button" class="oi-draw-small" data-action="Clear" title="${boardMode ? 'Erase everything on the board' : 'Erase the structure'}">Clear</button>` +
-		'<button type="button" class="oi-draw-secondary" data-action="Cancel">Cancel</button><button type="button" class="oi-draw-primary" data-action="Done">Done</button></div>' +
-		`<div class="oi-draw-main"><div class="oi-draw-tool" role="toolbar" aria-label="Tools">${groupList
+		'<button type="button" class="oi-draw-small" data-action="Undo" title="Undo (' + historyKeyText('Undo') + ')">↶</button><button type="button" class="oi-draw-small" data-action="Redo" title="Redo (' + historyKeyText('Redo') + ')">↷</button>' +
+		`<button type="button" class="oi-draw-small" data-action="Clear" title="${boardMode ? t('Erase everything on the board') : t('Erase the structure')}">${t('Clear')}</button>` +
+		`<button type="button" class="oi-draw-secondary" data-action="Cancel">${t('Cancel')}</button><button type="button" class="oi-draw-primary" data-action="Done">${t('Done')}</button></div>` +
+		`<div class="oi-draw-main"><div class="oi-draw-tool" role="toolbar" aria-label="${t('Tools')}">${groupList
 			.map((item) => (item === 'Separator' ? '<hr>' : `<button type="button" class="oi-draw-group${item.memberList.length > 1 ? ' has-more' : ''}" data-group="${item.id}" title="${escapeXml(item.memberList[0]!.title)}" aria-label="${escapeXml(item.title)}">${item.memberList[0]!.icon}</button>`))
 			.join('')}</div>` +
 		'<div class="oi-draw-flyout" role="menu" hidden></div>' +
-		'<div class="oi-draw-stage"><svg class="oi-draw-canvas" tabindex="0" aria-label="Drawing area"></svg><div class="oi-draw-layer"></div><div class="oi-draw-menu" role="menu" hidden></div></div></div>' +
+		`<div class="oi-draw-stage"><svg class="oi-draw-canvas" tabindex="0" aria-label="${t('Drawing area')}"></svg><div class="oi-draw-layer"></div><div class="oi-draw-menu" role="menu" hidden></div></div></div>` +
 		'<div class="oi-draw-bottom"><div class="oi-draw-hint"><span class="oi-draw-text"></span>' +
-		'<button type="button" class="oi-draw-small active" data-action="Source" aria-pressed="true" title="Show or hide the text this becomes in the note">Source</button></div>' +
-		'<textarea class="oi-draw-source" spellcheck="false" autocomplete="off" aria-label="The text in the note"></textarea></div></div>';
+		`<button type="button" class="oi-draw-small active" data-action="Source" aria-pressed="true" title="${t('Show or hide the text this becomes in the note')}">${t('Source')}</button></div>` +
+		`<textarea class="oi-draw-source" spellcheck="false" autocomplete="off" aria-label="${t('The text in the note')}"></textarea></div></div>`;
 	document.body.append(backdrop);
 	const dialog = backdrop.querySelector<HTMLElement>('.oi-draw')!;
 	const svg = backdrop.querySelector<SVGSVGElement>('.oi-draw-canvas')!;
@@ -916,7 +926,7 @@ export function openStructureEditor(option: StructureEditorOption): () => void {
 			over += `<rect x="${number(x)}" y="${number(y)}" width="${number(Math.abs(band.to.x - band.from.x))}" height="${number(Math.abs(band.to.y - band.from.y))}" fill="${accent}" fill-opacity="0.08" stroke="${accent}" stroke-dasharray="4 3"/>`;
 		}
 		const nothing = graph.atomList.length === 0 && blockList().length === 0;
-		const emptyText = boardMode ? (chemistry ? 'Draw a structure, or pick Arrow or Text on the left.' : 'Pick Arrow or Text on the left.') : 'Click anywhere to start: a bond, or pick a ring on the left.';
+		const emptyText = boardMode ? (chemistry ? t('Draw a structure, or pick Arrow or Text on the left.') : t('Pick Arrow or Text on the left.')) : t('Click anywhere to start: a bond, or pick a ring on the left.');
 		const empty = nothing ? `<text x="${width / 2}" y="${height / 2}" text-anchor="middle" font-size="14" opacity="0.55">${emptyText}</text>` : '';
 		svg.innerHTML = `<g>${under}</g><g stroke="currentColor" stroke-width="${number(1.7 * Math.min(1, Math.max(zoom(), 0.5)))}" stroke-linecap="round">${graph.bondList.map(bondMarkup).join('')}</g><g>${graph.atomList.map(atomMarkup).join('')}</g><g>${arrowLayer}</g><g>${over}</g>${empty}`;
 		if (boardMode) drawLayer();
@@ -926,10 +936,10 @@ export function openStructureEditor(option: StructureEditorOption): () => void {
 			(problem
 				? `Problem: ${problem}`
 				: coarse
-					? 'Hold a tool for more. Hold on something to undo the tool there, or for a menu. Two fingers move and zoom; double-tap text to change it.'
+					? t('Hold a tool for more. Hold on something to undo the tool there, or for a menu. Two fingers move and zoom; double-tap text to change it.')
 					: boardMode
 						? `Select: ${chemistry ? 'a bond picks up its structure; ' : ''}drag a box around a chunk; double-click text. Right-click: the tool undone, or a menu. Right-drag or two fingers: move around.`
-						: 'Draw with the tools on the left (hold one for more). Right-click undoes the tool on what it touches; right-drag moves around. Enter or Done puts it into the note.');
+						: t('Draw with the tools on the left (hold one for more). Right-click undoes the tool on what it touches; right-drag moves around. Enter or Done puts it into the note.'));
 		hint.title = hint.textContent;
 		hint.classList.toggle('oi-draw-problem', notice === '' && problem !== '');
 		for (const button of dialog.querySelectorAll<HTMLButtonElement>('[data-group]')) button.classList.toggle('active', groupOf(toolId)?.id === button.dataset.group);
@@ -1041,6 +1051,14 @@ export function openStructureEditor(option: StructureEditorOption): () => void {
 		return { point: worldToPx(world) };
 	};
 	const roundPx = (value: number): number => Math.round(value * 10) / 10;
+	/** A straight arrow's far end, turned to the nearest 15° (as long as drawn); with Alt held, as drawn. */
+	const snapEnd = (from: Point, to: Point, free: boolean): Point => {
+		const length = Math.hypot(to.x - from.x, to.y - from.y);
+		if (free || length === 0) return to;
+		const step = Math.PI / 12;
+		const angle = Math.round(Math.atan2(to.y - from.y, to.x - from.x) / step) * step;
+		return { x: from.x + Math.cos(angle) * length, y: from.y + Math.sin(angle) * length };
+	};
 	const endValue = (end: ReturnType<typeof endAt>): PropertyValue => {
 		if (end.atom) return `${nameOf(end.atom, 'a')}${end.pair !== undefined ? `.lp${end.pair / 45}` : ''}`;
 		if (end.bond) return nameOf(end.bond, 'b');
@@ -1310,7 +1328,7 @@ export function openStructureEditor(option: StructureEditorOption): () => void {
 		const current = 'property' in target ? target.property.get('Color') : target.color;
 		return [
 			{
-				label: typeof current === 'string' && current !== '' ? `Color (${current})` : 'Color',
+				label: typeof current === 'string' && current !== '' ? `Color (${current})` : t('Color'),
 				run: () =>
 					pickColor(menuPoint, typeof current === 'string' ? current : undefined, (color) => {
 						edit();
@@ -1326,7 +1344,7 @@ export function openStructureEditor(option: StructureEditorOption): () => void {
 
 	/** Asks the Palette plugin for a color. Hex comes back lowercase. */
 	const pickColor = (client: Point, current: string | undefined, onPick: (color: string | undefined) => void): void => {
-		option.colorPicker?.open({ x: client.x, y: client.y, title: 'Color', ...(current ? { current } : {}), onPick: (color) => onPick(color?.startsWith('#') ? (normalizeHex(color) ?? color) : color) });
+		option.colorPicker?.open({ x: client.x, y: client.y, title: t('Color'), ...(current ? { current } : {}), onPick: (color) => onPick(color?.startsWith('#') ? (normalizeHex(color) ?? color) : color) });
 	};
 
 	/** A menu for what was right-clicked: an arrow's shape, kind, and head; text; an atom or a bond. */
@@ -1346,41 +1364,41 @@ export function openStructureEditor(option: StructureEditorOption): () => void {
 			};
 			const kindLabel: Record<ArrowKind, string> = { Single: 'Arrow', Fishhook: 'Fishhook (one electron)', Equilibrium: 'Equilibrium ⇌', Retro: 'Retrosynthesis ⇒', NoReaction: 'No reaction', Line: 'Line' };
 			openMenu(client, [
-				{ title: 'Shape' },
-				{ label: 'Curved', check: curved, run: set('Curve', 45) },
-				{ label: 'Straight', check: !curved, run: set('Curve', 0) },
-				{ title: 'Kind' },
+				{ title: t('Shape') },
+				{ label: t('Curved'), check: curved, run: set('Curve', 45) },
+				{ label: t('Straight'), check: !curved, run: set('Curve', 0) },
+				{ title: t('Kind') },
 				...(Object.keys(kindLabel) as ArrowKind[]).filter((value) => chemistry || value === 'Single' || value === 'Line' || value === kind).map((value): MenuEntry => ({ label: kindLabel[value], check: kind === value, run: set('Kind', value === 'Single' ? undefined : value) })),
-				{ title: 'Head' },
+				{ title: t('Head') },
 				...(['End', 'Start', 'Both'] as const).map((value): MenuEntry => ({ label: { End: 'At the end', Start: 'At the start', Both: 'At both ends' }[value], check: head === value, run: set('Head', value === 'End' ? undefined : value) })),
-				{ label: 'Text along it', run: () => addArrowText(block) },
+				{ label: t('Text along it'), run: () => addArrowText(block) },
 				'Separator',
 				...colorEntryList(block),
 				'Separator',
-				{ label: 'Delete', run: () => { edit(); removeBlock(block.id); } },
+				{ label: t('Delete'), run: () => { edit(); removeBlock(block.id); } },
 			]);
 		} else if (block) {
 			blockSelection = new Set([block.id]);
 			selection = new Set();
-			openMenu(client, [{ label: 'Edit text', run: () => openInline(block) }, 'Separator', ...colorEntryList(block), 'Separator', { label: 'Delete', run: () => { edit(); removeBlock(block.id); } }]);
+			openMenu(client, [{ label: t('Edit text'), run: () => openInline(block) }, 'Separator', ...colorEntryList(block), 'Separator', { label: t('Delete'), run: () => { edit(); removeBlock(block.id); } }]);
 		} else if (atom) {
 			openMenu(client, [
-				{ label: 'Change the label', run: () => relabel(atom) },
+				{ label: t('Change the label'), run: () => relabel(atom) },
 				{ label: `Lone pairs: ${atom.lonePair} (add one)`, run: () => { if (atom.lonePair + atom.radical < electronRoom) { edit(); atom.lonePair++; } } },
-				...(atom.lonePair > 0 ? [{ label: 'Take a lone pair away', run: () => { edit(); atom.lonePair--; } }] : []),
+				...(atom.lonePair > 0 ? [{ label: t('Take a lone pair away'), run: () => { edit(); atom.lonePair--; } }] : []),
 				'Separator',
 				...colorEntryList(atom),
 				'Separator',
-				{ label: 'Delete the atom', run: () => { edit(); removeAtom(graph, atom.id); } },
+				{ label: t('Delete the atom'), run: () => { edit(); removeAtom(graph, atom.id); } },
 			]);
 		} else if (bond) {
 			openMenu(client, [
-				{ title: 'Bond' },
+				{ title: t('Bond') },
 				...([1, 2, 3] as const).map((order): MenuEntry => ({ label: { 1: 'Single', 2: 'Double', 3: 'Triple' }[order], check: bond.order === order && bond.stereo === 'None', run: () => { edit(); bond.order = order; bond.stereo = 'None'; } })),
 				'Separator',
 				...colorEntryList(bond),
 				'Separator',
-				{ label: 'Delete the bond', run: () => { edit(); removeBond(graph, bond.id); } },
+				{ label: t('Delete the bond'), run: () => { edit(); removeBond(graph, bond.id); } },
 			]);
 		}
 	};
@@ -1765,9 +1783,12 @@ export function openStructureEditor(option: StructureEditorOption): () => void {
 			} else {
 				const ends = arrowEnds(block);
 				if (ends) {
-					const point = worldToPx(world);
-					const here: PropertyValue = [roundPx(point.x), roundPx(point.y)];
 					const [from, to] = ends;
+					// against the other end, when that is a point: 15° steps, unless Alt
+					const other = which === 'From' ? to : from;
+					const drawn = worldToPx(world);
+					const point = Array.isArray(other) && block.property.get('Curve') === undefined ? snapEnd({ x: Number(other[0]), y: Number(other[1]) }, drawn, event.altKey) : drawn;
+					const here: PropertyValue = [roundPx(point.x), roundPx(point.y)];
 					block.property = arrowProperty(which === 'From' ? here : from, which === 'To' ? here : to, block.property);
 				}
 			}
@@ -1776,7 +1797,8 @@ export function openStructureEditor(option: StructureEditorOption): () => void {
 		}
 		if (tool.kind === 'Arrow') {
 			const start = endAt(press.world);
-			arrowPreview = { from: start.atom || start.bond ? (resolveName(start.atom ? (start.atom.name ?? '') : '') ?? toScreen(press.world)) : toScreen(press.world), to: toScreen(world) };
+			const straight = tool.shape === 'Straight';
+			arrowPreview = { from: start.atom || start.bond ? (resolveName(start.atom ? (start.atom.name ?? '') : '') ?? toScreen(press.world)) : toScreen(press.world), to: straight ? snapEnd(toScreen(press.world), toScreen(world), event.altKey) : toScreen(world) };
 			if (start.atom && !start.atom.name) arrowPreview.from = toScreen(start.atom);
 			render();
 			return;
@@ -1869,7 +1891,10 @@ export function openStructureEditor(option: StructureEditorOption): () => void {
 			const pointOf = (end: ReturnType<typeof endAt>): PropertyValue => [roundPx(end.point.x), roundPx(end.point.y)];
 			const away: PropertyValue = [roundPx(start.point.x + 3.2 * metric.emPx), roundPx(start.point.y)];
 			let property: PropertyMap;
-			if (tool.shape === 'Straight') property = arrowProperty(pointOf(start), current.moved ? pointOf(finishEnd) : away);
+			if (tool.shape === 'Straight') {
+				const end = snapEnd(start.point, finishEnd.point, event.altKey);
+				property = arrowProperty(pointOf(start), current.moved ? [roundPx(end.x), roundPx(end.y)] : away);
+			}
 			else {
 				// a curved arrow ends on what it was drawn between, and bends; between two names it bows away from what's around
 				const from = endValue(start);
@@ -2080,7 +2105,7 @@ export function openStructureEditor(option: StructureEditorOption): () => void {
 		button.addEventListener('click', () => {
 			let element = button.dataset.element!;
 			if (element === 'Other') {
-				const text = window.prompt('Element symbol (e.g. Si, Mg, Na)', '');
+				const text = window.prompt(t('Element symbol (e.g. Si, Mg, Na)'), '');
 				if (!text || !/^[A-Z][a-z]?$/.test(text.trim())) return;
 				element = text.trim();
 			}
@@ -2164,8 +2189,7 @@ export function openStructureEditor(option: StructureEditorOption): () => void {
 				blockSelection = new Set();
 			} else close(false);
 		} else if (event.key === 'Enter') close(true);
-		else if (primary && event.code === 'KeyZ') history(event.shiftKey ? 'Redo' : 'Undo');
-		else if (primary && event.code === 'KeyY') history('Redo');
+		else if (historyForKey(event, primary)) history(historyForKey(event, primary)!);
 		else if (event.key === 'Delete' || event.key === 'Backspace') {
 			if (!removeSelection()) {
 				if (hover.atom) {

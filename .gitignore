@@ -12,3 +12,8 @@ Thumbs.db
 sample/.oi/
 # Vercel CLI link (vercel link)
 .vercel/
+# secrets never belong in the repo: the AI's key lives in the browser, but a local .env might not
+.env
+.env.*
+# a vault's AI chats, memory, and copies of attached files, wherever a vault is opened in-place
+**/.oi/AI/

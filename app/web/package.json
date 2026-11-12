@@ -31,6 +31,7 @@
 		"@octaether/module-property": "*",
 		"@octaether/module-table": "*",
 		"@octaether/module-text": "*",
+		"@octaether/plugin-ai": "*",
 		"@octaether/plugin-palette": "*",
 		"@octaether/plugin-theme": "*"
 	}

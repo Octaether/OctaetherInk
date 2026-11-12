@@ -2,6 +2,7 @@
 // (matches are highlighted in the page through the source maps, so a match inside bold text or a
 // table cell lights up exactly there) or the Source view.
 
+import { t, tr } from '@octaether/core-sdk';
 import type { EditSession } from '@octaether/core-edit';
 import { walkNode } from '@octaether/core-format';
 import type { NoteModel } from '@octaether/core-model';
@@ -356,7 +357,7 @@ export class FindBar {
 	private replaceAll(): void {
 		if (!this.target || this.count === 0) return;
 		const count = this.target.replaceAll(this.replaceInput.value);
-		this.notify(`Replaced ${count} ${count === 1 ? 'match' : 'matches'}.`);
+		this.notify(count === 1 ? t('Replaced 1 match.') : tr`Replaced ${count} matches.`);
 		this.run(false);
 	}
 

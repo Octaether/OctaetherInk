@@ -1,5 +1,5 @@
 import type { PropertyMap } from '@octaether/core-format';
-import { type BlockTypeDefinition, type BoardEditor, type BoardItem, type ColorPicker, type HotkeyLookup, type ModuleDefinition, type RenderContext, type ResolvedBlock, boardEditorExtension, colorPickerExtension, escapeHtml, hotkeyExtension } from '@octaether/core-sdk';
+import { type BlockTypeDefinition, type BoardEditor, type BoardItem, type ColorPicker, type HotkeyLookup, type ModuleDefinition, type RenderContext, type ResolvedBlock, boardEditorExtension, colorPickerExtension, escapeHtml, hotkeyExtension, t } from '@octaether/core-sdk';
 import { chemfigToBoard } from './convert';
 import { isOneStructure, loadBoard, writeBoard } from './drawing';
 import { chooseDrawingTool, drawingCommandList, openStructureEditor, structureEditorStyle } from './editor';
@@ -138,7 +138,7 @@ function draw(frame: HTMLElement, block: ResolvedBlock, context: RenderContext):
 	if (block.body.trim() === '') {
 		frame.innerHTML =
 			'<div class="oi-chem oi-chem-empty"><p data-oi-s="0">Empty chemistry block: write a structure, a formula, or chemfig' +
-			`${editable ? ', or draw it.</p><button type="button" class="oi-chem-draw-new" data-oi-interactive>Draw a structure</button>' : '.</p>'}</div>`;
+			`${editable ? `, or draw it.</p><button type="button" class="oi-chem-draw-new" data-oi-interactive>${t('Draw a structure')}</button>` : '.</p>'}</div>`;
 		frame.querySelector('.oi-chem-draw-new')?.addEventListener('click', () => openDrawing(frame, block, context));
 		return undefined;
 	}
@@ -157,8 +157,8 @@ function draw(frame: HTMLElement, block: ResolvedBlock, context: RenderContext):
 	edit.type = 'button';
 	edit.className = 'oi-chem-edit';
 	edit.dataset.oiInteractive = '';
-	edit.title = isOneStructure(block.body, sceneOption) ? 'Edit this structure in the drawing tool' : 'Turn this drawing into a Board, where every structure, arrow, and label can be moved';
-	edit.textContent = 'Edit drawing';
+	edit.title = isOneStructure(block.body, sceneOption) ? t('Edit this structure in the drawing tool') : t('Turn this drawing into a Board, where every structure, arrow, and label can be moved');
+	edit.textContent = t('Edit drawing');
 	edit.addEventListener('click', () => openDrawing(frame, block, context));
 	frame.querySelector('.oi-chem')?.append(edit);
 	return scene;
@@ -188,6 +188,7 @@ function boardSource(chemfig: string): string {
 const chemBlockType: BlockTypeDefinition = {
 	name: 'Chem',
 	content: 'Raw',
+	guide: () => import('./guide').then((module) => module.chemGuide),
 	render: {
 		mount(frame, block, context) {
 			let scene = draw(frame, block, context);
@@ -251,6 +252,7 @@ export const chemModule: ModuleDefinition = {
 	kind: 'Module',
 	name: 'Chem',
 	publisher: 'Octaether',
+	language: { 'zh-Hans': () => import('./language/zh-Hans').then((module) => module.default) },
 	version: '1.0.0',
 	title: 'Chemistry',
 	explain:

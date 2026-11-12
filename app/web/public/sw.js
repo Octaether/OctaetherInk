@@ -2,7 +2,9 @@
 //   the page      from the cache at once, never waiting on the network (a slow or stalled
 //                 connection used to leave the page blank until a reload). Meanwhile the
 //                 network's copy is fetched with every file it needs and replaces the cached
-//                 one; open pages then hear "Updated" and offer Reload.
+//                 one; open pages then hear "Updated" and show the new version (by themselves
+//                 when nothing would be lost, else with a Reload button). A page left open asks
+//                 for this check itself ("Check") when it is looked at again.
 //   /assets/*     cache first: built files have the hash of their content in their name. The
 //                 files of the cached page and of the one before it are kept (a tab may still
 //                 run that one); older ones are dropped.
@@ -112,11 +114,13 @@ self.addEventListener('activate', (event) => {
 	);
 });
 
-// a page says which script it runs; when the cached page is newer, it hears "Updated"
+// a page says which script it runs; when the cached page is newer, it hears "Updated". With
+// "Check" the network is asked first (a page that stayed open, looked at again).
 self.addEventListener('message', (event) => {
-	if (event.data?.type !== 'Version' || typeof event.data.script !== 'string') return;
+	if ((event.data?.type !== 'Version' && event.data?.type !== 'Check') || typeof event.data.script !== 'string') return;
 	event.waitUntil(
 		(async () => {
+			if (event.data.type === 'Check') await refresh().catch(() => undefined);
 			const cached = await (await caches.open(cacheName)).match(pageKey);
 			if (!cached) return;
 			const script = new URL(event.data.script, self.location.origin).pathname;

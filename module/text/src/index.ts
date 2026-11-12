@@ -1,5 +1,5 @@
 import { walkNode } from '@octaether/core-format';
-import { type BlockTypeDefinition, type ModuleDefinition, type RenderContext, type StatusContext, loadAssetImage } from '@octaether/core-sdk';
+import { type BlockTypeDefinition, type ModuleDefinition, type RenderContext, type StatusContext, loadAssetImage, t } from '@octaether/core-sdk';
 import { countWord, headingLevel, listShape, markdownPlainText, renderInline, renderMarkdown, toggleCalloutFold, toggleTask } from './markdown';
 
 export { escapeHtml } from '@octaether/core-sdk';
@@ -43,7 +43,7 @@ const textStyle = `
 .oi-text th { background: var(--oi-color-surface1); }
 .oi-text hr { border: none; border-top: 1px solid var(--oi-color-border); margin: 0.5em 0; }
 .oi-text .oi-empty-line::before { content: attr(data-placeholder); color: var(--oi-color-text-muted); opacity: 0.6; }
-.oi-tag { color: var(--oi-color-accent); background: var(--oi-color-accent-soft); border-radius: 999px; padding: 0.05em 0.5em; font-size: 0.9em; white-space: nowrap; cursor: pointer; }
+.oi-tag { color: var(--oi-tag-text, var(--oi-color-accent)); background: var(--oi-tag-back, var(--oi-color-accent-soft)); border-radius: 999px; padding: 0.05em 0.5em; font-size: 0.9em; white-space: nowrap; cursor: pointer; }
 .oi-tag-plain .oi-tag { background: none; padding: 0; border-radius: 0; font-size: 1em; }
 .oi-wikilink { color: var(--oi-color-accent); cursor: pointer; text-decoration: none; }
 .oi-wikilink:hover { text-decoration: underline; text-underline-offset: 2px; }
@@ -58,7 +58,7 @@ function draw(frame: HTMLElement, body: string, context: RenderContext): void {
 	frame.classList.add('oi-text');
 	frame.classList.toggle('oi-tag-plain', context.setting('Text.TagPill') === false);
 	if (body.trim() === '') {
-		frame.innerHTML = '<p class="oi-text-empty" data-oi-s="0">Type something, or press / for a block</p>';
+		frame.innerHTML = `<p class="oi-text-empty" data-oi-s="0">${t('Type something, or press / for a block')}</p>`;
 		return;
 	}
 	frame.innerHTML = renderMarkdown(body, { resolveColor: context.resolveColor, renderInline: context.renderInline });
@@ -78,6 +78,7 @@ function notePlainText(context: StatusContext): string {
 const textBlockType: BlockTypeDefinition = {
 	name: 'Text',
 	content: 'Item',
+	guide: () => import('./guide').then((module) => module.textGuide),
 	render: {
 		mount(frame, block, context) {
 			let current = { body: block.body, context };
@@ -138,6 +139,7 @@ export const textModule: ModuleDefinition = {
 	kind: 'Module',
 	name: 'Text',
 	publisher: 'Octaether',
+	language: { 'zh-Hans': () => import('./language/zh-Hans').then((module) => module.default) },
 	version: '1.0.0',
 	title: 'Text',
 	explain:
@@ -154,9 +156,9 @@ export const textModule: ModuleDefinition = {
 			title: 'Word count',
 			order: 20,
 			text(context) {
-				if (context.selection.trim() !== '') return `${countWord(context.selection).toLocaleString()} of ${countWord(notePlainText(context)).toLocaleString()} words`;
+				if (context.selection.trim() !== '') return t('{selected} of {count} words', { selected: countWord(context.selection).toLocaleString(), count: countWord(notePlainText(context)).toLocaleString() });
 				const count = countWord(notePlainText(context));
-				return `${count.toLocaleString()} ${count === 1 ? 'word' : 'words'}`;
+				return count === 1 ? t('1 word') : t('{count} words', { count: count.toLocaleString() });
 			},
 		},
 		{
@@ -165,7 +167,7 @@ export const textModule: ModuleDefinition = {
 			order: 21,
 			text(context) {
 				const count = [...(context.selection.trim() !== '' ? context.selection : notePlainText(context)).replace(/\s+/g, ' ').trim()].length;
-				return `${count.toLocaleString()} ${count === 1 ? 'character' : 'characters'}`;
+				return count === 1 ? t('1 character') : t('{count} characters', { count: count.toLocaleString() });
 			},
 		},
 	],

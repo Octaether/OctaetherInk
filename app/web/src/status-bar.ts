@@ -5,6 +5,7 @@
 import type { Registry } from '@octaether/core-render';
 import type { StatusItemDefinition } from '@octaether/core-sdk';
 import type { SettingStore } from './setting-store';
+import { t } from '@octaether/core-sdk';
 import { escapeHtml } from './ui';
 import type { Workspace } from './workspace';
 
@@ -35,7 +36,7 @@ export function appStatusItemList(option: Pick<StatusBarOption, 'workspace' | 'c
 			order: 30,
 			text: (context) => {
 				const count = context.note.keyList().length;
-				return `${count} ${count === 1 ? 'block' : 'blocks'}`;
+				return count === 1 ? t('1 block') : t('{count} blocks', { count });
 			},
 		},
 		{

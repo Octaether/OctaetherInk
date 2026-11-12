@@ -1,0 +1,43 @@
+---
+Created: 2026-09-30 12:00 -04:00
+Format: Oi 1
+---
+
+Property:
+	Tag: [Guide, Module]
+	Module: Code
+
+**Code** 模块以彩色显示代码。一个块以 `Code:` 和语言开头，代码写在下方缩进的行中。角落里的标签会显示语言的正式名称。返回 [[Welcome]]。
+
+Code: Python
+	def rate(k, a, b):
+	    """Rate of a second-order reaction."""
+	    return k * a * b
+
+某个块的设置写在冒号前的花括号里，与所有块一样（`Math {Numbered: True}:`、`Callout {Kind: Tip}:`）：
+
+Code {LineNumber: True}: JavaScript
+	const square = (x) => x * x;
+	console.log([1, 2, 3].map(square));
+
+语言也是一项普通的设置，所以也可以写在花括号里。下面这个块与 `Code: Python` 完全相同，角落的标签无论哪种写法都会显示语言：
+
+Code {Language: Python}:
+	for k in [0.1, 0.2, 0.4]:
+	    print(rate(k, 1.0, 2.0))
+
+## Markdown 围栏
+
+Markdown 围栏同样有效：它是 `Code:` 的*别名*，所以从 Obsidian 或 GitHub 粘贴来的代码无需修改。语言紧跟在三个反引号之后，后面还可以跟花括号里的设置。
+
+```SQL
+SELECT name, grade FROM student WHERE grade > 90 ORDER BY grade DESC;
+```
+
+围栏（三个反引号，或 `~~~`）可以在“设置 → 模块 → Code”中关闭或修改。
+
+## 句中的代码
+
+反引号表示`行内代码`。带上语言时，`{Code {Language: Python}: len("ink")}` 也会着色：{Code {Language: Python}: len("ink")}。
+
+所有块的行号、自动换行、制表符宽度和复制按钮都在“设置 → 模块 → Code”中。

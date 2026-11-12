@@ -8,7 +8,7 @@
 
 import type { ExpressionNode, Value } from '@octaether/core-expression';
 import { type PropertyMap, type PropertyValue, formatInline } from '@octaether/core-format';
-import { type ColorPicker, type MenuEntry, type Point, type PopupMenu, type RenderContext, type RenderHandle, type Renderer, type ResolvedBlock, type TableData, type TableSnapshot, colorPickerExtension, escapeHtml, installStyle, menuExtension, tableDataExtension } from '@octaether/core-sdk';
+import { type ColorPicker, type GradientPicker, gradientCssText, gradientPickerExtension, type MenuEntry, type Point, type PopupMenu, type QueryMenu, type RenderContext, type RenderHandle, type Renderer, type ResolvedBlock, type TableData, type TableSnapshot, colorPickerExtension, escapeHtml, installStyle, menuExtension, tableDataExtension, t, tr } from '@octaether/core-sdk';
 import { dateLabel, dateTickList, numberLabel, numberTickList } from './axis';
 import { type TrendKind, fitTrend, trendText } from './fit';
 import { niceStep, type PlotItem, type PlotProgram } from './parse';
@@ -16,6 +16,7 @@ import { insertLine, numberText, removeLine, replaceSpan, setLine, setLineStyle,
 import { toTex } from './tex';
 import { type Evaluated, type Series, evaluateProgram, localScope, pointListOf, programOf, seriesOf, toNumber } from './program';
 import { type Viewport, fromPixelX, fromPixelY, joinSegment, marchSquare, pathOf, sampleCurve, sampleFunction, shadeRegion, toPixelX, toPixelY } from './sample';
+import { densityOf, gradientCss, gradientOf, gradientStepCount, gradientStopOf, gridArrowList } from './field';
 import { plotStyle } from './style';
 
 export const colorList = ['Accent', '#c0643c', '#3d8a7a', '#7a8a35', '#b5546a', '#8a5a3c', '#5f8a5f', '#a08a5a'];
@@ -509,6 +510,10 @@ class Stage2D implements Stage {
 						}
 						break;
 					}
+					case 'Field': {
+						curve += fieldSvg(item, evaluated, view, color, resolve);
+						break;
+					}
 					default:
 				}
 			} catch (error) {
@@ -517,7 +522,7 @@ class Stage2D implements Stage {
 		}
 		const clip = `oi-plot-clip-${Math.random().toString(36).slice(2, 8)}`;
 		this.svgHost.innerHTML =
-			`<svg class="oi-plot-svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" role="img" aria-label="Plot">` +
+			`<svg class="oi-plot-svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" role="img" aria-label="${t('Plot')}">` +
 			`<defs><clipPath id="${clip}"><rect width="${width}" height="${height}"/></clipPath></defs>` +
 			`<g clip-path="url(#${clip})">` +
 			(grid ? `<path class="oi-plot-grid" d="${grid}"/>` : '') +
@@ -776,6 +781,26 @@ class Stage2D implements Stage {
 		this.hover.style.top = `${best.y}px`;
 		this.hover.style.setProperty('--oi-plot-hover-color', best.color);
 		this.hover.innerHTML = `<span class="oi-plot-hover-dot"></span><span class="oi-plot-hover-label">${escapeHtml(best.label)}</span>`;
+		this.keepLabelInside();
+	}
+
+	/** Keeps the hover label inside the plot (its frame clips): below its point when there is no room above, and moved in from the sides. */
+	private keepLabelInside(): void {
+		const label = this.hover.querySelector<HTMLElement>('.oi-plot-hover-label');
+		const stage = this.hover.offsetParent as HTMLElement | null;
+		if (!label || !stage) return;
+		label.style.marginLeft = '';
+		label.style.top = '';
+		const room = stage.getBoundingClientRect();
+		let box = label.getBoundingClientRect();
+		if (box.width === 0) return;
+		if (box.top < room.top + 2) {
+			if (this.hover.dataset.tag) this.hover.dataset.tag = 'Below';
+			else label.style.top = '10px';
+			box = label.getBoundingClientRect();
+		}
+		const shift = box.left < room.left + 2 ? room.left + 2 - box.left : box.right > room.right - 2 ? room.right - 2 - box.right : 0;
+		if (shift) label.style.marginLeft = `${shift}px`;
 	}
 
 	/** Lights one slice (or bar) and dims the rest, with its name and value beside it; undefined: none. */
@@ -796,7 +821,64 @@ class Stage2D implements Stage {
 		this.hover.style.top = `${spot.y}px`;
 		this.hover.style.setProperty('--oi-plot-hover-color', spot.color);
 		this.hover.innerHTML = `<span class="oi-plot-hover-label">${escapeHtml(spot.label)}</span>`;
+		this.keepLabelInside();
 	}
+}
+
+/** A field's arrows on a grid of the plot's numbers (about one per 44 px, times its Density), grouped by color; they move and grow with a zoom. */
+function fieldSvg(item: PlotItem, evaluated: Evaluated, view: Viewport, color: string, resolve: (color: string) => string): string {
+	const density = densityOf(item);
+	const { arrowList: list, stepList } = gridArrowList(item, evaluated, [
+		{ range: [view.xMin, view.xMax], count: (view.width / 44) * density },
+		{ range: [view.yMin, view.yMax], count: (view.height / 44) * density },
+	]);
+	const gradient = gradientStopOf(item, resolve);
+	const unitX = view.width / (view.xMax - view.xMin);
+	const unitY = view.height / (view.yMax - view.yMin);
+	// a cell of the grid on screen: the longest arrow fills it
+	const step = Math.min(stepList[0]! * unitX, stepList[1]! * unitY);
+	const pathList = new Map<number, string>();
+	for (const arrow of list) {
+		if (arrow.strength === 0) continue;
+		// on screen: x right, y up; as long as its strength, the longest one a cell
+		const dx = arrow.vector[0]! * unitX;
+		const dy = -arrow.vector[1]! * unitY;
+		const size = Math.hypot(dx, dy) || 1;
+		const length = Math.max(3, step * 0.82 * arrow.strength);
+		const ux = dx / size;
+		const uy = dy / size;
+		const x0 = toPixelX(view, arrow.at[0]!) - (ux * length) / 2;
+		const y0 = toPixelY(view, arrow.at[1]!) - (uy * length) / 2;
+		const x1 = x0 + ux * length;
+		const y1 = y0 + uy * length;
+		const head = Math.min(6, length * 0.4);
+		const wing = (turn: number): string => {
+			const cos = Math.cos(turn);
+			const sin = Math.sin(turn);
+			return `M${x1.toFixed(1)} ${y1.toFixed(1)}L${(x1 - head * (ux * cos - uy * sin)).toFixed(1)} ${(y1 - head * (ux * sin + uy * cos)).toFixed(1)}`;
+		};
+		const bucket = gradient ? Math.round(arrow.strength * (gradientStepCount - 1)) : 0;
+		pathList.set(bucket, `${pathList.get(bucket) ?? ''}M${x0.toFixed(1)} ${y0.toFixed(1)}L${x1.toFixed(1)} ${y1.toFixed(1)}${wing(0.45)}${wing(-0.45)}`);
+	}
+	const width = typeof item.style.get('Width') === 'number' ? (item.style.get('Width') as number) : 1.5;
+	const opacity = typeof item.style.get('Opacity') === 'number' ? ` stroke-opacity="${item.style.get('Opacity')}"` : '';
+	return [...pathList]
+		.map(([bucket, data]) => `<path d="${data}" fill="none" style="stroke: ${escapeHtml(gradient ? gradientCss(gradient, bucket / (gradientStepCount - 1)) : color)}" stroke-width="${width}"${opacity} stroke-linecap="round"/>`)
+		.join('');
+}
+
+/** A line that draws something (not a number, a value, or a function of something other than x). */
+function drawable(item: PlotItem): boolean {
+	return !['Define', 'Value'].includes(item.kind) && !(item.kind === 'Function' && item.parameterList?.join() !== 'x');
+}
+
+const isPieItem = (item: PlotItem): boolean => item.kind === 'Data' && ['Pie', 'Donut'].includes(textOf(item.style.get('Kind')) ?? '');
+
+/** A chart's line: a table's rows as bars or a pie, or by date or by name along x (not numbers a graph can share). */
+function isChartItem(item: PlotItem, evaluated: Evaluated): boolean {
+	if (item.kind !== 'Data' || item.partList?.length !== 2) return false;
+	if (['Bar', 'Pie', 'Donut'].includes(textOf(item.style.get('Kind')) ?? '')) return true;
+	return ['Date', 'DateTime', 'Text', 'Tag', 'Link'].includes(evaluated.columnType(item.partList[0]!) ?? '');
 }
 
 function nameUses(node: import('@octaether/core-expression').ExpressionNode, name: string): boolean {
@@ -852,7 +934,9 @@ export class PlotView {
 	private sliderShape = '';
 	private readonly snapshotMap = new Map<string, TableSnapshot | undefined>();
 	private readonly watchMap = new Map<string, () => void>();
-	private playing: { name: string; frame: number; direction: number } | undefined;
+	/** The sliders playing, each with its way and where it is (unrounded); one frame loop moves them all. */
+	private readonly playMap = new Map<string, { direction: number; position: number }>();
+	private playFrame = 0;
 	private isFocused = false;
 	private readonly onOutside = (event: PointerEvent): void => {
 		if (this.isFocused && !this.root.contains(event.target as Node)) {
@@ -942,21 +1026,76 @@ export class PlotView {
 		return typeof setting === 'string' && /^\d+(\.\d+)?(px|em)$/.test(setting) ? setting : '20em';
 	}
 
+	/** The lines this plot draws (a graph's or a chart's), and why each other one isn't drawn here. */
+	private drawn!: PlotProgram;
+	private readonly misfitMap = new Map<PlotItem, { reason: string; action: 'Space' | 'Split' }>();
+	/** A graph or a chart; undefined while it draws nothing yet (anything can be added). */
+	private plotKind: 'Graph' | 'Chart' | undefined;
+
+	/**
+	 * One kind per plot: a graph (math, 2D or 3D) or a chart (a table's rows by date or by name, bars,
+	 * a pie). `Kind: Chart` or `Kind: Graph` says which; otherwise the first line drawn does. A line of
+	 * the other kind stays in the list, saying so, with a click to put it in a plot of its own.
+	 */
+	private sortOut(): void {
+		this.misfitMap.clear();
+		const program = this.program;
+		const own = textOf(this.block.property.get('Kind'));
+		const drawnList = program.itemList.filter(drawable);
+		const chart = (item: PlotItem): boolean => isChartItem(item, this.evaluated);
+		const first = drawnList[0];
+		const isChart = own === 'Chart' || (own !== 'Graph' && first !== undefined && chart(first));
+		if (isChart) {
+			const firstChart = drawnList.find(chart);
+			const pieAlone = firstChart !== undefined && isPieItem(firstChart);
+			for (const item of drawnList) {
+				if (!chart(item)) this.misfitMap.set(item, { reason: t('A graph line: a chart draws only a table’s rows'), action: 'Split' });
+				else if (pieAlone ? item !== firstChart : isPieItem(item)) this.misfitMap.set(item, { reason: t('A pie is drawn in a plot of its own'), action: 'Split' });
+			}
+		} else {
+			for (const item of drawnList) {
+				if (chart(item)) this.misfitMap.set(item, { reason: t('A chart of a table: drawn in a plot of its own'), action: 'Split' });
+				else if (!program.space && item.space) this.misfitMap.set(item, { reason: t('Drawn in 3D only'), action: 'Space' });
+			}
+		}
+		this.drawn = { ...program, itemList: program.itemList.filter((item) => !this.misfitMap.has(item)), space: !isChart && program.space };
+		this.plotKind = own === 'Chart' || own === 'Graph' || first ? (isChart ? 'Chart' : 'Graph') : undefined;
+	}
+
+	/** Takes a line out into a new Plot just below (with the same tables), where it is drawn. */
+	private moveToNewPlot(lineIndex: number): void {
+		const lineList = this.block.body.split('\n');
+		const line = lineList[lineIndex];
+		if (line === undefined) return;
+		const property = new Map<string, PropertyValue>();
+		const data = this.block.property.get('Data');
+		if (data !== undefined) property.set('Data', data);
+		const source = `Plot${property.size ? ` ${formatInline(property)}` : ''}:\n\t${line.trim()}`;
+		const note = this.context.note;
+		const place = note.placeOf(this.block.key);
+		note.transact(() => {
+			this.context.setBody(removeLine(this.block.body, lineIndex));
+			let after = this.block.key;
+			for (const node of note.parseFragment(source)) after = note.insert(place.parentKey, after, node);
+		});
+	}
+
 	private render(): void {
 		this.program = programOf(this.body(), this.dimension());
 		this.loadTable();
 		this.evaluated = evaluateProgram(this.program, this.override, this.snapshotMap, this.dataList());
+		this.sortOut();
 		const interactive = this.interactive();
 		this.root.classList.toggle('oi-plot-fixed', !interactive);
 		this.stageHost.style.height = this.heightCss();
 		if (interactive) this.stageHost.dataset.oiInteractive = '';
 		else delete this.stageHost.dataset.oiInteractive;
-		if (this.space !== this.program.space || !this.stage) {
+		if (this.space !== this.drawn.space || !this.stage) {
 			this.stage?.destroy();
 			this.stage?.element.remove();
 			this.stage = undefined;
-			this.space = this.program.space;
-			if (this.program.space) {
+			this.space = this.drawn.space;
+			if (this.drawn.space) {
 				const host = this.stageHostApi();
 				stage3dLoad ??= import('./view3d');
 				const space = this.space;
@@ -988,7 +1127,7 @@ export class PlotView {
 	private drawStage(): void {
 		if (!this.stage) return;
 		try {
-			this.stage.draw(this.program, this.evaluated, this.colorOf, this.block, this.context);
+			this.stage.draw(this.drawn, this.evaluated, this.colorOf, this.block, this.context);
 		} catch (error) {
 			this.stage.noteMap.clear();
 			this.listElement.dataset.problem = error instanceof Error ? error.message : String(error);
@@ -1012,6 +1151,12 @@ export class PlotView {
 				void data.read(this.context, reference).then((snapshot) => {
 					this.snapshotMap.set(reference, snapshot);
 					this.evaluated = evaluateProgram(this.program, this.override, this.snapshotMap, this.dataList());
+					// a column's type is known now: a line may be a chart's after all
+					this.sortOut();
+					if (this.stage && this.drawn.space !== this.space) {
+						this.render();
+						return;
+					}
 					this.drawStage();
 					this.renderList();
 					this.renderTool();
@@ -1125,11 +1270,11 @@ export class PlotView {
 			if (!button || !name) return;
 			switch (button.dataset.action) {
 				case 'Play':
-					if (this.playing?.name === name) this.stopPlay(true);
+					if (this.playMap.has(name)) this.stopPlay(name, true);
 					else this.play(name);
 					return;
 				case 'EditValue':
-					this.stopPlay(true);
+					this.stopPlay(name, true);
 					this.valueEdit = name;
 					this.rangeEdit = undefined;
 					this.renderSlider();
@@ -1175,46 +1320,64 @@ export class PlotView {
 		});
 	}
 
-	/** Moves a slider back and forth on its own, about 4 seconds end to end. */
+	/** Moves a slider back and forth on its own, about 4 seconds end to end; several can play at once. */
 	private play(name: string): void {
-		this.stopPlay(true);
 		const item = this.sliderList().find((entry) => entry.name === name);
 		if (!item?.slider) return;
-		const { min, max, step } = item.slider;
-		this.playing = { name, frame: 0, direction: 1 };
-		let last = performance.now();
 		// where the slider is, unrounded: a frame moves it less than a step, so rounding each frame would stall it
-		let position = toNumber(this.evaluated.scope.variable[name] ?? min);
-		if (!Number.isFinite(position)) position = min;
-		const tick = (now: number): void => {
-			if (!this.playing || this.playing.name !== name) return;
-			let next = position + this.playing.direction * ((max - min) * (now - last)) / 4000;
-			last = now;
-			if (next >= max) {
-				next = max;
-				this.playing.direction = -1;
-			} else if (next <= min) {
-				next = min;
-				this.playing.direction = 1;
-			}
-			position = next;
-			this.setSlider(name, Number((Math.round(next / step) * step).toPrecision(12)), false);
-			const input = this.sliderRow(name)?.querySelector<HTMLInputElement>('input[type="range"]');
-			if (input) input.value = String(next);
-			this.playing.frame = requestAnimationFrame(tick);
-		};
-		this.playing.frame = requestAnimationFrame(tick);
+		let position = toNumber(this.evaluated.scope.variable[name] ?? item.slider.min);
+		if (!Number.isFinite(position)) position = item.slider.min;
+		this.playMap.set(name, { direction: 1, position });
+		if (!this.playFrame) {
+			let last = performance.now();
+			const tick = (now: number): void => {
+				const elapsed = now - last;
+				last = now;
+				for (const [playName, state] of this.playMap) {
+					const slider = this.sliderList().find((entry) => entry.name === playName)?.slider;
+					if (!slider) {
+						this.playMap.delete(playName);
+						continue;
+					}
+					let next = state.position + (state.direction * ((slider.max - slider.min) * elapsed)) / 4000;
+					if (next >= slider.max) {
+						next = slider.max;
+						state.direction = -1;
+					} else if (next <= slider.min) {
+						next = slider.min;
+						state.direction = 1;
+					}
+					state.position = next;
+					this.override.set(playName, Number((Math.round(next / slider.step) * slider.step).toPrecision(12)));
+					const input = this.sliderRow(playName)?.querySelector<HTMLInputElement>('input[type="range"]');
+					if (input) input.value = String(next);
+				}
+				if (this.playMap.size === 0) {
+					this.playFrame = 0;
+					this.renderSlider();
+					return;
+				}
+				// all of them moved: worked out and drawn once
+				this.evaluated = evaluateProgram(this.program, this.override, this.snapshotMap, this.dataList());
+				this.drawStage();
+				this.renderSlider();
+				this.playFrame = requestAnimationFrame(tick);
+			};
+			this.playFrame = requestAnimationFrame(tick);
+		}
 		this.renderSlider();
 	}
 
-	private stopPlay(write = false): void {
-		if (!this.playing) return;
-		const { name, frame } = this.playing;
-		cancelAnimationFrame(frame);
-		this.playing = undefined;
-		if (write) {
-			const value = this.override.get(name);
-			if (value !== undefined) this.writeSlider(name, value);
+	/** Stops one slider (or all), writing where it stopped into the text when `write`. */
+	private stopPlay(name?: string, write = false): void {
+		for (const playName of name === undefined ? [...this.playMap.keys()] : [name]) {
+			if (!this.playMap.delete(playName)) continue;
+			const value = this.override.get(playName);
+			if (write && value !== undefined) this.writeSlider(playName, value);
+		}
+		if (this.playMap.size === 0 && this.playFrame) {
+			cancelAnimationFrame(this.playFrame);
+			this.playFrame = 0;
 		}
 		this.renderSlider();
 	}
@@ -1266,25 +1429,37 @@ export class PlotView {
 		const rowList: string[] = [];
 		const itemByLine = new Map(this.program.itemList.map((item) => [item.line, item]));
 		const picker = readOnly ? undefined : this.context.extension<ColorPicker>(colorPickerExtension);
-		const more = (index: number): string => (readOnly ? '' : `<button type="button" class="oi-plot-more" data-more="${index}" title="Color, line, label, hide, delete…" aria-label="Options">${moreMark}</button>`);
+		const more = (index: number): string => (readOnly ? '' : `<button type="button" class="oi-plot-more" data-more="${index}" title="${t('Color, line, label, hide, delete')}" aria-label="${t('Options')}">${moreMark}</button>`);
 		lineList.forEach((line, index) => {
 			const start = offset;
 			offset += line.length + 1;
 			const editing = this.editLine === index;
-			if (!editing && (line.trim() === '' || /^\s*(?:#|\/\/)/.test(line))) return;
+			if (!editing && line.trim() === '') return;
+			const comment = /^\s*(?:#|\/\/)/.exec(line);
+			if (!editing && comment) {
+				// a comment: a note to whoever reads the plot (# or //)
+				const text = line.trim().replace(/^(?:#|\/\/)\s?/, '');
+				if (full && text) rowList.push(`<div class="oi-plot-row oi-plot-row-comment" data-line="${index}" data-oi-s="${start + (line.length - line.trimStart().length)}"${readOnly ? '' : ` title="${t('Click to edit')}"`}><span class="oi-plot-dot" data-empty></span><span class="oi-plot-comment">${escapeHtml(text)}</span>${more(index)}</div>`);
+				return;
+			}
 			const item = itemByLine.get(index);
 			const problem = problemMap.get(index);
 			const hidden = item?.style.get('Hidden') === true;
 			const drawn = item && !['Define', 'Value'].includes(item.kind) && !(item.kind === 'Function' && item.parameterList?.join() !== 'x');
 			const color = drawn ? (this.context.resolveColor(this.colorOf(item)) ?? this.colorOf(item)) : undefined;
+			// a field's dot is its gradient: the weakest arrows' color on the left, the strongest on the right
+			const field = drawn && item.kind === 'Field';
+			const gradient = field ? gradientStopOf(item, (stop) => this.context.resolveColor(stop) ?? stop) : undefined;
+			const dotStyle = gradient ? `--oi-plot-dot:${gradientCssText(gradient)}` : `--oi-plot-dot:${color}`;
+			const fieldTitle = t('Color by strength: weak on the left, strong on the right');
 			const dot =
-				drawn && picker
-					? `<button type="button" class="oi-plot-dot" data-dot="${index}" style="--oi-plot-dot:${escapeHtml(color!)}"${hidden ? ' data-hidden' : ''} title="Color" aria-label="Color"></button>`
-					: `<span class="oi-plot-dot"${color ? ` style="--oi-plot-dot:${escapeHtml(color)}"` : ' data-empty'}${hidden ? ' data-hidden' : ''}></span>`;
+				drawn && (field ? this.context.extension<GradientPicker>(gradientPickerExtension) : picker)
+					? `<button type="button" class="oi-plot-dot${field ? ' oi-plot-dot-field' : ''}" data-dot="${index}" style="${escapeHtml(dotStyle)}"${hidden ? ' data-hidden' : ''} title="${field ? fieldTitle : t('Color')}" aria-label="${field ? fieldTitle : t('Color')}"></button>`
+					: `<span class="oi-plot-dot${field ? ' oi-plot-dot-field' : ''}"${color ? ` style="${escapeHtml(dotStyle)}"` : ' data-empty'}${hidden ? ' data-hidden' : ''}></span>`;
 			if (editing) {
 				rowList.push(
 					`<div class="oi-plot-row oi-plot-row-editing" data-line="${index}">${dot}` +
-						`<input class="oi-plot-line" data-field="line" data-line="${index}" value="${escapeHtml(line.trim())}" spellcheck="false" autocomplete="off" aria-label="Line ${index + 1}" placeholder="Type, or / for what you can add">` +
+						`<input class="oi-plot-line" data-field="line" data-line="${index}" value="${escapeHtml(line.trim())}" spellcheck="false" autocomplete="off" aria-label="${escapeHtml(tr`Line ${index + 1}`)}" placeholder="${t('Type, or / for what you can add')}">` +
 						`<span class="oi-plot-problem oi-plot-live-problem"${problem ? ' data-oi-problem' : ''}>${escapeHtml(problem ?? '')}</span></div>`,
 				);
 				return;
@@ -1297,12 +1472,15 @@ export class PlotView {
 			if (!full && !problem) return;
 			const note = item ? this.stage?.noteMap.get(item) : undefined;
 			const value = item ? this.evaluated.valueMap.get(item) : undefined;
+			const misfit = item ? this.misfitMap.get(item) : undefined;
+			const fix = misfit && !readOnly ? `<button type="button" class="oi-plot-fix" data-fix="${misfit.action}" data-line="${index}">${misfit.action === 'Space' ? t('Make it 3D') : t('Move to a new plot')}</button>` : '';
 			rowList.push(
-				`<div class="oi-plot-row${problem ? ' oi-plot-row-problem' : ''}${hidden ? ' oi-plot-row-hidden' : ''}" data-line="${index}" data-oi-s="${start + (line.length - line.trimStart().length)}"${readOnly ? '' : ' title="Click to edit"'}>` +
+				`<div class="oi-plot-row${problem ? ' oi-plot-row-problem' : ''}${hidden ? ' oi-plot-row-hidden' : ''}${misfit ? ' oi-plot-row-misfit' : ''}" data-line="${index}" data-oi-s="${start + (line.length - line.trimStart().length)}"${readOnly ? '' : ` title="${t('Click to edit')}"`}>` +
 					dot +
 					`<span class="oi-plot-expression">${item && !problem ? this.rowHtml(item) : escapeHtml(line.trim())}</span>` +
 					(value !== undefined && item?.kind === 'Value' ? `<span class="oi-plot-value">= ${escapeHtml(valueText(value))}</span>` : '') +
-					(note ? `<span class="oi-plot-note">${escapeHtml(note)}</span>` : '') +
+					(note && !misfit ? `<span class="oi-plot-note">${escapeHtml(note)}</span>` : '') +
+					(misfit ? `<span class="oi-plot-note oi-plot-misfit">${escapeHtml(misfit.reason)}</span>${fix}` : '') +
 					(problem ? `<span class="oi-plot-problem" data-oi-problem>${escapeHtml(problem)}</span>` : '') +
 					more(index) +
 					`</div>`,
@@ -1312,8 +1490,11 @@ export class PlotView {
 			rowList.push(`<div class="oi-plot-row oi-plot-row-problem"><span class="oi-plot-problem" data-oi-problem>${escapeHtml(this.listElement.dataset.problem)}</span></div>`);
 			delete this.listElement.dataset.problem;
 		}
-		if (this.body().trim() === '' && this.editLine === undefined) rowList.push(`<div class="oi-plot-row oi-plot-empty">An empty plot: add a function, a slider, a point, or a chart of a table.</div>`);
-		if (!readOnly && full) rowList.push(`<button type="button" class="oi-plot-add" data-action="AddMenu">${plusMark}<span>Add</span></button>`);
+		if (this.body().trim() === '' && this.editLine === undefined) rowList.push(`<div class="oi-plot-row oi-plot-empty">${t('An empty plot: add a function, a slider, a point, or a chart of a table.')}</div>`);
+		if (!readOnly && full && this.editLine === undefined)
+			rowList.push(
+				`<div class="oi-plot-row oi-plot-row-new"><span class="oi-plot-dot" data-empty></span><input class="oi-plot-line" data-field="newLine" spellcheck="false" autocomplete="off" aria-label="${t('New line')}" placeholder="${t('Type a line, or / for what you can add')}"></div>`,
+			);
 		this.listElement.hidden = rowList.length === 0;
 		this.listElement.innerHTML = rowList.join('');
 		this.sliderShape = this.sliderShapeOf();
@@ -1339,7 +1520,7 @@ export class PlotView {
 		const slider = item.slider!;
 		const name = escapeHtml(item.name!);
 		const value = toNumber(this.evaluated.scope.variable[item.name!] ?? Number.NaN);
-		const playing = this.playing?.name === item.name;
+		const playing = this.playMap.has(item.name!);
 		const editable = !readOnly && item.valueSpan !== undefined;
 		let nameHtml: string | undefined;
 		try {
@@ -1351,32 +1532,32 @@ export class PlotView {
 		const valueHtml =
 			this.valueEdit === item.name
 				? `<input class="oi-plot-slider-value oi-plot-number" data-field="value" type="number" step="any" value="${Number.isFinite(value) ? value : ''}" aria-label="${name}">`
-				: `<button type="button" class="oi-plot-slider-value" data-action="EditValue"${editable ? '' : ' disabled'} title="Type a value">${escapeHtml(valueText(value))}</button>`;
+				: `<button type="button" class="oi-plot-slider-value" data-action="EditValue"${editable ? '' : ' disabled'} title="${t('Type a value')}">${escapeHtml(valueText(value))}</button>`;
 		if (this.rangeEdit === item.name) {
 			const own = item.style.get('Slider');
 			const step = Array.isArray(own) && own.length > 2 ? slider.step : '';
 			return (
 				`<div class="oi-plot-row oi-plot-row-slider oi-plot-range" data-line="${index}" data-name="${name}">${head}` +
-				`<input class="oi-plot-number" data-field="min" type="number" step="any" value="${slider.min}" aria-label="Lowest">` +
+				`<input class="oi-plot-number" data-field="min" type="number" step="any" value="${slider.min}" aria-label="${t('Lowest')}">` +
 				`<span class="oi-plot-range-name">≤ ${name} ≤</span>` +
-				`<input class="oi-plot-number" data-field="max" type="number" step="any" value="${slider.max}" aria-label="Highest">` +
-				`<label class="oi-plot-step">Step <input class="oi-plot-number" data-field="step" type="number" step="any" min="0" value="${step}" placeholder="any" aria-label="Step"></label>` +
-				`<button type="button" class="oi-plot-button" data-action="RangeDone">Done</button></div>`
+				`<input class="oi-plot-number" data-field="max" type="number" step="any" value="${slider.max}" aria-label="${t('Highest')}">` +
+				`<label class="oi-plot-step">${t('Step')} <input class="oi-plot-number" data-field="step" type="number" step="any" min="0" value="${step}" placeholder="any" aria-label="${t('Step')}"></label>` +
+				`<button type="button" class="oi-plot-button" data-action="RangeDone">${t('Done')}</button></div>`
 			);
 		}
 		const bound = (bound: number, side: string): string =>
-			editable ? `<button type="button" class="oi-plot-slider-bound" data-action="EditRange" data-side="${side}" title="Range and step">${escapeHtml(valueText(bound))}</button>` : `<span class="oi-plot-slider-bound">${escapeHtml(valueText(bound))}</span>`;
+			editable ? `<button type="button" class="oi-plot-slider-bound" data-action="EditRange" data-side="${side}" title="${t('Range and step')}">${escapeHtml(valueText(bound))}</button>` : `<span class="oi-plot-slider-bound">${escapeHtml(valueText(bound))}</span>`;
 		return (
-			`<div class="oi-plot-row oi-plot-row-slider" data-line="${index}" data-name="${name}"${readOnly ? '' : ' title="Click the name to edit the line"'}>${head}${valueHtml}` +
+			`<div class="oi-plot-row oi-plot-row-slider" data-line="${index}" data-name="${name}"${readOnly ? '' : ` title="${t('Click the name to edit the line')}"`}>${head}${valueHtml}` +
 			`<span class="oi-plot-slider-track">${bound(slider.min, 'min')}<input type="range" min="${slider.min}" max="${slider.max}" step="${slider.step}" value="${Number.isFinite(value) ? value : slider.min}" aria-label="${name}"${readOnly && !this.interactive() ? ' disabled' : ''}>${bound(slider.max, 'max')}</span>` +
-			`<button type="button" class="oi-plot-play" data-action="Play" aria-label="${playing ? 'Pause' : 'Play'} ${name}">${playing ? pauseMark : playMark}</button>` +
-			(readOnly ? '' : `<button type="button" class="oi-plot-more" data-more="${index}" title="Range, delete…" aria-label="Options">${moreMark}</button>`) +
+			`<button type="button" class="oi-plot-play" data-action="Play" aria-label="${escapeHtml(playing ? tr`Pause ${name}` : tr`Play ${name}`)}">${playing ? pauseMark : playMark}</button>` +
+			(readOnly ? '' : `<button type="button" class="oi-plot-more" data-more="${index}" title="${t('Range, delete')}" aria-label="${t('Options')}">${moreMark}</button>`) +
 			`</div>`
 		);
 	}
 
 	private sliderShapeOf(): string {
-		return JSON.stringify([this.context.readOnly(), this.playing?.name, this.valueEdit, this.rangeEdit, this.sliderList().map((item) => [item.name, item.slider, item.line])]);
+		return JSON.stringify([this.context.readOnly(), [...this.playMap.keys()], this.valueEdit, this.rangeEdit, this.sliderList().map((item) => [item.name, item.slider, item.line])]);
 	}
 
 	/** A name not used yet: `a`, `b`… for numbers, `P`, `Q`… for points. */
@@ -1386,40 +1567,55 @@ export class PlotView {
 	}
 
 	/** What can be added: kinds of lines, and charts of the plot's tables by their columns. */
+	/** What can be added: what fits the plot's kind (a graph's lines, or a chart's), a comment, and the switch to 3D or 2D. */
 	private addEntryList(pick: (text: string) => void): MenuEntry[] {
-		const list: MenuEntry[] = [
-			{ title: 'Function', hint: 'y = x^2', run: () => pick('y = x^2') },
-			{ title: 'Number with a slider', hint: `${this.freeName(false)} = 1`, run: () => pick(`${this.freeName(false)} = 1`) },
-			{ title: 'Point', hint: `${this.freeName(true)} = (1, 2)`, run: () => pick(`${this.freeName(true)} = (1, 2)`) },
-			{ title: 'Curve in x and y', hint: 'x^2 + y^2 = 4', run: () => pick('x^2 + y^2 = 4') },
-			{ title: 'Region', hint: 'y < x', run: () => pick('y < x') },
-			{ title: 'Polar curve', hint: 'r = 1 + cos(θ)', run: () => pick('r = 1 + cos(θ)') },
-			{ title: 'Parametric curve', hint: '(cos t, sin t)', run: () => pick('(cos t, sin t)') },
-			{ title: 'Surface (3D)', hint: 'z = sin(x) cos(y)', run: () => pick('z = sin(x) cos(y)') },
-			{ title: 'Note', hint: '# a note', run: () => pick('# ') },
-		];
+		const kind = this.plotKind;
+		const space = this.drawn.space;
+		const list: MenuEntry[] = [];
+		if (kind !== 'Chart') {
+			list.push(
+				{ title: t('Function'), hint: 'y = x^2', keywordList: ['curve', 'graph'], run: () => pick('y = x^2') },
+				{ title: t('Number with a slider'), hint: `${this.freeName(false)} = 1`, keywordList: ['slider', 'variable'], run: () => pick(`${this.freeName(false)} = 1`) },
+				{ title: t('Point'), hint: space ? `${this.freeName(true)} = (1, 2, 1)` : `${this.freeName(true)} = (1, 2)`, run: () => pick(space ? `${this.freeName(true)} = (1, 2, 1)` : `${this.freeName(true)} = (1, 2)`) },
+				{ title: t('Curve in x and y'), hint: 'x^2 + y^2 = 4', keywordList: ['implicit', 'circle'], run: () => pick('x^2 + y^2 = 4') },
+				{ title: t('Region'), hint: 'y < x', keywordList: ['inequality', 'shade'], run: () => pick('y < x') },
+				{ title: t('Polar curve'), hint: 'r = 1 + cos(θ)', run: () => pick('r = 1 + cos(θ)') },
+				{ title: t('Parametric curve'), hint: space ? '(cos t, sin t, t/5)' : '(cos t, sin t)', run: () => pick(space ? '(cos t, sin t, t/5)' : '(cos t, sin t)') },
+				{ title: t('Vector field'), hint: space ? 'F(x, y, z) = (-y, x, 0.3)' : 'F(x, y) = (-y, x)', keywordList: ['arrow', 'quiver', 'flow'], run: () => pick(space ? 'F(x, y, z) = (-y, x, 0.3)' : 'F(x, y) = (-y, x)') },
+				{ title: t('Surface (3D)'), hint: 'z = sin(x) cos(y)', keywordList: ['3d'], run: () => pick('z = sin(x) cos(y)') },
+			);
+		}
+		list.push({ title: t('Comment'), hint: t('# a note to the reader'), keywordList: ['note', 'text'], run: () => pick('# ') });
+		if (kind !== 'Chart')
+			list.push(
+				space
+					? { title: t('Make it 2D'), explain: t('Lines in space wait in the list'), separatorBefore: true, run: () => this.context.setProperty('Dimension', 2) }
+					: { title: t('Make it 3D'), explain: t('Lines in x and y lie on the plane z = 0'), separatorBefore: true, run: () => this.context.setProperty('Dimension', 3) },
+			);
+		if (kind === 'Graph') return list;
 		// charts from the tables the plot reads
 		const columnList = this.dataList().flatMap((reference) => this.snapshotMap.get(reference)?.columnList ?? []);
 		const dateColumn = columnList.find((column) => column.type === 'Date' || column.type === 'DateTime');
-		const nameColumn = columnList.find((column) => column.type === 'Choice' || column.type === 'Text');
+		const nameColumn = columnList.find((column) => column.type === 'Tag' || column.type === 'Text');
 		const numberColumnList = columnList.filter((column) => column.type === 'Number').slice(0, 3);
 		const variable = (name: string): string => name.trim().replace(/[^A-Za-z0-9Ͱ-Ͽ_]+/g, '_');
 		const chartList: MenuEntry[] = [];
 		for (const column of numberColumnList) {
-			if (dateColumn) chartList.push({ title: `${column.name} by ${dateColumn.name}`, hint: 'line', run: () => pick(`(${variable(dateColumn.name)}, ${variable(column.name)}) {Kind: Line}`) });
-			if (dateColumn) chartList.push({ title: `${column.name} by month`, hint: 'bars', run: () => pick(`(${variable(dateColumn.name)}, ${variable(column.name)}) {Kind: Bar, Group: Month, Combine: Sum}`) });
-			if (nameColumn) chartList.push({ title: `${column.name} by ${nameColumn.name}`, hint: 'pie', run: () => pick(`(${variable(nameColumn.name)}, ${variable(column.name)}) {Kind: Pie}`) });
+			if (dateColumn) chartList.push({ title: tr`${column.name} by ${dateColumn.name}`, hint: t('line'), run: () => pick(`(${variable(dateColumn.name)}, ${variable(column.name)}) {Kind: Line}`) });
+			if (dateColumn) chartList.push({ title: tr`${column.name} by month`, hint: t('bars'), run: () => pick(`(${variable(dateColumn.name)}, ${variable(column.name)}) {Kind: Bar, Group: Month, Combine: Sum}`) });
+			if (nameColumn) chartList.push({ title: tr`${column.name} by ${nameColumn.name}`, hint: t('pie'), run: () => pick(`(${variable(nameColumn.name)}, ${variable(column.name)}) {Kind: Pie}`) });
 		}
 		if (chartList.length) list.push({ ...chartList[0]!, separatorBefore: true }, ...chartList.slice(1));
+		else if (kind === 'Chart') return list;
 		else
 			list.push({
-				title: 'Chart a table',
-				explain: 'Name a table by its title; its columns can then be added here',
+				title: t('Chart a table'),
+				explain: t('Name a table by its title; its columns can then be added here'),
 				separatorBefore: true,
 				run: () =>
 					void this.context
 						.extension<PopupMenu>(menuExtension)
-						?.prompt('Title of the table to chart', '', 'Chart')
+						?.prompt(t('Title of the table to chart'), '', 'Chart')
 						.then((title) => {
 							if (title?.trim()) this.context.setProperty('Data', title.trim());
 						}),
@@ -1438,41 +1634,53 @@ export class PlotView {
 		};
 		const style = (key: string): PropertyValue | undefined => item?.style.get(key);
 		const choice = (key: string, valueList: readonly (string | undefined)[], titleOf: (value: string | undefined) => string, current = style(key)): MenuEntry[] =>
-			valueList.map((value) => ({ title: titleOf(value), checked: (current ?? undefined) === value, run: () => set(key, value) }));
-		const itemList: MenuEntry[] = [{ title: 'Edit', run: () => this.startEdit(index) }];
-		if (item?.kind === 'Define' && item.slider) itemList.push({ title: 'Range and step', run: () => ((this.rangeEdit = item.name), (this.rangeSide = 'min'), this.renderList()) });
+			valueList.map((value) => ({ title: t(titleOf(value)), checked: (current ?? undefined) === value, run: () => set(key, value) }));
+		const itemList: MenuEntry[] = [{ title: t('Edit'), run: () => this.startEdit(index) }];
+		if (item?.kind === 'Define' && item.slider) itemList.push({ title: t('Range and step'), run: () => ((this.rangeEdit = item.name), (this.rangeSide = 'min'), this.renderList()) });
 		const drawn = item && !['Define', 'Value'].includes(item.kind);
 		if (drawn) {
 			const picker = this.context.extension<ColorPicker>(colorPickerExtension);
-			if (picker) itemList.push({ title: 'Color', separatorBefore: true, run: () => picker.open({ x: rect.left, y: rect.bottom + 4, current: textOf(style('Color')), title: 'Color', onPick: (color) => set('Color', color) }) });
+			if (picker) itemList.push({ title: t('Color'), separatorBefore: true, run: () => picker.open({ x: rect.left, y: rect.bottom + 4, current: textOf(style('Color')), title: t('Color'), onPick: (color) => set('Color', color) }) });
+			// a field's arrows: colored by how strong the field is, weakest to strongest
+			const gradientPicker = this.context.extension<GradientPicker>(gradientPickerExtension);
+			if (item.kind === 'Field' && gradientPicker) {
+				itemList.push({
+					title: t('Color by strength'),
+					...(gradientOf(item) ? { hint: t('On') } : {}),
+					explain: t('A gradient from the weakest arrow to the strongest'),
+					run: () => this.openGradient(index, rect),
+				});
+			}
+			if (item.kind === 'Field')
+				itemList.push({ title: t('Arrows'), childList: [0.5, undefined, 2].map((value) => ({ title: value === undefined ? t('Normal') : value < 1 ? t('Fewer') : t('More'), checked: style('Density') === value || (value === undefined && style('Density') === undefined), run: () => set('Density', value) })) });
 			const kind = textOf(style('Kind'));
 			const lineLike = item.kind !== 'Point' && !(item.kind === 'Data' && ['Scatter', 'Bar', 'Pie', 'Donut', undefined].includes(kind));
 			if (lineLike) {
 				itemList.push(
-					{ title: 'Line', childList: choice('Style', [undefined, 'Dashed', 'Dotted'], (value) => value ?? 'Solid') },
-					{ title: 'Thickness', childList: [1.2, undefined, 3.5].map((value) => ({ title: value === undefined ? 'Normal' : value < 2 ? 'Thin' : 'Thick', checked: style('Width') === value || (value === undefined && style('Width') === undefined), run: () => set('Width', value) })) },
+					{ title: t('Line'), childList: choice('Style', [undefined, 'Dashed', 'Dotted'], (value) => value ?? 'Solid') },
+					{ title: t('Thickness'), childList: [1.2, undefined, 3.5].map((value) => ({ title: value === undefined ? t('Normal') : value < 2 ? t('Thin') : t('Thick'), checked: style('Width') === value || (value === undefined && style('Width') === undefined), run: () => set('Width', value) })) },
 				);
 			}
 			if (item.kind === 'Data') {
-				itemList.push({ title: 'Kind', childList: choice('Kind', ['Scatter', 'Line', 'Bar', 'Area', 'Pie', 'Donut'], (value) => value!, kind ?? 'Scatter') });
+				itemList.push({ title: t('Kind'), childList: choice('Kind', ['Scatter', 'Line', 'Bar', 'Area', 'Pie', 'Donut'], (value) => value!, kind ?? 'Scatter') });
 				const date = this.evaluated.columnType(item.partList![0]!);
-				if (date === 'Date' || date === 'DateTime') itemList.push({ title: 'Group by', childList: choice('Group', [undefined, 'Day', 'Week', 'Month', 'Year'], (value) => value ?? 'Nothing') });
+				if (date === 'Date' || date === 'DateTime') itemList.push({ title: t('Group by'), childList: choice('Group', [undefined, 'Day', 'Week', 'Month', 'Year'], (value) => value ?? 'Nothing') });
 				itemList.push(
-					{ title: 'Combine', childList: choice('Combine', [undefined, 'Average', 'Count', 'Min', 'Max'], (value) => value ?? 'Sum') },
-					{ title: 'Trend line', childList: choice('Trend', [undefined, 'Linear', 'Quadratic', 'Exponential'], (value) => value ?? 'None') },
+					{ title: t('Combine'), childList: choice('Combine', [undefined, 'Average', 'Count', 'Min', 'Max'], (value) => value ?? 'Sum') },
+					{ title: t('Trend line'), childList: choice('Trend', [undefined, 'Linear', 'Quadratic', 'Exponential'], (value) => value ?? 'None') },
 				);
 			}
 			itemList.push({
-				title: 'Label',
+				title: t('Label'),
 				hint: textOf(style('Label')) ?? '',
 				run: () =>
-					void menu.prompt('Label', textOf(style('Label')) ?? item.name ?? '', 'Set').then((label) => {
+					void menu.prompt(t('Label'), textOf(style('Label')) ?? item.name ?? '', 'Set').then((label) => {
 						if (label !== undefined) set('Label', label.trim() || undefined);
 					}),
 			});
-			itemList.push({ title: style('Hidden') === true ? 'Show' : 'Hide', run: () => set('Hidden', style('Hidden') === true ? undefined : true) });
+			itemList.push({ title: style('Hidden') === true ? t('Show') : t('Hide'), run: () => set('Hidden', style('Hidden') === true ? undefined : true) });
 		}
-		itemList.push({ title: 'Delete', danger: true, separatorBefore: true, run: () => this.context.setBody(removeLine(this.block.body, index)) });
+		itemList.push({ title: t('Delete'), danger: true, separatorBefore: true, run: () => this.context.setBody(removeLine(this.block.body, index)) });
 		menu.open({ x: rect.left, y: rect.bottom + 2, itemList });
 	}
 
@@ -1495,6 +1703,12 @@ export class PlotView {
 		this.program = programOf(this.body(), this.dimension());
 		this.loadTable();
 		this.evaluated = evaluateProgram(this.program, this.override, this.snapshotMap, this.dataList());
+		this.sortOut();
+		// a line typed that turns the plot 3D (or back) needs the other stage
+		if (this.stage && this.drawn.space !== this.space) {
+			this.render();
+			return;
+		}
 		this.drawStage();
 		this.renderList();
 	}
@@ -1537,6 +1751,35 @@ export class PlotView {
 	}
 
 	/** Sets a line's Color in its style (undefined: its color from the list again). */
+	/**
+	 * A field's gradient, edited with the plot showing it as it changes: every change is written at
+	 * once (one undo step while the picker is open), Esc puts back what was there.
+	 */
+	private openGradient(lineIndex: number, rect: DOMRect): void {
+		const picker = this.context.extension<GradientPicker>(gradientPickerExtension);
+		const item = this.program.itemList.find((entry) => entry.line === lineIndex);
+		if (!picker || !item) return;
+		const current = gradientOf(item);
+		const coalesceKey = `Plot.Gradient:${this.block.key}:${Date.now()}`;
+		const write = (stopList: string[] | undefined): void => {
+			const note = this.context.note;
+			const body = note.bodyOf(this.block.key);
+			const next = setLineStyle(body, lineIndex, 'Gradient', stopList);
+			if (next !== body) note.setBody(this.block.key, next, { coalesceKey });
+		};
+		picker.open({
+			x: rect.left,
+			y: rect.bottom + 6,
+			...(current ? { current } : {}),
+			title: t('Color by strength'),
+			lowTitle: t('Weak'),
+			highTitle: t('Strong'),
+			noneTitle: t('One color'),
+			onChange: write,
+			onPick: write,
+		});
+	}
+
 	private setLineColor(lineIndex: number, color: string | undefined): void {
 		const next = setLineStyle(this.block.body, lineIndex, 'Color', color);
 		if (next !== this.block.body) this.context.setBody(next);
@@ -1544,6 +1787,45 @@ export class PlotView {
 
 	/** A menu is open over the list: its focus leaving the line doesn't write the line. */
 	private menuOpen = false;
+	private slashMenu: QueryMenu | undefined;
+
+	/** The menu of what can be added, under the line being typed, filtered by what is typed after the /. */
+	private openSlashMenu(input: HTMLInputElement, line: number, query: string): void {
+		const rect = input.getBoundingClientRect();
+		if (!this.slashMenu) {
+			const menu = this.context.extension<PopupMenu>(menuExtension);
+			const pick = (text: string): void => {
+				if (this.editLine !== line) return;
+				this.draftBody = setLine(this.editBase, line, text);
+				this.focusLine = true;
+				this.refreshDraft();
+			};
+			if (!menu?.openQuery) {
+				this.openAddMenu(rect, pick);
+				return;
+			}
+			this.menuOpen = true;
+			this.slashMenu = menu.openQuery({
+				x: rect.left,
+				y: rect.bottom + 2,
+				itemList: this.addEntryList(pick),
+				emptyText: t('Nothing to add matches'),
+				onClose: () => {
+					this.slashMenu = undefined;
+					this.menuOpen = false;
+					// closed without a pick (Esc): the / goes, and the line is as it was
+					const field = this.listElement.querySelector<HTMLInputElement>('input[data-field="line"]');
+					if (field && /^\/\S*$/.test(field.value.trim())) {
+						field.value = '';
+						this.draftBody = setLine(this.editBase, line, '');
+						this.refreshDraft();
+					}
+				},
+			});
+		}
+		this.slashMenu.setQuery(query);
+		this.slashMenu.place(rect.left, rect.bottom + 2, rect.top);
+	}
 
 	/** The Add menu at `rect`; `pick` gets the line chosen. */
 	private openAddMenu(rect: DOMRect, pick: (text: string) => void): boolean {
@@ -1571,13 +1853,18 @@ export class PlotView {
 			const target = event.target as Element;
 			const dot = target.closest<HTMLElement>('button[data-dot]');
 			if (dot) {
-				const picker = this.context.extension<ColorPicker>(colorPickerExtension);
-				if (!picker) return;
-				event.stopPropagation();
 				const lineIndex = Number(dot.dataset.dot);
 				const item = this.program.itemList.find((entry) => entry.line === lineIndex);
 				const rect = dot.getBoundingClientRect();
-				picker.open({ x: rect.left, y: rect.bottom + 4, current: item ? textOf(item.style.get('Color')) : undefined, title: 'Color', onPick: (color) => this.setLineColor(lineIndex, color) });
+				if (item?.kind === 'Field') {
+					event.stopPropagation();
+					this.openGradient(lineIndex, rect);
+					return;
+				}
+				const picker = this.context.extension<ColorPicker>(colorPickerExtension);
+				if (!picker) return;
+				event.stopPropagation();
+				picker.open({ x: rect.left, y: rect.bottom + 4, current: item ? textOf(item.style.get('Color')) : undefined, title: t('Color'), onPick: (color) => this.setLineColor(lineIndex, color) });
 				return;
 			}
 			const more = target.closest<HTMLElement>('button[data-more]');
@@ -1594,15 +1881,13 @@ export class PlotView {
 				this.lineMenu(index, more.getBoundingClientRect());
 				return;
 			}
-			const add = target.closest<HTMLElement>('[data-action="AddMenu"]');
-			if (add) {
+			// a line not drawn in this plot: draw it in 3D, or in a plot of its own
+			const fix = target.closest<HTMLElement>('button[data-fix]');
+			if (fix) {
+				event.stopPropagation();
 				if (this.editLine !== undefined) this.commitLine();
-				const append = (text: string): void => {
-					const body = this.block.body;
-					const count = body === '' ? 0 : body.split('\n').length;
-					this.startEdit(count, insertLine(body, count - 1, text));
-				};
-				if (!this.openAddMenu(add.getBoundingClientRect(), append)) append('');
+				if (fix.dataset.fix === 'Space') this.context.setProperty('Dimension', 3);
+				else this.moveToNewPlot(Number(fix.dataset.line));
 				return;
 			}
 			// buttons and fields do their own thing; the rest of a row edits its line
@@ -1618,16 +1903,13 @@ export class PlotView {
 			const input = event.target as HTMLInputElement;
 			if (input.dataset.field !== 'line' || this.editLine === undefined) return;
 			const line = this.editLine;
-			// a lone / lists what can be added
-			if (input.value.trim() === '/') {
-				this.openAddMenu(input.getBoundingClientRect(), (text) => {
-					if (this.editLine !== line) return;
-					this.draftBody = setLine(this.editBase, line, text);
-					this.focusLine = true;
-					this.refreshDraft();
-				});
+			// a / at the start lists what can be added, filtered by what follows, as in a note
+			const slash = /^\/(\S*)$/.exec(input.value.trim());
+			if (slash) {
+				this.openSlashMenu(input, line, slash[1]!);
 				return;
 			}
+			this.slashMenu?.close();
 			this.draftBody = setLine(this.editBase, line, input.value);
 			this.refreshDraft();
 		});
@@ -1651,6 +1933,15 @@ export class PlotView {
 				event.preventDefault();
 				this.commitLine('Previous');
 			}
+		});
+		// the blank line at the end: going into it starts a new line
+		list.addEventListener('focusin', (event) => {
+			const input = event.target as HTMLInputElement;
+			if (input.dataset.field !== 'newLine' || this.context.readOnly()) return;
+			if (this.editLine !== undefined) this.commitLine();
+			const body = this.block.body;
+			const count = body === '' ? 0 : body.split('\n').length;
+			this.startEdit(count, insertLine(body, count - 1, ''));
 		});
 		list.addEventListener('focusout', (event) => {
 			const input = event.target as HTMLInputElement;
@@ -1711,10 +2002,10 @@ export class PlotView {
 			return;
 		}
 		this.toolElement.innerHTML =
-			(moved && !readOnly ? `<button type="button" class="oi-plot-button oi-plot-keep" data-action="Keep" title="Keep this view: write it into the block">${keepMark}<span>Keep this view</span></button>` : '') +
-			(moved ? `<button type="button" class="oi-plot-button" data-action="Reset" title="Back to the block's view (double-click)" aria-label="Reset the view">${resetMark}</button>` : '') +
-			`<button type="button" class="oi-plot-button" data-action="ZoomIn" title="Zoom in" aria-label="Zoom in">${plusMark}</button>` +
-			`<button type="button" class="oi-plot-button" data-action="ZoomOut" title="Zoom out" aria-label="Zoom out">${minusMark}</button>`;
+			(moved && !readOnly ? `<button type="button" class="oi-plot-button oi-plot-keep" data-action="Keep" title="${t('Keep this view: write it into the block')}">${keepMark}<span>${t('Keep this view')}</span></button>` : '') +
+			(moved ? `<button type="button" class="oi-plot-button" data-action="Reset" title="${t('Back to the block\'s view (double-click)')}" aria-label="${t('Reset the view')}">${resetMark}</button>` : '') +
+			`<button type="button" class="oi-plot-button" data-action="ZoomIn" title="${t('Zoom in')}" aria-label="${t('Zoom in')}">${plusMark}</button>` +
+			`<button type="button" class="oi-plot-button" data-action="ZoomOut" title="${t('Zoom out')}" aria-label="${t('Zoom out')}">${minusMark}</button>`;
 	}
 
 	private bindTool(): void {
@@ -1777,7 +2068,7 @@ function seriesXName(x: number, series: Series, group: string | undefined): stri
 	const date = new Date(Math.round(x) * 86_400_000);
 	if (group === 'Year') return String(date.getUTCFullYear());
 	if (group === 'Month') return `${shortMonth[date.getUTCMonth()]} ${date.getUTCFullYear()}`;
-	if (group === 'Week') return `Week of ${dateLabel(x)}`;
+	if (group === 'Week') return tr`Week of ${dateLabel(x)}`;
 	return dateLabel(x);
 }
 
@@ -1803,7 +2094,7 @@ export function pieSvg(item: PlotItem, series: Series, width: number, height: nu
 		.map((x, index) => ({ name: seriesXName(x, series, group), value: series.yList[index]! }))
 		.filter((entry) => Number.isFinite(entry.value) && entry.value > 0);
 	const total = entryList.reduce((sum, entry) => sum + entry.value, 0);
-	if (total <= 0) return { svg: `<svg class="oi-plot-svg" width="${width}" height="${height}"><text x="${width / 2}" y="${height / 2}" text-anchor="middle" class="oi-plot-pie-empty">Nothing to show</text></svg>`, sliceList: [] };
+	if (total <= 0) return { svg: `<svg class="oi-plot-svg" width="${width}" height="${height}"><text x="${width / 2}" y="${height / 2}" text-anchor="middle" class="oi-plot-pie-empty">${t('Nothing to show')}</text></svg>`, sliceList: [] };
 	const rowHeight = 20;
 	const side = width > 420;
 	const legendWidth = side ? Math.min(300, width * 0.45) : width;
@@ -1860,7 +2151,7 @@ export function pieSvg(item: PlotItem, series: Series, width: number, height: nu
 		angle = next;
 	});
 	if (hole > 0) slice += `<text class="oi-plot-pie-total" x="${cx}" y="${cy + 5}" text-anchor="middle">${escapeHtml(amount(total))}</text>`;
-	return { svg: `<svg class="oi-plot-svg oi-plot-pie" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" role="img" aria-label="Pie chart">${slice}${legend}</svg>`, sliceList };
+	return { svg: `<svg class="oi-plot-svg oi-plot-pie" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" role="img" aria-label="${t('Pie chart')}">${slice}${legend}</svg>`, sliceList };
 }
 
 function cssEscape(text: string): string {

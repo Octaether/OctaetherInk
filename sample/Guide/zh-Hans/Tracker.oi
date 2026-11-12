@@ -1,0 +1,31 @@
+---
+Created: 2026-11-03 12:00 -04:00
+Format: Oi 1
+---
+
+Property:
+	Tag: [Guide, Example]
+
+一个由协同工作的块组成的**健身记录**：用一张 [[Table]] 记录训练，用 [[Plot]] 绘制体重及其趋势和训练类型，再用一个 [[Calendar]] 显示训练日期。图像和日历通过标题（*Gym log*）找到这张表格；图像以表格的列名为坐标轴命名，并带上单位。在表格中新增一行，图像和日历就会随之更新。返回 [[Welcome]]。
+
+Table {Title: Gym log, Column: {Calorie: {Unit: kcal, Summary: Average}, Weight: {Unit: kg, Summary: Average}, Workout: {Type: Choice}}, Sort: {Date: Down}}:
+	Date,Workout,Calorie,Weight
+	2026-10-05,Legs,520,74.2
+	2026-10-08,Push,430,74.0
+	2026-10-12,Pull,470,73.6
+	2026-10-15,Legs,540,73.7
+	2026-10-19,Push,410,73.8
+	2026-10-22,Pull,480,73.3
+	2026-10-26,Legs,560,73.1
+	2026-10-29,Push,440,72.9
+	2026-11-02,Pull,500,72.6
+
+Grid {Gap: 16px}:
+	Column {Width: 50%}:
+		Plot {Data: Gym log}:
+			(Date, Weight) {Kind: Line, Trend: Linear}
+	Column {Width: 50%}:
+		Plot {Data: Gym log}:
+			(Workout, Workout) {Kind: Donut, Combine: Count, Label: 训练}
+
+Calendar {Show: Month, Date: 2026-10-01, Data: Gym log}:

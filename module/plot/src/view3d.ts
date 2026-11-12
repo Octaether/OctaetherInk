@@ -6,7 +6,8 @@
 import type { PropertyValue } from '@octaether/core-format';
 import { type RenderContext, type ResolvedBlock, escapeHtml } from '@octaether/core-sdk';
 import { numberTickList } from './axis';
-import { type Box, type Matrix, type Mesh, curveList, fromBox, implicitMesh, multiply, orbitMatrix, perspective, project, surfaceMesh, toBox } from './mesh';
+import { densityOf, gradientRgb, gradientStepCount, gradientStopOf, gridArrowList } from './field';
+import { type Box, type Matrix, type Mesh, contourList, curveList, fromBox, implicitMesh, multiply, orbitMatrix, perspective, project, surfaceMesh, toBox } from './mesh';
 import type { PlotItem, PlotProgram } from './parse';
 import { type Evaluated, localScope, pointListOf, seriesOf, toNumber } from './program';
 import { type Stage, type StageHost, keepNumber } from './view';
@@ -28,6 +29,20 @@ const rangeOf = (value: PropertyValue | undefined): [number, number] | undefined
 	const [a, b] = value.map(Number);
 	return a !== undefined && b !== undefined && Number.isFinite(a) && Number.isFinite(b) && b > a ? [a, b] : undefined;
 };
+
+/** A line in x and y (a curve, a region, points, a 2D field): in a 3D plot it lies on a plane. */
+function isFlat(item: PlotItem): boolean {
+	if (item.space) return false;
+	if (item.kind === 'Explicit') return item.name !== 'z';
+	if (item.kind === 'Function') return item.parameterList?.join() === 'x';
+	return ['Polar', 'Parametric', 'Implicit', 'Point', 'Data', 'Field'].includes(item.kind);
+}
+
+/** The height of a 2D line's plane: its Z (0 by default). */
+function planeOf(item: PlotItem): number {
+	const value = item.style.get('Z');
+	return typeof value === 'number' && Number.isFinite(value) ? value : 0;
+}
 
 function rgbOf(color: string): [number, number, number] {
 	const hex = /^#([0-9a-f]{6})$/i.exec(color.trim());
@@ -232,6 +247,8 @@ class Stage3D implements Stage {
 				if (Number.isFinite(value)) valueList.push(value);
 			}
 			for (const { pointList } of pointBag) for (const point of pointList) if (Number.isFinite(point[2]!)) valueList.push(point[2]!);
+			// the planes 2D lines are drawn on
+			for (const item of program.itemList) if (isFlat(item)) valueList.push(planeOf(item));
 			valueList.sort((a, b) => a - b);
 			if (valueList.length) {
 				const low = valueList[Math.floor(valueList.length * 0.02)]!;
@@ -248,10 +265,13 @@ class Stage3D implements Stage {
 			if (item.style.get('Hidden') === true) continue;
 			list.push({ kind: 'Mesh', color: resolve(colorOf(item)), ramp: !item.style.has('Color'), opacity: opacityOf(item), mesh: surfaceMesh(work, box, 72) });
 		}
+		const cssOf = (color: string): string => context.resolveColor(color) ?? color;
 		for (const item of program.itemList) {
 			if (item.style.get('Hidden') === true) continue;
 			try {
-				if (item.kind === 'Implicit' && item.relation === '=') {
+				if (isFlat(item)) this.buildFlat(item, evaluated, box, list, pointBag, cssOf(colorOf(item)), opacityOf(item));
+				else if (item.kind === 'Field') this.buildField(item, evaluated, box, list, cssOf, cssOf(colorOf(item)), opacityOf(item));
+				else if (item.kind === 'Implicit' && item.relation === '=') {
 					const runLeft = evaluated.compiled(item.left!);
 					const runRight = evaluated.compiled(item.right!);
 					const { scope, variable } = localScope(evaluated.scope);
@@ -277,7 +297,7 @@ class Stage3D implements Stage {
 						500,
 					);
 					list.push({ kind: 'Line', color: resolve(colorOf(item)), ramp: false, opacity: opacityOf(item), lineList, width: typeof item.style.get('Width') === 'number' ? (item.style.get('Width') as number) : 2.5 });
-				} else if (item.kind === 'Implicit') this.noteMap.set(item, 'regions (<, >) are drawn in 2D plots only');
+				} else if (item.kind === 'Implicit') this.noteMap.set(item, 'a region in space (<, > with z) is drawn as its surface only');
 			} catch (error) {
 				this.noteMap.set(item, error instanceof Error ? error.message : String(error));
 			}
@@ -293,6 +313,164 @@ class Stage3D implements Stage {
 		this.highColor = rgbOf(computedColor(this.element, context.resolveColor('Accent') ?? '#d4a84b'));
 		this.boxColor = rgbOf(computedColor(this.element, 'var(--oi-color-text-muted)'));
 		this.gridColor = rgbOf(computedColor(this.element, 'var(--oi-color-border)'));
+	}
+
+	/**
+	 * A line of a 2D plot in a 3D one: drawn on the plane z = its Z (0 by default), as it would be on paper:
+	 * curves, regions (shaded), points, a table's points, and a field's arrows.
+	 */
+	private buildFlat(item: PlotItem, evaluated: Evaluated, box: Box, list: Drawable[], pointBag: { item: PlotItem; pointList: number[][] }[], css: string, opacity: number): void {
+		const color = rgbOf(computedColor(this.element, css));
+		const height = planeOf(item);
+		const width = typeof item.style.get('Width') === 'number' ? (item.style.get('Width') as number) : 2.5;
+		const inside = (px: number, py: number): boolean => px >= box.x[0] && px <= box.x[1] && py >= box.y[0] && py <= box.y[1];
+		const line = (lineList: number[][], lineWidth = width): void => void list.push({ kind: 'Line', color, ramp: false, opacity, lineList, width: lineWidth });
+		const curve = (work: (t: number) => [number, number], from: number, to: number, count = 500): void =>
+			line(
+				curveList(
+					(t) => {
+						const [px, py] = work(t);
+						return inside(px, py) ? [px, py, height] : [Number.NaN, Number.NaN, Number.NaN];
+					},
+					from,
+					to,
+					box,
+					count,
+				),
+			);
+		const { scope, variable } = localScope(evaluated.scope);
+		switch (item.kind) {
+			case 'Explicit':
+			case 'Function': {
+				const run = evaluated.compiled(item.right!);
+				const alongY = item.kind === 'Explicit' && item.name === 'x';
+				const range = alongY ? box.y : box.x;
+				curve(
+					(t) => {
+						variable[alongY ? 'y' : 'x'] = t;
+						const value = toNumber(run(scope));
+						return alongY ? [value, t] : [t, value];
+					},
+					range[0],
+					range[1],
+				);
+				return;
+			}
+			case 'Polar': {
+				const run = evaluated.compiled(item.right!);
+				const range = rangeOf(item.style.get('Theta')) ?? rangeOf(item.style.get('T')) ?? [0, 2 * Math.PI];
+				curve(
+					(theta) => {
+						variable['θ'] = theta;
+						variable.t = theta;
+						const r = toNumber(run(scope));
+						return [r * Math.cos(theta), r * Math.sin(theta)];
+					},
+					range[0],
+					range[1],
+					720,
+				);
+				return;
+			}
+			case 'Parametric': {
+				const [runX, runY] = item.partList!.map((part) => evaluated.compiled(part));
+				const range = rangeOf(item.style.get('T')) ?? [0, 2 * Math.PI];
+				curve(
+					(t) => {
+						variable.t = t;
+						return [toNumber(runX!(scope)), toNumber(runY!(scope))];
+					},
+					range[0],
+					range[1],
+				);
+				return;
+			}
+			case 'Implicit': {
+				const runLeft = evaluated.compiled(item.left!);
+				const runRight = evaluated.compiled(item.right!);
+				const work = (px: number, py: number): number => {
+					variable.x = px;
+					variable.y = py;
+					return toNumber(runLeft(scope)) - toNumber(runRight(scope));
+				};
+				const boxHeight = toBox(height, box.z);
+				if (item.relation !== '=') {
+					// a region: the part of the plane where it holds, shaded
+					const below = item.relation === '<' || item.relation === '<=';
+					const strict = item.relation === '<' || item.relation === '>';
+					const mesh = surfaceMesh(
+						(px, py) => {
+							const value = work(px, py);
+							return (below ? (strict ? value < 0 : value <= 0) : strict ? value > 0 : value >= 0) ? height : Number.NaN;
+						},
+						box,
+						96,
+					);
+					list.push({ kind: 'Mesh', color, ramp: false, opacity: typeof item.style.get('Opacity') === 'number' ? opacity : 0.3, mesh });
+				}
+				line(contourList(work, box, boxHeight), item.relation === '=' ? width : 2);
+				return;
+			}
+			case 'Point':
+				pointBag.push({ item, pointList: pointListOf(item, evaluated).map(([px, py]) => [px!, py!, height]) });
+				return;
+			case 'Data': {
+				const series = seriesOf(item, evaluated);
+				const pointList = series.xList.map((value, index) => [value, series.yList[index]!, height]).filter(([px, py]) => Number.isFinite(px!) && Number.isFinite(py!));
+				const kind = item.style.get('Kind');
+				if (kind === 'Line' || kind === 'Area') {
+					const sorted = [...pointList].sort((a, b) => a[0]! - b[0]!);
+					line([sorted.flatMap(([px, py, pz]) => [toBox(px!, box.x), toBox(py!, box.y), toBox(pz!, box.z)])]);
+				} else pointBag.push({ item, pointList });
+				return;
+			}
+			case 'Field':
+				this.buildField(item, evaluated, box, list, () => css, css, opacity, height);
+				return;
+			default:
+		}
+	}
+
+	/** A field's arrows: on a lattice through the box (in space), or on a grid of its plane (`height`, for a 2D field). */
+	private buildField(item: PlotItem, evaluated: Evaluated, box: Box, list: Drawable[], resolve: (color: string) => string, css: string, opacity: number, height?: number): void {
+		const flat = height !== undefined;
+		// about 5 arrows along each side in space (12 on a plane), times the Density
+		const count = (flat ? 12 : 4.5) * densityOf(item);
+		// on a grid of the plot's numbers: a zoom (which changes the box) moves and grows the arrows
+		const { arrowList: fieldArrowList, stepList } = gridArrowList(
+			item,
+			evaluated,
+			flat ? [{ range: box.x, count }, { range: box.y, count }] : [{ range: box.x, count }, { range: box.y, count }, { range: box.z, count }],
+			flat ? [height] : [],
+		);
+		const stopList = gradientStopOf(item, resolve)?.map((stop) => ({ rgb: rgbOf(computedColor(this.element, stop.color)), at: stop.at }));
+		const own = rgbOf(computedColor(this.element, css));
+		// a cell of the grid in box space (each axis its own scale): the longest arrow fills it
+		const cell = Math.min(...stepList.map((step, axis) => (step * 2) / ((axis === 0 ? box.x : axis === 1 ? box.y : box.z)[1] - (axis === 0 ? box.x : axis === 1 ? box.y : box.z)[0])));
+		const bucketMap = new Map<number, number[][]>();
+		for (const arrow of fieldArrowList) {
+			if (arrow.strength === 0) continue;
+			// in box space, where each axis has its own scale
+			const d = [(arrow.vector[0]! * 2) / (box.x[1] - box.x[0]), (arrow.vector[1]! * 2) / (box.y[1] - box.y[0]), flat ? 0 : ((arrow.vector[2] ?? 0) * 2) / (box.z[1] - box.z[0])];
+			const size = Math.hypot(d[0]!, d[1]!, d[2]!) || 1;
+			const u = d.map((value) => value / size) as [number, number, number];
+			const length = Math.max(cell * 0.12, cell * 0.82 * arrow.strength);
+			const middle = [toBox(arrow.at[0]!, box.x), toBox(arrow.at[1]!, box.y), toBox(arrow.at[2]!, box.z)];
+			const from = middle.map((value, axis) => value - (u[axis]! * length) / 2);
+			const to = middle.map((value, axis) => value + (u[axis]! * length) / 2);
+			// the head: two short lines back from the tip, across the arrow
+			let side = flat ? [-u[1], u[0], 0] : [u[1], -u[0], 0];
+			if (Math.hypot(side[0]!, side[1]!, side[2]!) < 1e-6) side = [1, 0, 0];
+			const sideSize = Math.hypot(side[0]!, side[1]!, side[2]!);
+			const head = length * 0.35;
+			const wing = (sign: number): number[] => to.map((value, axis) => value - head * (u[axis]! * 0.9 + (sign * side[axis]! * 0.45) / sideSize));
+			const bucket = stopList ? Math.round(arrow.strength * (gradientStepCount - 1)) : 0;
+			const segmentList = bucketMap.get(bucket) ?? [];
+			segmentList.push([...from, ...to], [...to, ...wing(1)], [...to, ...wing(-1)]);
+			bucketMap.set(bucket, segmentList);
+		}
+		const width = typeof item.style.get('Width') === 'number' ? (item.style.get('Width') as number) : 1.6;
+		for (const [bucket, lineList] of bucketMap) list.push({ kind: 'Line', color: stopList ? gradientRgb(stopList, bucket / (gradientStepCount - 1)) : own, ramp: false, opacity, lineList, width });
 	}
 
 	private lowColor: [number, number, number] = [0.35, 0.24, 0.17];

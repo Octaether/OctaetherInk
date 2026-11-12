@@ -8,8 +8,8 @@
 //   	Due: 2026-10-05
 //   	Done: False
 
-import type { PropertyValue } from '@octaether/core-format';
-import { type BlockTypeDefinition, type ModuleDefinition, type RenderContext, type ResolvedBlock, escapeHtml } from '@octaether/core-sdk';
+import { type PropertyValue, tagListOf, tagWord } from '@octaether/core-format';
+import { type BlockTypeDefinition, type ModuleDefinition, type NoteIndex, type PopupMenu, type RenderContext, type ResolvedBlock, comboField, escapeHtml, menuExtension, noteIndexExtension, t, tr } from '@octaether/core-sdk';
 import {
 	type PropertyKind,
 	convert,
@@ -168,14 +168,14 @@ class PropertyView {
 		if (!readOnly) {
 			footer = this.formOpen
 				? `<div class="oi-property-form">` +
-					`<input class="oi-property-new" data-field="new" data-oi-focus value="${escapeHtml(this.formName)}" placeholder="Property name" aria-label="Property name" list="oi-property-suggestion-${this.id}" spellcheck="false">` +
-					`<select class="oi-property-new-kind" data-field="new-kind" aria-label="Type">${propertyKindList.map((kind) => `<option value="${kind}"${kind === this.formKind ? ' selected' : ''}>${propertyKindTitle[kind]}</option>`).join('')}</select>` +
-					`<button type="button" class="oi-property-button primary" data-action="AddConfirm">Add</button>` +
-					`<button type="button" class="oi-property-button" data-action="AddCancel">Cancel</button>` +
+					`<input class="oi-property-new" data-field="new" data-oi-focus value="${escapeHtml(this.formName)}" placeholder="${t('Property name')}" aria-label="${t('Property name')}" list="oi-property-suggestion-${this.id}" spellcheck="false">` +
+					`<select class="oi-property-new-kind" data-field="new-kind" aria-label="${t('Type')}">${propertyKindList.map((kind) => `<option value="${kind}"${kind === this.formKind ? ' selected' : ''}>${t(propertyKindTitle[kind])}</option>`).join('')}</select>` +
+					`<button type="button" class="oi-property-button primary" data-action="AddConfirm">${t('Add')}</button>` +
+					`<button type="button" class="oi-property-button" data-action="AddCancel">${t('Cancel')}</button>` +
 					`<datalist id="oi-property-suggestion-${this.id}">${suggestionList.filter((name) => !list.some(([key]) => key === name)).map((name) => `<option value="${name}"></option>`).join('')}</datalist>` +
 					`<div class="oi-property-hint">${escapeHtml(propertyKindExample[this.formKind])}</div>` +
 					`</div>`
-				: `<button type="button" class="oi-property-add" data-action="Add" data-oi-focus>${plusMark}<span>Add property</span></button>`;
+				: `<button type="button" class="oi-property-add" data-action="Add" data-oi-focus>${plusMark}<span>${escapeHtml(t('Add property'))}</span></button>`;
 		}
 		this.root.innerHTML = rowHtml + footer;
 		this.root.toggleAttribute('data-empty', list.length === 0);
@@ -189,17 +189,17 @@ class PropertyView {
 		const name = escapeHtml(key);
 		const kindButton = showType
 			? readOnly
-				? `<span class="oi-property-kind" title="${propertyKindTitle[kind]}">${propertyKindIcon[kind]}</span>`
-				: `<button type="button" class="oi-property-kind" data-action="Kind" title="${propertyKindTitle[kind]}: click to change the type, drag to move" aria-label="Type: ${propertyKindTitle[kind]}">${propertyKindIcon[kind]}</button>`
+				? `<span class="oi-property-kind" title="${t(propertyKindTitle[kind])}">${propertyKindIcon[kind]}</span>`
+				: `<button type="button" class="oi-property-kind" data-action="Kind" title="${t('{type}: click to change the type, drag to move', { type: t(propertyKindTitle[kind]) })}" aria-label="${t('Type: {type}', { type: t(propertyKindTitle[kind]) })}">${propertyKindIcon[kind]}</button>`
 			: '';
 		const keyHtml = readOnly
 			? `<span class="oi-property-key-text">${name}</span>`
-			: `<input class="oi-property-key" data-field="key:${name}" data-oi-committed="${name}" value="${name}" aria-label="Property name" spellcheck="false">`;
+			: `<input class="oi-property-key" data-field="key:${name}" data-oi-committed="${name}" value="${name}" aria-label="${t('Property name')}" spellcheck="false">`;
 		return (
 			`<div class="oi-property-row" data-key="${name}" data-index="${index}" data-kind="${kind}">` +
 			`<div class="oi-property-name">${kindButton}${keyHtml}</div>` +
 			`<div class="oi-property-value">${this.valueHtml(key, value, kind, readOnly)}</div>` +
-			(readOnly ? '' : `<button type="button" class="oi-property-remove" data-action="Remove" title="Remove this property" aria-label="Remove ${name}">${crossMark}</button>`) +
+			(readOnly ? '' : `<button type="button" class="oi-property-remove" data-action="Remove" title="${t('Remove this property')}" aria-label="Remove ${name}">${crossMark}</button>`) +
 			`</div>`
 		);
 	}
@@ -223,7 +223,7 @@ class PropertyView {
 			}
 			default:
 				if (readOnly) return `<span class="oi-property-text">${escapeHtml(text)}</span>`;
-				return `<input class="oi-property-input" data-field="${field}" data-kind="Text" data-oi-committed="${escapeHtml(text)}" value="${escapeHtml(text)}" placeholder="Empty" aria-label="${escapeHtml(key)}">`;
+				return `<input class="oi-property-input" data-field="${field}" data-kind="Text" data-oi-committed="${escapeHtml(text)}" value="${escapeHtml(text)}" placeholder="${t('Empty')}" aria-label="${escapeHtml(key)}">`;
 		}
 	}
 
@@ -234,18 +234,20 @@ class PropertyView {
 			.map((item, index) => {
 				const text = plainText(item);
 				if (!readOnly && this.pillEdit?.key === key && this.pillEdit.index === index) {
-					return `<input class="oi-pill-input" data-field="pill:${escapeHtml(key)}:${index}" value="${escapeHtml(text)}" size="${Math.max(4, text.length + 1)}" aria-label="Edit ${escapeHtml(text)}" spellcheck="false">`;
+					// a tag with a comma is edited in quotes, so it stays one tag
+					const shown = tag ? tagWord(text) : text;
+					return `<input class="oi-pill-input" data-field="pill:${escapeHtml(key)}:${index}" value="${escapeHtml(shown)}" size="${Math.max(4, shown.length + 1)}" aria-label="${escapeHtml(tr`Edit ${text}`)}" spellcheck="false" autocomplete="off">`;
 				}
 				const tagAttribute = tag ? ` data-oi-tag="${escapeHtml(text)}"` : '';
-				return `<span class="oi-pill${tag ? ' oi-pill-tag' : ''}" data-index="${index}"${tagAttribute}${readOnly ? '' : ' tabindex="0" role="button" title="Click to edit, drag to move"'}>${escapeHtml(hash + text)}${readOnly ? '' : `<button type="button" class="oi-pill-remove" data-action="PillRemove" data-index="${index}" tabindex="-1" aria-label="Remove ${escapeHtml(text)}">${crossMark}</button>`}</span>`;
+				return `<span class="oi-pill${tag ? ' oi-pill-tag' : ''}" data-index="${index}"${tagAttribute}${readOnly ? '' : ` tabindex="0" role="button" title="${t('Click to edit, drag to move')}"`}>${escapeHtml(hash + text)}${readOnly ? '' : `<button type="button" class="oi-pill-remove" data-action="PillRemove" data-index="${index}" tabindex="-1" aria-label="${escapeHtml(tr`Remove ${text}`)}">${crossMark}</button>`}</span>`;
 			})
 			.join('');
 		let add = '';
 		if (!readOnly) {
 			add =
 				this.pillEdit?.key === key && this.pillEdit.index === -1
-					? `<input class="oi-pill-input" data-field="pill:${escapeHtml(key)}:-1" size="6" placeholder="New" aria-label="Add to ${escapeHtml(key)}" spellcheck="false">`
-					: `<button type="button" class="oi-pill-add" data-action="PillAdd" title="Add" aria-label="Add to ${escapeHtml(key)}">${plusMark}</button>`;
+					? `<input class="oi-pill-input" data-field="pill:${escapeHtml(key)}:-1" size="6" placeholder="${t('New')}" aria-label="Add to ${escapeHtml(key)}" spellcheck="false">`
+					: `<button type="button" class="oi-pill-add" data-action="PillAdd" title="${t('Add')}" aria-label="Add to ${escapeHtml(key)}">${plusMark}</button>`;
 		}
 		return `<div class="oi-property-pill-row" data-key="${escapeHtml(key)}">${itemHtml}${add}</div>`;
 	}
@@ -266,6 +268,7 @@ class PropertyView {
 
 	private restoreFocus(spot: FocusSpot | undefined): void {
 		const pill = this.pillEdit ? this.root.querySelector<HTMLInputElement>('.oi-pill-input') : null;
+		if (pill && this.pillEdit?.key === 'Tag') this.suggestTag(pill, this.pillEdit.index);
 		if (pill) {
 			pill.focus({ preventScroll: true });
 			pill.select();
@@ -386,6 +389,15 @@ class PropertyView {
 		if (target instanceof HTMLInputElement && target.classList.contains('oi-pill-input')) {
 			const edit = this.pillEdit;
 			if (!edit) return;
+			// a comma inside "quotes" is part of the tag
+			if (event.key === ',' && /^\s*"/.test(target.value) && (target.value.match(/"/g)?.length ?? 0) % 2 === 1) return;
+			if (event.key === 'Backspace' && target.value === '' && edit.index < 0 && this.listOf(edit.key).length > 0) {
+				// in the new pill's empty field: the last pill comes back to be changed
+				event.preventDefault();
+				this.pillEdit = { key: edit.key, index: this.listOf(edit.key).length - 1 };
+				this.render();
+				return;
+			}
 			if (event.key === 'Enter' || (event.key === ',' && edit.key !== 'Alias')) {
 				event.preventDefault();
 				// Enter or a comma keeps the pill and starts the next one, as in Obsidian
@@ -501,14 +513,35 @@ class PropertyView {
 		this.render();
 	}
 
-	/** Keeps an edited pill; `next` starts a new one right after. */
+	/** The vault's tags to pick in a Tag pill's field (the app's own list, filtered as you type). */
+	private suggestTag(input: HTMLInputElement, index: number): void {
+		const menu = this.context.extension<PopupMenu>(menuExtension);
+		const noteList = this.context.extension<NoteIndex>(noteIndexExtension)?.noteList() ?? [];
+		comboField(menu, input, {
+			itemList: () => {
+				const chosen = new Set(this.listOf('Tag').map((item) => String(item).toLowerCase()));
+				const countMap = new Map<string, { tag: string; count: number }>();
+				for (const note of noteList) {
+					for (const tag of note.tagList) {
+						if (chosen.has(tag.toLowerCase())) continue;
+						const entry = countMap.get(tag.toLowerCase()) ?? { tag, count: 0 };
+						entry.count++;
+						countMap.set(tag.toLowerCase(), entry);
+					}
+				}
+				return [...countMap.values()].map((entry) => ({ title: entry.tag, hint: String(entry.count) }));
+			},
+			onPick: (tag) => this.commitPill('Tag', index, tag, true),
+		});
+	}
+
+	/** Keeps an edited pill; `next` starts a new one right after. A Tag field takes several at once (`a, "b, c"`). */
 	private commitPill(key: string, index: number, text: string, next: boolean): void {
-		const clean = (key === 'Tag' ? text.replace(/^#+/, '') : text).trim();
+		const partList = key === 'Tag' ? tagListOf(text) : [text.trim()].filter(Boolean);
 		const list = [...this.listOf(key)];
-		if (index < 0) {
-			if (clean !== '') list.push(clean);
-		} else if (clean === '') list.splice(index, 1);
-		else list[index] = clean;
+		if (index < 0) list.push(...partList.filter((part) => !(key === 'Tag' && list.some((item) => String(item).toLowerCase() === part.toLowerCase()))));
+		else if (partList.length === 0) list.splice(index, 1);
+		else list.splice(index, 1, ...partList);
 		this.pillEdit = next ? { key, index: -1 } : undefined;
 		const body = setValue(this.block.body, key, list);
 		if (body === this.block.body) this.render();
@@ -529,7 +562,7 @@ class PropertyView {
 		menu.dataset.key = key;
 		menu.setAttribute('role', 'menu');
 		menu.innerHTML = propertyKindList
-			.map((kind) => `<button type="button" class="oi-property-menu-item${kind === current ? ' active' : ''}" role="menuitem" data-kind-choice="${kind}">${propertyKindIcon[kind]}<span>${propertyKindTitle[kind]}</span></button>`)
+			.map((kind) => `<button type="button" class="oi-property-menu-item${kind === current ? ' active' : ''}" role="menuitem" data-kind-choice="${kind}">${propertyKindIcon[kind]}<span>${t(propertyKindTitle[kind])}</span></button>`)
 			.join('');
 		const rect = anchor.getBoundingClientRect();
 		const box = this.root.getBoundingClientRect();
@@ -674,7 +707,7 @@ button.oi-property-kind:hover { background: var(--oi-color-surface2); color: var
 .oi-property-row:hover .oi-property-remove, .oi-property-remove:focus-visible { opacity: 1; }
 .oi-property-remove:hover { background: var(--oi-color-surface2); color: var(--oi-color-danger); }
 .oi-property-pill-row { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; padding: 3px 2px; }
-.oi-pill { display: inline-flex; align-items: center; padding: 1px 3px 1px 9px; border-radius: 999px; background: var(--oi-color-accent-soft); color: var(--oi-color-accent); line-height: 1.55; cursor: text; user-select: none; -webkit-user-select: none; touch-action: none; }
+.oi-pill { display: inline-flex; align-items: center; padding: 1px 3px 1px 9px; border-radius: 999px; background: var(--oi-tag-back, var(--oi-color-accent-soft)); color: var(--oi-tag-text, var(--oi-color-accent)); line-height: 1.55; cursor: text; user-select: none; -webkit-user-select: none; touch-action: none; }
 .oi-read-only .oi-pill { padding-inline-end: 9px; cursor: default; }
 .oi-read-only .oi-pill-tag { cursor: pointer; }
 .oi-pill[data-dragging] { opacity: 0.4; }
@@ -704,6 +737,7 @@ button.oi-property-kind:hover { background: var(--oi-color-surface2); color: var
 const propertyBlockType: BlockTypeDefinition = {
 	name: 'Property',
 	content: 'Raw',
+	guide: () => import('./guide').then((module) => module.propertyGuide),
 	// `Property: Tag: [Chem]` would read oddly: the fields always go on their own lines
 	inlineBody: false,
 	render: {
@@ -738,6 +772,7 @@ export const propertyModule: ModuleDefinition = {
 	kind: 'Module',
 	name: 'Property',
 	publisher: 'Octaether',
+	language: { 'zh-Hans': () => import('./language/zh-Hans').then((module) => module.default) },
 	version: '1.0.0',
 	title: 'Property',
 	explain:

@@ -35,6 +35,9 @@ export const plotStyle = `
 button.oi-plot-dot { cursor: pointer; box-shadow: 0 0 0 1px var(--oi-color-background), 0 0 0 2px transparent; }
 button.oi-plot-dot:hover { box-shadow: 0 0 0 2px var(--oi-color-background), 0 0 0 3.5px var(--oi-plot-dot); }
 .oi-plot-dot[data-empty] { background: none; border: 1px solid var(--oi-color-border); }
+/* a field's dot: its gradient, weak to strong, left to right */
+.oi-plot-dot.oi-plot-dot-field { width: 22px; height: 10px; border-radius: 5px; }
+button.oi-plot-dot.oi-plot-dot-field:hover { box-shadow: 0 0 0 2px var(--oi-color-background), 0 0 0 3.5px var(--oi-color-text-muted); }
 .oi-plot-expression { overflow-wrap: anywhere; }
 .oi-plot-row-problem .oi-plot-expression { font-family: var(--oi-font-code); white-space: pre-wrap; }
 .oi-plot-name { font-weight: 600; margin-right: 6px; }
@@ -44,8 +47,18 @@ button.oi-plot-dot:hover { box-shadow: 0 0 0 2px var(--oi-color-background), 0 0
 .oi-plot-problem { color: var(--oi-color-danger); }
 .oi-plot-row-editing { background: var(--oi-color-surface1); }
 .oi-plot-line { flex: 1; min-width: 10em; font: inherit; font-family: var(--oi-font-code); font-size: 1em; padding: 3px 6px; border: 1px solid var(--oi-color-accent); border-radius: 6px; background: var(--oi-color-background); color: var(--oi-color-text); outline: none; }
-.oi-plot-add { display: inline-flex; align-items: center; gap: 6px; align-self: flex-start; border: 0; background: none; color: var(--oi-color-text-muted); font: inherit; padding: 3px 4px; cursor: pointer; border-radius: 5px; }
-.oi-plot-add:hover { color: var(--oi-color-text); background: var(--oi-color-surface1); }
+/* the blank line at the end, to type a new one into */
+.oi-plot-row-new .oi-plot-line { border-color: transparent; background: none; }
+.oi-plot-row-new .oi-plot-line::placeholder { color: var(--oi-color-text-muted); opacity: 0.8; }
+.oi-plot-row-new .oi-plot-line:hover { border-color: var(--oi-color-border); }
+/* a comment: a note to the reader */
+.oi-plot-comment { flex: 1; min-width: 0; color: var(--oi-color-text-muted); font-style: italic; white-space: pre-wrap; }
+/* a line not drawn in this plot: it says why, with a click to draw it */
+.oi-plot-row-misfit .oi-plot-expression { opacity: 0.5; }
+.oi-plot-row-misfit .oi-plot-dot { opacity: 0.4; }
+.oi-plot-misfit { font-size: 0.88em; }
+.oi-plot-fix { flex: none; border: 1px solid var(--oi-color-border); background: var(--oi-color-background); color: var(--oi-color-text); font: inherit; font-size: 0.85em; padding: 1px 8px; border-radius: 6px; cursor: pointer; }
+.oi-plot-fix:hover { border-color: var(--oi-color-accent); }
 .oi-plot-list[data-oi-interactive] .oi-plot-row:not(.oi-plot-row-editing):hover { background: var(--oi-color-surface1); cursor: text; }
 button.oi-plot-slider-value, button.oi-plot-slider-bound { border: 0; background: none; font: inherit; color: inherit; padding: 1px 4px; border-radius: 5px; cursor: text; }
 button.oi-plot-slider-value:hover:not([disabled]), button.oi-plot-slider-bound:hover:not([disabled]) { background: var(--oi-color-surface2); }

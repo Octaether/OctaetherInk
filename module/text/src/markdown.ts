@@ -3,7 +3,7 @@
 // All text is escaped; only known tags are produced.
 
 import { type PropertyMap, findClosingBracket, parseFlowMapText } from '@octaether/core-format';
-import { escapeHtml } from '@octaether/core-sdk';
+import { escapeHtml, t } from '@octaether/core-sdk';
 import { calloutIcon, calloutKind } from '@octaether/module-layout';
 
 export interface MarkdownOption {
@@ -347,9 +347,9 @@ export function renderMarkdown(source: string, option: MarkdownOption): string {
 	const list = listShape(source);
 	if (list) {
 		const firstText = first.slice(list.textStart);
-		const box = list.task ? `<input type="checkbox" data-oi-interactive data-oi-task${list.task === 'Done' ? ' checked' : ''} aria-label="Done"> ` : '';
+		const box = list.task ? `<input type="checkbox" data-oi-interactive data-oi-task${list.task === 'Done' ? ' checked' : ''} aria-label="${t('Done')}"> ` : '';
 		const more = lineList.length > 1 ? `<br>${inlineLineList(lineList.slice(1), offsetList.slice(1), option)}` : '';
-		const emptyClass = firstText === '' && lineList.length === 1 ? ' class="oi-empty-line" data-placeholder="List item"' : '';
+		const emptyClass = firstText === '' && lineList.length === 1 ? ` class="oi-empty-line" data-placeholder="${t('List item')}"` : '';
 		const item = `<li${list.task ? ' class="oi-task"' : ''}><span${emptyClass}>${box}${renderInline(firstText, option, list.textStart)}${more}</span></li>`;
 		return list.ordered ? `<ol start="${list.number}">${item}</ol>` : `<ul>${item}</ul>`;
 	}
@@ -363,7 +363,7 @@ export function renderMarkdown(source: string, option: MarkdownOption): string {
 			const folded = callout[2] === '-';
 			const titleOffset = prefixList[0]!.length + first.slice(prefixList[0]!.length).length - callout[3]!.length;
 			const title = callout[3] ? renderInline(callout[3], option, titleOffset) : `<span data-oi-s="${prefixList[0]!.length}" data-oi-e="${first.length}">${escapeHtml(kind)}</span>`;
-			const fold = callout[2] ? `<button type="button" class="oi-callout-fold" data-oi-interactive data-oi-callout-fold aria-label="${folded ? 'Expand' : 'Collapse'}">${folded ? '▸' : '▾'}</button>` : '';
+			const fold = callout[2] ? `<button type="button" class="oi-callout-fold" data-oi-interactive data-oi-callout-fold aria-label="${folded ? t('Expand') : t('Collapse')}">${folded ? '▸' : '▾'}</button>` : '';
 			const body = lineList.length > 1 && !folded ? `<div class="oi-callout-body">${lineList.slice(1).map((_, index) => render(index + 1)).join('<br>')}</div>` : '';
 			return `<div class="oi-callout-box oi-callout-${kind.toLowerCase()}"><div class="oi-callout-title">${calloutIcon[kind]}<span class="oi-callout-text">${title}</span>${fold}</div>${body}</div>`;
 		}

@@ -13,6 +13,7 @@ export const boardModule: ModuleDefinition = {
 	kind: 'Module',
 	name: 'Board',
 	publisher: 'Octaether',
+	language: { 'zh-Hans': () => import('./language/zh-Hans').then((module) => module.default) },
 	version: '1.0.0',
 	title: 'Board',
 	explain:

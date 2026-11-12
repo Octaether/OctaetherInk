@@ -27,7 +27,7 @@ import {
 	linkedProperty,
 	menuExtension,
 	noteIndexExtension,
-	tableDataExtension, installStyle } from '@octaether/core-sdk';
+	tableDataExtension, installStyle, t, tr } from '@octaether/core-sdk';
 import {
 	type CalendarEvent,
 	type Occurrence,
@@ -60,14 +60,17 @@ import {
 	isZone,
 	localZone,
 	minutePerDay,
-	monthName,
-	monthShortName,
+	dateText,
+	monthText,
+	monthYearText,
 	nowIn,
+	ordinalText,
 	partOf,
+	rangeText,
 	repeatTitle,
-	weekdayLongName,
 	weekdayName,
 	weekdayOf,
+	weekdayText,
 	zoneCity,
 	zoneLabel,
 	zoneList,
@@ -334,16 +337,28 @@ class CalendarView {
 		const index = this.index();
 		const itemList: MenuEntry[] = [];
 		const wide = this.block.property.get('Wide') === true;
-		if (!this.readOnly()) itemList.push({ title: 'Full width', checked: wide, explain: 'Wider than the text around it', run: () => this.context.setProperty('Wide', wide ? undefined : true) });
+		if (!this.readOnly()) itemList.push({ title: t('Full width'), checked: wide, explain: t('Wider than the text around it'), run: () => this.context.setProperty('Wide', wide ? undefined : true) });
+		// where events saved as their own notes go; every note there with a Start shows here
+		if (index && !this.readOnly() && !this.from())
+			itemList.push({
+				title: t('Folder for event notes'),
+				explain: `${this.noteFolderName()}/`,
+				run: () =>
+					void this.menu()
+						?.prompt(t('Folder for event notes'), this.noteFolderName(), t('Save'))
+						.then((folder) => {
+							if (folder?.trim()) this.setProperty('Folder', folder.trim().replace(/^\/+|\/+$/g, ''));
+						}),
+			});
 		if (this.linked && this.from()) {
-			itemList.push({ title: 'Open its note', explain: this.linked.path.replace(/\.oi$/, ''), separatorBefore: true, run: () => index?.open(this.linked!.path) });
-			if (!this.readOnly()) itemList.push({ title: 'Bring into this note', explain: 'Its note goes to the trash', run: () => this.bringIn() });
+			itemList.push({ title: t('Open its note'), explain: this.linked.path.replace(/\.oi$/, ''), separatorBefore: true, run: () => index?.open(this.linked!.path) });
+			if (!this.readOnly()) itemList.push({ title: t('Bring into this note'), explain: t('Its note goes to the trash'), run: () => this.bringIn() });
 		} else if (index && !this.readOnly())
 			itemList.push({
-				title: 'Move to its own note',
-				explain: 'This note then shows it from there',
+				title: t('Move the calendar to its own note'),
+				explain: t('This note then shows it from there'),
 				separatorBefore: true,
-				run: () => void this.menu()?.prompt('Name of the new note', 'Calendar', 'Move').then((name) => {
+				run: () => void this.menu()?.prompt(t('Name of the new note'), 'Calendar', 'Move').then((name) => {
 					if (name) void this.moveOut(name);
 				}),
 			});
@@ -381,11 +396,11 @@ class CalendarView {
 			this.render();
 		};
 		const itemList: MenuEntry[] = [
-			{ title: `This calendar's (${zoneLabel(home)})`, checked: shown === home, run: () => pick(home) },
+			{ title: tr`This calendar's (${zoneLabel(home)})`, checked: shown === home, run: () => pick(home) },
 		];
-		if (local !== home) itemList.push({ title: `This device's (${zoneLabel(local)})`, checked: shown === local, run: () => pick(local) });
+		if (local !== home) itemList.push({ title: tr`This device's (${zoneLabel(local)})`, checked: shown === local, run: () => pick(local) });
 		if (!this.readOnly() && shown !== home)
-			itemList.push({ title: `Make ${zoneLabel(shown)} the calendar's own`, explain: 'Events without a time zone are in it', run: () => this.setProperty('TimeZone', shown === localZone() ? undefined : shown) });
+			itemList.push({ title: tr`Make ${zoneLabel(shown)} the calendar's own`, explain: t('Events without a time zone are in it'), run: () => this.setProperty('TimeZone', shown === localZone() ? undefined : shown) });
 		// places, by their offset now (daylight saving follows them), with their cities (searched too)
 		const now = Date.now() / 60_000;
 		const placeList = [...zoneList].sort((left, right) => zoneOffset(left.zone, now) - zoneOffset(right.zone, now));
@@ -518,19 +533,13 @@ class CalendarView {
 
 	private title(): string {
 		const { from, to } = this.range();
-		const a = partOf(from);
-		const b = partOf(to);
 		switch (this.show) {
 			case 'Day':
-				return `${weekdayLongName[weekdayOf(from)]}, ${monthName[a.month]} ${a.date}, ${a.year}`;
-			case 'Month': {
-				const anchor = partOf(this.anchor);
-				return `${monthName[anchor.month]} ${anchor.year}`;
-			}
+				return dateText(from, { weekday: 'long', month: 'long', year: true });
+			case 'Month':
+				return monthYearText(this.anchor);
 			default:
-				if (a.year !== b.year) return `${monthShortName[a.month]} ${a.date}, ${a.year} – ${monthShortName[b.month]} ${b.date}, ${b.year}`;
-				if (a.month !== b.month) return `${monthShortName[a.month]} ${a.date} – ${monthShortName[b.month]} ${b.date}, ${b.year}`;
-				return `${monthName[a.month]} ${a.date} – ${b.date}, ${b.year}`;
+				return rangeText(from, to);
 		}
 	}
 
@@ -539,8 +548,8 @@ class CalendarView {
 		if (this.from() && this.linkState !== 'Ready') {
 			this.root.innerHTML =
 				this.linkState === 'Loading'
-					? '<p class="oi-calendar-empty">Loading the calendar…</p>'
-					: `<p class="oi-calendar-empty" data-oi-problem>No calendar in ${escapeHtml(this.from()!)}: the note may have been renamed or moved, or holds no Calendar.</p>`;
+					? `<p class="oi-calendar-empty">${t('Loading the calendar…')}</p>`
+					: `<p class="oi-calendar-empty" data-oi-problem>${escapeHtml(tr`No calendar in ${this.from()!}: the note may have been renamed or moved, or holds no Calendar.`)}</p>`;
 			return;
 		}
 		this.gather();
@@ -563,15 +572,15 @@ class CalendarView {
 		const readOnly = this.readOnly();
 		const toolbar =
 			`<div class="oi-calendar-bar">` +
-			`<button type="button" class="oi-calendar-button" data-action="Today">Today</button>` +
-			`<button type="button" class="oi-calendar-icon" data-action="Previous" aria-label="Previous">${leftMark}</button>` +
-			`<button type="button" class="oi-calendar-icon" data-action="Next" aria-label="Next">${rightMark}</button>` +
+			`<button type="button" class="oi-calendar-button" data-action="Today">${t('Today')}</button>` +
+			`<button type="button" class="oi-calendar-icon" data-action="Previous" aria-label="${t('Previous')}">${leftMark}</button>` +
+			`<button type="button" class="oi-calendar-icon" data-action="Next" aria-label="${t('Next')}">${rightMark}</button>` +
 			`<span class="oi-calendar-title">${escapeHtml(this.title())}</span>` +
 			`<span class="oi-calendar-space"></span>` +
-			`<div class="oi-calendar-segment-row" role="group" aria-label="View">${showList.map((item) => `<button type="button" class="oi-calendar-segment${item === this.show ? ' active' : ''}" data-action="Show" data-show="${item}" aria-pressed="${item === this.show}">${item}</button>`).join('')}</div>` +
+			`<div class="oi-calendar-segment-row" role="group" aria-label="${t('View')}">${showList.map((item) => `<button type="button" class="oi-calendar-segment${item === this.show ? ' active' : ''}" data-action="Show" data-show="${item}" aria-pressed="${item === this.show}">${t(item)}</button>`).join('')}</div>` +
 			`<button type="button" class="oi-calendar-button oi-calendar-zone${this.displayZone ? ' active' : ''}" data-action="Zone" title="${escapeHtml(zoneCity(this.zone()) ?? this.zone())}">${escapeHtml(zoneLabel(this.zone()))}</button>` +
-			(readOnly ? '' : `<button type="button" class="oi-calendar-button primary" data-action="New">${plusMark}<span>New</span></button>`) +
-			`<button type="button" class="oi-calendar-icon" data-action="More" aria-label="More">${moreMark}</button>` +
+			(readOnly ? '' : `<button type="button" class="oi-calendar-button primary" data-action="New">${plusMark}<span>${t('New')}</span></button>`) +
+			`<button type="button" class="oi-calendar-icon" data-action="More" aria-label="${t('More')}">${moreMark}</button>` +
 			`</div>`;
 		let body: string;
 		switch (this.show) {
@@ -614,22 +623,22 @@ class CalendarView {
 		const preview = occurrence.key.endsWith('#preview');
 		const selected = this.selected === occurrence.key;
 		const time = !event.allDay && showTime ? `<span class="oi-calendar-time">${clockText(occurrence.start - dayOfMoment(occurrence.start) * minutePerDay)}${compact ? '' : `–${clockText((occurrence.end - dayOfMoment(occurrence.start) * minutePerDay) % minutePerDay)}`}</span>` : '';
-		const mark = (event.repeat ? `<span class="oi-calendar-mark" title="${escapeHtml(repeatTitle(event.repeat, dayOfMoment(event.start)))}">${repeatMark}</span>` : '') + (event.kind === 'Note' ? `<span class="oi-calendar-mark" title="A note">${noteMark}</span>` : '');
+		const mark = (event.repeat ? `<span class="oi-calendar-mark" title="${escapeHtml(repeatTitle(event.repeat, dayOfMoment(event.start)))}">${repeatMark}</span>` : '') + (event.kind === 'Note' ? `<span class="oi-calendar-mark" title="${t('A note')}">${noteMark}</span>` : '');
 		const resize = !compact && !event.readOnly && !this.readOnly() && !event.allDay ? '<span class="oi-calendar-resize" data-resize></span>' : '';
 		const place = !compact && event.place ? `<span class="oi-calendar-place">${escapeHtml(event.place)}</span>` : '';
 		return (
-			`<div class="oi-calendar-event${preview ? ' oi-calendar-preview' : ''}${selected ? ' oi-calendar-selected' : ''}${event.allDay ? ' oi-calendar-allday-event' : ''}" data-occurrence="${escapeHtml(occurrence.key)}" style="--oi-calendar-color:${escapeHtml(this.colorOf(event))};${style}" title="${escapeHtml(event.title || 'Untitled')}">` +
+			`<div class="oi-calendar-event${preview ? ' oi-calendar-preview' : ''}${selected ? ' oi-calendar-selected' : ''}${event.allDay ? ' oi-calendar-allday-event' : ''}" data-occurrence="${escapeHtml(occurrence.key)}" style="--oi-calendar-color:${escapeHtml(this.colorOf(event))};${style}" title="${escapeHtml(event.title || t('Untitled'))}">` +
 			// a tall event: its name first, then its time and place (as Google Calendar does); a short one in a line
 			(compact
-				? `<span class="oi-calendar-event-title">${mark}${time}<span class="oi-calendar-name">${escapeHtml(event.title || 'Untitled')}</span></span>`
-				: `<span class="oi-calendar-event-title">${mark}<span class="oi-calendar-name">${escapeHtml(event.title || 'Untitled')}</span></span><span class="oi-calendar-sub">${time}${place}</span>`) +
+				? `<span class="oi-calendar-event-title">${mark}${time}<span class="oi-calendar-name">${escapeHtml(event.title || t('Untitled'))}</span></span>`
+				: `<span class="oi-calendar-event-title">${mark}<span class="oi-calendar-name">${escapeHtml(event.title || t('Untitled'))}</span></span><span class="oi-calendar-sub">${time}${place}</span>`) +
 			`${resize}</div>`
 		);
 	}
 
 	private dayHeadHtml(day: number, today: number): string {
 		const { date } = partOf(day);
-		return `<div class="oi-calendar-day-head${day === today ? ' oi-calendar-today' : ''}" data-day="${day}" data-action="GoDay"><span class="oi-calendar-weekday">${weekdayName[weekdayOf(day)]}</span><span class="oi-calendar-date">${date}</span></div>`;
+		return `<div class="oi-calendar-day-head${day === today ? ' oi-calendar-today' : ''}" data-day="${day}" data-action="GoDay"><span class="oi-calendar-weekday">${weekdayText(weekdayOf(day))}</span><span class="oi-calendar-date">${date}</span></div>`;
 	}
 
 	private timeGridHtml(from: number, to: number, list: readonly Occurrence[]): string {
@@ -675,7 +684,7 @@ class CalendarView {
 		return (
 			`<div class="oi-calendar-week" data-oi-own-alt style="--oi-calendar-days:${dayCount};--oi-calendar-hour:${hourHeight}px">` +
 			`<div class="oi-calendar-week-head"><div class="oi-calendar-gutter"></div>${head}</div>` +
-			`<div class="oi-calendar-allday"><div class="oi-calendar-gutter oi-calendar-allday-label">All day</div><div class="oi-calendar-allday-lane">${allDayCells}${allDayHtml}</div></div>` +
+			`<div class="oi-calendar-allday"><div class="oi-calendar-gutter oi-calendar-allday-label">${t('All day')}</div><div class="oi-calendar-allday-lane">${allDayCells}${allDayHtml}</div></div>` +
 			`<div class="oi-calendar-scroll"><div class="oi-calendar-grid" style="height:${24 * hourHeight}px"><div class="oi-calendar-gutter oi-calendar-hour-list">${hourHtml}</div><div class="oi-calendar-column-list">${columnHtml}</div></div></div>` +
 			`</div>`
 		);
@@ -684,7 +693,7 @@ class CalendarView {
 	private monthHtml(from: number, to: number, list: readonly Occurrence[]): string {
 		const today = dayOfMoment(this.now());
 		const month = partOf(this.anchor).month;
-		const head = Array.from({ length: 7 }, (_, index) => `<div class="oi-calendar-month-weekday">${weekdayName[(index + this.weekStart()) % 7]}</div>`).join('');
+		const head = Array.from({ length: 7 }, (_, index) => `<div class="oi-calendar-month-weekday">${weekdayText((index + this.weekStart()) % 7)}</div>`).join('');
 		let cellHtml = '';
 		const limit = 3;
 		for (let day = from; day <= to; day++) {
@@ -695,7 +704,7 @@ class CalendarView {
 			const more = dayList.length > shownList.length ? `<button type="button" class="oi-calendar-more" data-action="GoDay" data-day="${day}">+${dayList.length - shownList.length} more</button>` : '';
 			cellHtml +=
 				`<div class="oi-calendar-cell${cellMonth !== month ? ' oi-calendar-other' : ''}${day === today ? ' oi-calendar-today' : ''}" data-day="${day}">` +
-				`<button type="button" class="oi-calendar-cell-date" data-action="GoDay" data-day="${day}">${date === 1 ? `${monthShortName[cellMonth]} 1` : date}</button>` +
+				`<button type="button" class="oi-calendar-cell-date" data-action="GoDay" data-day="${day}">${date === 1 ? dateText(day) : date}</button>` +
 				shownList.map((item) => this.eventHtml(item, '', true, true)).join('') +
 				more +
 				`</div>`;
@@ -713,10 +722,10 @@ class CalendarView {
 			const { year, month, date } = partOf(day);
 			html +=
 				`<div class="oi-calendar-agenda-day${day === today ? ' oi-calendar-today' : ''}" data-day="${day}">` +
-				`<button type="button" class="oi-calendar-agenda-date" data-action="GoDay" data-day="${day}"><b>${date}</b><span>${weekdayName[weekdayOf(day)]}, ${monthShortName[month]}${year !== partOf(today).year ? ` ${year}` : ''}</span></button>` +
+				`<button type="button" class="oi-calendar-agenda-date" data-action="GoDay" data-day="${day}"><b>${date}</b><span>${weekdayText(weekdayOf(day))}, ${monthText(month)}${year !== partOf(today).year ? ` ${year}` : ''}</span></button>` +
 				`<div class="oi-calendar-agenda-list">${dayList.map((item) => this.eventHtml(item, '', false, true)).join('')}</div></div>`;
 		}
-		return `<div class="oi-calendar-agenda">${html || `<p class="oi-calendar-empty">Nothing in the next 30 days.</p>`}</div>`;
+		return `<div class="oi-calendar-agenda">${html || `<p class="oi-calendar-empty">${t('Nothing in the next 30 days.')}</p>`}</div>`;
 	}
 
 	// ------------------------------------------------------------ where the pointer is
@@ -935,22 +944,27 @@ class CalendarView {
 		insertEvent(this.noteModel(), this.calendarKey(), eventSource(event), afterKey);
 	}
 
-	/** The folder linked notes go to: Folder, or one named after this note, set the first time. */
-	private noteFolder(): string {
+	/** The folder events kept as notes go to: Folder, or one named after this note. */
+	private noteFolderName(): string {
 		const folder = textOf(this.property().get('Folder'));
 		if (folder) return folder.replace(/^\/+|\/+$/g, '');
 		const here = this.index()?.pathOf(this.context.note) ?? '';
 		const parent = here.includes('/') ? here.slice(0, here.lastIndexOf('/')) : '';
 		const name = (here.split('/').pop() ?? 'Calendar').replace(/\.oi$/, '') || 'Calendar';
-		const made = parent ? `${parent}/${name}` : name;
-		this.setProperty('Folder', made);
+		return parent ? `${parent}/${name}` : name;
+	}
+
+	/** The folder for event notes, written into the calendar the first time one is made. */
+	private noteFolder(): string {
+		const made = this.noteFolderName();
+		if (!textOf(this.property().get('Folder'))) this.setProperty('Folder', made);
 		return made;
 	}
 
 	private async addNote(event: CalendarEvent): Promise<string | undefined> {
 		const index = this.index();
 		if (!index) {
-			this.say('Linked notes need a vault.');
+			this.say(t('Linked notes need a vault.'));
 			return undefined;
 		}
 		const folder = this.noteFolder();
@@ -965,7 +979,7 @@ class CalendarView {
 	private moveOccurrence(occurrence: Occurrence, start: number, end: number, copy: boolean, point: { x: number; y: number }): void {
 		const event = occurrence.event;
 		if (event.readOnly || this.readOnly()) {
-			this.say(event.kind === 'Table' ? 'This event comes from a table: change it there.' : 'This is the Read view.');
+			this.say(event.kind === 'Table' ? t('This event comes from a table: change it there.') : t('This is the Read view.'));
 			return;
 		}
 		if (start === occurrence.start && end === occurrence.end) {
@@ -1019,9 +1033,9 @@ class CalendarView {
 			x: point.x,
 			y: point.y,
 			itemList: [
-				{ title: 'This event', explain: 'Only this day; the others stay', run: one },
-				{ title: 'This and following', explain: 'From this day on', run: following },
-				{ title: 'All events', run: all },
+				{ title: t('This event'), explain: t('Only this day; the others stay'), run: one },
+				{ title: t('This and following'), explain: t('From this day on'), run: following },
+				{ title: t('All events'), run: all },
 			],
 		});
 	}
@@ -1052,9 +1066,9 @@ class CalendarView {
 			x: point.x,
 			y: point.y,
 			itemList: [
-				{ title: 'Delete this event', explain: 'Skips this day', run: () => this.writeEvent({ ...event, skipList: [...event.skipList, [day, day]] }) },
-				{ title: 'Delete this and following', run: () => this.writeEvent({ ...event, repeat: { ...event.repeat!, until: day - 1, count: undefined } }) },
-				{ title: 'Delete all events', danger: true, run: remove },
+				{ title: t('Delete this event'), explain: t('Skips this day'), run: () => this.writeEvent({ ...event, skipList: [...event.skipList, [day, day]] }) },
+				{ title: t('Delete this and following'), run: () => this.writeEvent({ ...event, repeat: { ...event.repeat!, until: day - 1, count: undefined } }) },
+				{ title: t('Delete all events'), danger: true, run: remove },
 			],
 		});
 	}
@@ -1062,21 +1076,21 @@ class CalendarView {
 	private eventMenu(occurrence: Occurrence, point: { x: number; y: number }): void {
 		const event = occurrence.event;
 		const locked = event.readOnly || this.readOnly();
-		const itemList: MenuEntry[] = [{ title: locked ? 'Show' : 'Edit', run: () => this.openPopover(event, occurrence, point) }];
-		if (event.path) itemList.push({ title: 'Open note', run: () => this.index()?.open(event.path!) });
+		const itemList: MenuEntry[] = [{ title: locked ? t('Show') : t('Edit'), run: () => this.openPopover(event, occurrence, point) }];
+		if (event.path) itemList.push({ title: t('Open note'), run: () => this.index()?.open(event.path!) });
 		if (!locked) {
 			itemList.push(
-				{ title: 'Duplicate', hint: this.keyText('Duplicate'), separatorBefore: true, run: () => this.moveOccurrence(occurrence, occurrence.start + minutePerDay, occurrence.end + minutePerDay, true, point) },
-				{ title: 'Duplicate to next week', run: () => this.moveOccurrence(occurrence, occurrence.start + 7 * minutePerDay, occurrence.end + 7 * minutePerDay, true, point) },
-				{ title: 'Copy', hint: this.keyText('Copy'), run: () => (copied = { ...event, start: occurrence.start }) },
+				{ title: t('Duplicate'), hint: this.keyText('Duplicate'), separatorBefore: true, run: () => this.moveOccurrence(occurrence, occurrence.start + minutePerDay, occurrence.end + minutePerDay, true, point) },
+				{ title: t('Duplicate to next week'), run: () => this.moveOccurrence(occurrence, occurrence.start + 7 * minutePerDay, occurrence.end + 7 * minutePerDay, true, point) },
+				{ title: t('Copy'), hint: this.keyText('Copy'), run: () => (copied = { ...event, start: occurrence.start }) },
 			);
 			if (event.repeat) {
 				const day = dayOfMoment(occurrence.start);
-				itemList.push({ title: 'Skip this day', explain: 'For a break or a holiday', run: () => this.writeEvent({ ...event, skipList: [...event.skipList, [day, day]] }) });
+				itemList.push({ title: t('Skip this day'), explain: t('For a break or a holiday'), run: () => this.writeEvent({ ...event, skipList: [...event.skipList, [day, day]] }) });
 			}
-			if (event.kind === 'Block' && this.index()) itemList.push({ title: 'Move to its own note', separatorBefore: true, run: () => void this.toNote(event) });
-			if (event.kind === 'Note') itemList.push({ title: 'Move into the calendar', separatorBefore: true, run: () => void this.fromNote(event) });
-			itemList.push({ title: 'Delete', danger: true, separatorBefore: true, hint: this.keyText('Delete'), run: () => this.deleteOccurrence(occurrence, point) });
+			if (event.kind === 'Block' && this.index()) itemList.push({ title: t('Save as its own note'), explain: tr`A note in ${this.noteFolderName()}/, with the time in its properties`, separatorBefore: true, run: () => void this.toNote(event) });
+			if (event.kind === 'Note') itemList.push({ title: t('Keep in the calendar instead'), explain: t('Its note goes to the trash'), separatorBefore: true, run: () => void this.fromNote(event) });
+			itemList.push({ title: t('Delete'), danger: true, separatorBefore: true, hint: this.keyText('Delete'), run: () => this.deleteOccurrence(occurrence, point) });
 		}
 		this.menu()?.open({ x: point.x, y: point.y, itemList });
 	}
@@ -1119,42 +1133,45 @@ class CalendarView {
 		element.dataset.oiKeepEditor = '';
 		element.dataset.oiInteractive = '';
 		element.setAttribute('role', 'dialog');
-		element.setAttribute('aria-label', occurrence ? 'Event' : 'New event');
+		element.setAttribute('aria-label', occurrence ? t('Event') : t('New event'));
 		const disabled = locked ? ' disabled' : '';
 		const colorHtml = [undefined, ...colorList]
-			.map((color) => `<button type="button" class="oi-calendar-swatch${(event.color ?? undefined) === color ? ' active' : ''}" data-color="${color ?? ''}" style="--oi-calendar-color:${escapeHtml(color ? (this.context.resolveColor(color) ?? color) : 'transparent')}" aria-label="${color ?? 'Default color'}"${disabled}></button>`)
+			.map((color) => `<button type="button" class="oi-calendar-swatch${(event.color ?? undefined) === color ? ' active' : ''}" data-color="${color ?? ''}" style="--oi-calendar-color:${escapeHtml(color ? (this.context.resolveColor(color) ?? color) : 'transparent')}" aria-label="${escapeHtml(color ?? t('Default color'))}"${disabled}></button>`)
 			.join('');
-		const skipHtml = event.skipList.map(([from, to], at) => `<span class="oi-calendar-chip">${escapeHtml(from === to ? shortDate(from) : `${shortDate(from)} – ${shortDate(to)}`)}${locked ? '' : `<button type="button" data-skip-remove="${at}" aria-label="Remove">${crossMark}</button>`}</span>`).join('');
+		const skipHtml = event.skipList.map(([from, to], at) => `<span class="oi-calendar-chip">${escapeHtml(from === to ? shortDate(from) : `${shortDate(from)} – ${shortDate(to)}`)}${locked ? '' : `<button type="button" data-skip-remove="${at}" aria-label="${t('Remove')}">${crossMark}</button>`}</span>`).join('');
 		element.innerHTML =
 			`<form class="oi-calendar-form">` +
-			`<input class="oi-calendar-name-input" name="title" value="${escapeHtml(event.title)}" placeholder="Name" aria-label="Name" autocomplete="off"${disabled}>` +
-			`<div class="oi-calendar-form-row"><label class="oi-calendar-check"><input type="checkbox" name="allDay"${event.allDay ? ' checked' : ''}${disabled}> All day</label></div>` +
+			`<input class="oi-calendar-name-input" name="title" value="${escapeHtml(event.title)}" placeholder="${t('Name')}" aria-label="${t('Name')}" autocomplete="off"${disabled}>` +
+			`<div class="oi-calendar-form-row"><label class="oi-calendar-check"><input type="checkbox" name="allDay"${event.allDay ? ' checked' : ''}${disabled}> ${t('All day')}</label></div>` +
 			`<div class="oi-calendar-form-row oi-calendar-when">` +
-			`<input type="date" name="startDay" value="${dayText(startDay)}" aria-label="Date"${disabled}>` +
-			`<input type="time" name="startClock" value="${clockText(start - startDay * minutePerDay)}" step="${this.snap() * 60}" aria-label="Start time" data-timed${disabled}>` +
+			`<input type="date" name="startDay" value="${dayText(startDay)}" aria-label="${t('Date')}"${disabled}>` +
+			`<input type="time" name="startClock" value="${clockText(start - startDay * minutePerDay)}" step="${this.snap() * 60}" aria-label="${t('Start time')}" data-timed${disabled}>` +
 			`</div>` +
 			`<div class="oi-calendar-form-row oi-calendar-end">` +
-			`<div class="oi-calendar-segment-row" role="group" aria-label="End or duration"><button type="button" class="oi-calendar-segment${event.useDuration ? '' : ' active'}" data-end-mode="End"${disabled}>End</button><button type="button" class="oi-calendar-segment${event.useDuration ? ' active' : ''}" data-end-mode="Duration"${disabled}>Duration</button></div>` +
-			`<span class="oi-calendar-end-field" data-mode="End"${event.useDuration ? ' hidden' : ''}><input type="date" name="endDay" value="${dayText(lastDay)}" aria-label="End date" data-multi${disabled}><input type="time" name="endClock" value="${clockText(end - dayOfMoment(end) * minutePerDay)}" step="${this.snap() * 60}" aria-label="End time" data-timed${disabled}></span>` +
-			`<span class="oi-calendar-end-field" data-mode="Duration"${event.useDuration ? '' : ' hidden'}><input name="duration" value="${escapeHtml(durationText(end - start))}" size="7" aria-label="Duration" placeholder="1h30m"${disabled}>${['30m', '1h', '1h30m', '2h'].map((value) => `<button type="button" class="oi-calendar-chip-button" data-duration="${value}"${disabled}>${value}</button>`).join('')}</span>` +
+			`<div class="oi-calendar-segment-row" role="group" aria-label="${t('End or duration')}"><button type="button" class="oi-calendar-segment${event.useDuration ? '' : ' active'}" data-end-mode="End"${disabled}>${t('End')}</button><button type="button" class="oi-calendar-segment${event.useDuration ? ' active' : ''}" data-end-mode="Duration"${disabled}>${t('Duration')}</button></div>` +
+			`<span class="oi-calendar-end-field" data-mode="End"${event.useDuration ? ' hidden' : ''}><input type="date" name="endDay" value="${dayText(lastDay)}" aria-label="${t('End date')}" data-multi${disabled}><input type="time" name="endClock" value="${clockText(end - dayOfMoment(end) * minutePerDay)}" step="${this.snap() * 60}" aria-label="${t('End time')}" data-timed${disabled}></span>` +
+			`<span class="oi-calendar-end-field" data-mode="Duration"${event.useDuration ? '' : ' hidden'}><input name="duration" value="${escapeHtml(durationText(end - start))}" size="7" aria-label="${t('Duration')}" placeholder="1h30m"${disabled}>${['30m', '1h', '1h30m', '2h'].map((value) => `<button type="button" class="oi-calendar-chip-button" data-duration="${value}"${disabled}>${value}</button>`).join('')}</span>` +
 			`</div>` +
-			`<div class="oi-calendar-form-row"><select name="repeat" aria-label="Repeat"${disabled}>${repeatOptionList(startDay).map(([value, label]) => `<option value="${value}"${value === repeatKind ? ' selected' : ''}>${escapeHtml(label)}</option>`).join('')}</select></div>` +
-			`<div class="oi-calendar-form-row oi-calendar-custom"${repeatKind === 'Custom' ? '' : ' hidden'}>Every <input type="number" name="interval" min="1" value="${repeat?.interval ?? 1}" aria-label="Every"${disabled}><select name="every" aria-label="Unit"${disabled}>${(['Day', 'Week', 'Month', 'Year'] as Frequency[]).map((unit) => `<option value="${unit}"${(repeat?.every ?? 'Week') === unit ? ' selected' : ''}>${unit.toLowerCase()}s</option>`).join('')}</select>` +
-			`<span class="oi-calendar-weekday-row">${weekdayName.map((name, at) => `<label class="oi-calendar-weekday-toggle"><input type="checkbox" name="on" value="${at}"${(repeat?.onList.length ? repeat.onList : [weekdayOf(startDay)]).includes(at) ? ' checked' : ''}${disabled}>${name.slice(0, 2)}</label>`).join('')}</span></div>` +
-			`<div class="oi-calendar-form-row oi-calendar-repeat-more"${repeatKind === 'None' ? ' hidden' : ''}><label>Until <input type="date" name="until" value="${repeat?.until !== undefined ? dayText(repeat.until) : ''}" aria-label="Until"${disabled}></label></div>` +
-			`<div class="oi-calendar-form-row oi-calendar-repeat-more oi-calendar-skip"${repeatKind === 'None' ? ' hidden' : ''}><span class="oi-calendar-label">Skip</span>${skipHtml}${locked ? '' : `<input type="date" name="skipFrom" aria-label="Skip from"><span>–</span><input type="date" name="skipTo" aria-label="Skip to (optional)"><button type="button" class="oi-calendar-chip-button" data-action-form="AddSkip">Add</button>`}</div>` +
-			`<div class="oi-calendar-form-row"><input name="place" value="${escapeHtml(event.place ?? '')}" placeholder="Place" aria-label="Place"${disabled}></div>` +
+			`<div class="oi-calendar-form-row"><select name="repeat" aria-label="${t('Repeat')}"${disabled}>${repeatOptionList(startDay).map(([value, label]) => `<option value="${value}"${value === repeatKind ? ' selected' : ''}>${escapeHtml(label)}</option>`).join('')}</select></div>` +
+			`<div class="oi-calendar-form-row oi-calendar-custom"${repeatKind === 'Custom' ? '' : ' hidden'}>${t('Every')} <input type="number" name="interval" min="1" value="${repeat?.interval ?? 1}" aria-label="${t('Every')}"${disabled}><select name="every" aria-label="${t('Unit')}"${disabled}>${(['Day', 'Week', 'Month', 'Year'] as Frequency[]).map((unit) => `<option value="${unit}"${(repeat?.every ?? 'Week') === unit ? ' selected' : ''}>${escapeHtml(({ Day: t('days'), Week: t('weeks'), Month: t('months'), Year: t('years') } as Record<string, string>)[unit]!)}</option>`).join('')}</select>` +
+			`<span class="oi-calendar-weekday-row">${weekdayName.map((_, at) => `<label class="oi-calendar-weekday-toggle"><input type="checkbox" name="on" value="${at}"${(repeat?.onList.length ? repeat.onList : [weekdayOf(startDay)]).includes(at) ? ' checked' : ''}${disabled}>${escapeHtml(weekdayText(at, 'narrow'))}</label>`).join('')}</span></div>` +
+			`<div class="oi-calendar-form-row oi-calendar-repeat-more"${repeatKind === 'None' ? ' hidden' : ''}><label>${t('Until')} <input type="date" name="until" value="${repeat?.until !== undefined ? dayText(repeat.until) : ''}" aria-label="${t('Until')}"${disabled}></label></div>` +
+			`<div class="oi-calendar-form-row oi-calendar-repeat-more oi-calendar-skip"${repeatKind === 'None' ? ' hidden' : ''}><span class="oi-calendar-label">${t('Skip')}</span>${skipHtml}${locked ? '' : `<input type="date" name="skipFrom" aria-label="${t('Skip from')}"><span>–</span><input type="date" name="skipTo" aria-label="${t('Skip to (optional)')}"><button type="button" class="oi-calendar-chip-button" data-action-form="AddSkip">${t('Add')}</button>`}</div>` +
+			`<div class="oi-calendar-form-row"><input name="place" value="${escapeHtml(event.place ?? '')}" placeholder="${t('Place')}" aria-label="${t('Place')}"${disabled}></div>` +
 			`<div class="oi-calendar-form-row oi-calendar-swatch-row">${colorHtml}</div>` +
-			(event.kind === 'Block' ? `<textarea name="noteText" rows="2" placeholder="Notes" aria-label="Notes"${disabled}>${escapeHtml(event.noteText)}</textarea>` : '') +
-			(!occurrence && index && !locked ? `<label class="oi-calendar-check oi-calendar-as-note"><input type="checkbox" name="asNote"> As a linked note</label>` : '') +
-			(event.kind === 'Table' ? `<p class="oi-calendar-note">From a table: change it there.</p>` : '') +
-			(!event.allDay && (this.displayZone || event.timeZone) ? `<p class="oi-calendar-note">Times in ${escapeHtml(zoneLabel(this.zone()))}${event.timeZone && event.timeZone !== this.zone() ? `; the event is set in ${escapeHtml(zoneLabel(event.timeZone))}` : ''}.</p>` : '') +
+			(event.kind === 'Block' ? `<textarea name="noteText" rows="2" placeholder="${t('Notes')}" aria-label="${t('Notes')}"${disabled}>${escapeHtml(event.noteText)}</textarea>` : '') +
+			(!occurrence && index && !locked
+				? `<label class="oi-calendar-check oi-calendar-as-note"><input type="checkbox" name="asNote"> ${t('Save as its own note')}</label><p class="oi-calendar-note">${escapeHtml(tr`A note in ${this.noteFolderName()}/ that keeps the time in its properties. The calendar shows every note there that has a Start.`)}</p>`
+				: '') +
+			(event.kind === 'Note' && event.path ? `<p class="oi-calendar-note">${escapeHtml(tr`Kept in its own note, ${event.path.replace(/\.oi$/, '')}: the time is in that note's properties.`)}</p>` : '') +
+			(event.kind === 'Table' ? `<p class="oi-calendar-note">${t('From a table: change it there.')}</p>` : '') +
+			(!event.allDay && (this.displayZone || event.timeZone) ? `<p class="oi-calendar-note">${escapeHtml(event.timeZone && event.timeZone !== this.zone() ? tr`Times in ${zoneLabel(this.zone())}; the event is set in ${zoneLabel(event.timeZone)}.` : tr`Times in ${zoneLabel(this.zone())}.`)}</p>` : '') +
 			`<div class="oi-calendar-form-action">` +
-			(occurrence && !locked ? `<button type="button" class="oi-calendar-button" data-action-form="More" aria-label="More">More</button>` : '') +
-			(event.path ? `<button type="button" class="oi-calendar-button" data-action-form="Open">Open note</button>` : '') +
+			(occurrence && !locked ? `<button type="button" class="oi-calendar-button" data-action-form="More" aria-label="${t('More')}">${t('More')}</button>` : '') +
+			(event.path ? `<button type="button" class="oi-calendar-button" data-action-form="Open">${t('Open note')}</button>` : '') +
 			`<span class="oi-calendar-space"></span>` +
-			`<button type="button" class="oi-calendar-button" data-action-form="Cancel">${locked ? 'Close' : 'Cancel'}</button>` +
-			(locked ? '' : `<button type="submit" class="oi-calendar-button primary">Save</button>`) +
+			`<button type="button" class="oi-calendar-button" data-action-form="Cancel">${locked ? t('Close') : t('Cancel')}</button>` +
+			(locked ? '' : `<button type="submit" class="oi-calendar-button primary">${t('Save')}</button>`) +
 			`</div></form>`;
 		document.body.append(element);
 		this.popover = element;
@@ -1212,7 +1229,7 @@ class CalendarView {
 				skipList.push(range);
 				const chip = document.createElement('span');
 				chip.className = 'oi-calendar-chip';
-				chip.innerHTML = `${escapeHtml(range[0] === range[1] ? shortDate(range[0]) : `${shortDate(range[0])} – ${shortDate(range[1])}`)}<button type="button" data-skip-remove="${skipList.length - 1}" aria-label="Remove">${crossMark}</button>`;
+				chip.innerHTML = `${escapeHtml(range[0] === range[1] ? shortDate(range[0]) : `${shortDate(range[0])} – ${shortDate(range[1])}`)}<button type="button" data-skip-remove="${skipList.length - 1}" aria-label="${t('Remove')}">${crossMark}</button>`;
 				target.closest('.oi-calendar-skip')!.insertBefore(chip, form.elements.namedItem('skipFrom') as HTMLInputElement);
 				(form.elements.namedItem('skipFrom') as HTMLInputElement).value = '';
 				(form.elements.namedItem('skipTo') as HTMLInputElement).value = '';
@@ -1467,21 +1484,18 @@ function noteBody(text: string): string {
 	return rest.join('\n').trim();
 }
 
-const shortDate = (day: number): string => {
-	const { month, date } = partOf(day);
-	return `${monthShortName[month]} ${date}`;
-};
+const shortDate = (day: number): string => dateText(day);
 
 function repeatOptionList(day: number): [string, string][] {
-	const { month, date } = partOf(day);
+	const { date } = partOf(day);
 	return [
-		['None', 'Does not repeat'],
-		['Day', 'Every day'],
-		['Week', `Every week on ${weekdayLongName[weekdayOf(day)]}`],
-		['Weekday', 'Every weekday (Mon to Fri)'],
-		['Month', `Every month on the ${ordinal(date)}`],
-		['Year', `Every year on ${monthShortName[month]} ${date}`],
-		['Custom', 'Custom'],
+		['None', t('Does not repeat')],
+		['Day', t('Every day')],
+		['Week', tr`Every week on ${weekdayText(weekdayOf(day), 'long')}`],
+		['Weekday', t('Every weekday (Mon to Fri)')],
+		['Month', tr`Every month on the ${ordinalText(date)}`],
+		['Year', tr`Every year on ${dateText(day)}`],
+		['Custom', t('Custom')],
 	];
 }
 
@@ -1498,8 +1512,6 @@ function repeatKindOf(repeat: Repeat | undefined, day: number): string {
 	}
 	return 'Custom';
 }
-
-const ordinal = (value: number): string => `${value}${value % 10 === 1 && value !== 11 ? 'st' : value % 10 === 2 && value !== 12 ? 'nd' : value % 10 === 3 && value !== 13 ? 'rd' : 'th'}`;
 
 export const calendarRenderer: Renderer = {
 	mount(frame, block, context) {

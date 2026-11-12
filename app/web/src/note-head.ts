@@ -7,6 +7,7 @@
 
 import type { BlockNode } from '@octaether/core-format';
 import type { NoteModel } from '@octaether/core-model';
+import { t } from '@octaether/core-sdk';
 import { escapeHtml } from './ui';
 
 export interface NoteHeadOption {
@@ -182,15 +183,15 @@ export class NoteHead {
 		let html = '';
 		if (keyList.length > 0) {
 			const list = keyList.map((key) => `<b>${escapeHtml(key)}</b>`).join(', ');
-			html += `<div class="note-head-notice">This note keeps ${list} in its header, which only the Source view shows. <button type="button" class="note-head-link" data-action="MoveHeader">Show as properties</button></div>`;
+			html += `<div class="note-head-notice">${t('This note keeps {list} in its header, which only the Source view shows.', { list })} <button type="button" class="note-head-link" data-action="MoveHeader">${t('Show as properties')}</button></div>`;
 		}
-		if (!propertyBlockOf(model)) html += `<button type="button" class="note-head-add" data-action="AddProperty" title="Add property (Ctrl+;)">${plusIcon}<span>Add property</span></button>`;
+		if (!propertyBlockOf(model)) html += `<button type="button" class="note-head-add" data-action="AddProperty" title="${escapeHtml(t('Add property'))} (Ctrl+;)">${plusIcon}<span>${escapeHtml(t('Add property'))}</span></button>`;
 		if (isEmptyNote(model)) {
 			const layout = this.option.pageLayout();
 			const choice = (value: 'Flow' | 'Masonry', title: string, explain: string, picture: string): string =>
-				`<button type="button" class="layout-choice${layout === value ? ' active' : ''}" data-action="${value}" aria-pressed="${layout === value}" title="${explain}">${picture}<span>${title}</span></button>`;
+				`<button type="button" class="layout-choice${layout === value ? ' active' : ''}" data-action="${value}" aria-pressed="${layout === value}" title="${escapeHtml(t(explain))}">${picture}<span>${escapeHtml(t(title))}</span></button>`;
 			html +=
-				'<div class="note-head-layout" role="group" aria-label="Page layout"><span class="note-head-layout-label">Page</span>' +
+				`<div class="note-head-layout" role="group" aria-label="${escapeHtml(t('Page layout'))}"><span class="note-head-layout-label">${escapeHtml(t('Page'))}</span>` +
 				choice('Flow', 'Document', 'Blocks one under another', layoutPicture.Flow) +
 				choice('Masonry', 'Masonry', 'Cards in columns, Pinterest style', layoutPicture.Masonry) +
 				'</div>';

@@ -21,7 +21,7 @@ Plot {X: [-6, 6]}:
 	P = (2, f(2))
 
 - **Edit right under the plot**, as in Desmos: click a line to change it, `Enter` for a new line below, `↑` `↓` to move between lines, `Esc` to stop. An emptied line goes.
-- **+ Add** lists what a plot can hold: a function, a number with a slider, a point, a curve, a region, polar and parametric curves, a surface, and charts of the plot's table by its columns. Typing `/` alone in a line opens the same list.
+- **Type in the blank line at the end** to add a line. A `/` there lists what a plot can hold, filtered as you type: a function, a number with a slider, a point, a curve, a region, polar and parametric curves, a surface, a vector field, a comment (`# …`), and charts of the plot's table by its columns.
 - **Each line's ⋯ menu** sets its color, a solid, dashed, or dotted line, its thickness, its label; hides or shows it; for data, its kind of chart, grouping, and trend; deletes it. It writes the same `{…}` you could type.
 - **A number gets a slider** on its own line: `a = 1.5  0 ━●━ 3  ▶`. ▶ plays it. Click the number to type one, or the ends of the slider for its range and step (no step: any value).
 - **A point with a name** (`P = (2, f(2))`) is labelled by it, and its parts can be anything, functions too. **Drag a point** with a ring: its numbers follow, or its sliders when it is written `(a, b)`.
@@ -44,7 +44,7 @@ Table {Title: Weight log, Column: {Weight: {Unit: kg}}}:
 Plot {Data: Weight log}:
 	(Date, Weight) {Kind: Line, Trend: Linear}
 
-Table {Title: Spending, Column: {Amount: {Unit: $}, Category: {Type: Choice}}}:
+Table {Title: Spending, Column: {Amount: {Unit: $}, Category: {Type: Tag}}}:
 	Date,Category,Amount
 	2026-10-03,Food,61.40
 	2026-10-09,Bills,35
@@ -66,6 +66,21 @@ Grid {Gap: 16px}:
 - `Trend` (Linear, Quadratic, Exponential) draws a trend line, with its equation and R² below.
 - **Point at a bar** to light it up with its value; **point at a slice** (or its row in the legend) to see its name, value, and share, and click it to keep it lit. The legend lists every slice with its share, however small.
 - A table in another note: `Data: Gym#Gym log`.
+
+## Vector fields
+
+A field gives an arrow at each place: `F(x, y) = (P, Q)`. Here, a pendulum: each arrow shows where it swings next from that angle (x) and speed (y), colored from the weakest arrow to the strongest.
+
+Plot {X: [-7, 7], Y: [-3.5, 3.5]}:
+	F(x, y) = (y, -sin(x)) {Gradient: ["#440154", "#21918c", "#fde725"]}
+
+Plot {X: [-2, 2], Y: [-2, 2], Z: [-2, 2], Camera: {Yaw: 35, Pitch: 25}}:
+	F(x, y, z) = (-y, x, -z / 2) {Gradient: [Success, Warning, Danger]}
+
+- **The arrows sit on the plot's own grid**: they move as you drag it and grow as you zoom in, until more fill in between.
+- **The field's color strip** (left of its line) is its gradient: weak arrows' color on the left, strong on the right. Click it (or ⋯ → *Color by strength*) to change it, and the arrows change as you do: drag a color anywhere along (its place shows in %, or type it), click it to pick its color, click the bar to add one, or start from a ready one (Viridis, Magma, blue to red…) or one of yours (*Save*, or *Import* a GIMP .ggr, an SVG, or a CSS gradient); *Reverse* turns it around, `Ctrl+Z` steps back, *Done* keeps it, `Esc` puts back what was there, *One color* goes back to the line's color. It writes `{Gradient: […]}`, a color's place only when it isn't evenly spaced (`"Teal 40%"`).
+- **⋯ → Arrows** gives fewer or more of them (`Density: 0.5` or `2`).
+- `F(x, y, z) = (P, Q, R)` is a field in space; a 2D field in a 3D plot lies on the plane z = 0 (`{Z: 1}` lifts it).
 
 ## In 3D
 

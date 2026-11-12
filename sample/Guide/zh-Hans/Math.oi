@@ -1,0 +1,49 @@
+---
+Created: 2026-09-30 12:00 -04:00
+Format: Oi 1
+---
+
+Property:
+	Tag: [Guide, Module]
+	Module: Math
+
+**Math** 模块把 TeX 变成由浏览器自己排版的公式（MathML），因此公式会跟随主题和文字大小。点击公式的任何部分，就能编辑那个确切的位置。返回 [[Welcome]]；化学有自己的指南：[[Chemistry]]。
+
+Math: \int_0^\infty e^{-x^2}\,dx = \frac{\sqrt{\pi}}{2}
+
+## 句中的公式
+
+把 {Math: E = mc^2} 写成 `{Math: E = mc^2}`，与其他放进一行文字的块写法相同。
+
+## 编号和宏
+
+Math {Numbered: True}:
+	\newcommand{\R}{\mathbb{R}}
+	f:\R\to\R,\quad f(x) = \sum_{n=0}^{\infty} \frac{x^n}{n!}
+
+Math {Numbered: True}: \nabla \cdot \mathbf{E} = \frac{\rho}{\varepsilon_0}
+
+## 矩阵和对齐的多行
+
+Math:
+	\begin{pmatrix} a & b \\ c & d \end{pmatrix}^{-1} = \frac{1}{ad - bc}\begin{pmatrix} d & -b \\ -c & a \end{pmatrix}
+
+Math:
+	\begin{aligned}
+	(a+b)^2 &= a^2 + 2ab + b^2 \\
+	(a-b)^2 &= a^2 - 2ab + b^2
+	\end{aligned}
+
+## 颜色
+
+Math: \textcolor{Accent}{F} = m\,\textcolor{Danger}{a}
+
+## 美元符号
+
+与 Obsidian 一样，`$$` 是 `Math:` 的*别名*：把它写在公式两侧，可以在同一行，也可以各占一行。
+
+$$
+\oint_{\partial S} \mathbf{F} \cdot d\mathbf{r} = \iint_S (\nabla \times \mathbf{F}) \cdot d\mathbf{S}
+$$
+
+单个 `$` 始终只是美元符号。这个别名可以在“设置 → 模块 → Math”中关闭或修改，旁边还有公式字体和编号设置。

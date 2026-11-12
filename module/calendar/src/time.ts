@@ -3,8 +3,80 @@
 // 2d; repeats are `{Every: Week, On: [Mon, Wed], Until: 2026-12-15}`; skips are dates and `a..b`.
 
 import type { PropertyMap, PropertyValue } from '@octaether/core-format';
+import { languageTag, t, tr } from '@octaether/core-sdk';
 
 export const minutePerDay = 1440;
+
+// ---------------------------------------------------------------- in words, in the language in use
+// The English names below are also the syntax (`On: [Mon, Wed]`); what is shown goes through these.
+
+const english = (): boolean => languageTag() === 'en';
+const formatMap = new Map<string, Intl.DateTimeFormat>();
+function dateFormat(option: Intl.DateTimeFormatOptions): Intl.DateTimeFormat {
+	const key = `${languageTag()} ${JSON.stringify(option)}`;
+	let format = formatMap.get(key);
+	if (!format) formatMap.set(key, (format = new Intl.DateTimeFormat(languageTag(), { ...option, timeZone: 'UTC' })));
+	return format;
+}
+const dateOfDay = (day: number): Date => new Date(day * 86_400_000);
+
+/** A weekday's name (0 = Monday): Mon, Monday, or Mo (narrow). */
+export function weekdayText(index: number, width: 'short' | 'long' | 'narrow' = 'short'): string {
+	if (english()) return width === 'long' ? weekdayLongName[index]! : width === 'narrow' ? weekdayName[index]!.slice(0, 2) : weekdayName[index]!;
+	// 1970-01-05 was a Monday
+	return dateFormat({ weekday: width }).format(dateOfDay(4 + index));
+}
+
+/** A month's name (0 = January): Jan or January. */
+export function monthText(month: number, width: 'short' | 'long' = 'short'): string {
+	if (english()) return width === 'long' ? monthName[month]! : monthShortName[month]!;
+	return dateFormat({ month: width }).format(new Date(Date.UTC(2026, month, 1)));
+}
+
+/** A day in words: `Nov 4`, `Wed, Nov 4, 2026`, `Wednesday, November 4, 2026`. */
+export function dateText(day: number, option: { weekday?: 'short' | 'long'; month?: 'short' | 'long'; year?: boolean } = {}): string {
+	const { year, month, date } = partOf(day);
+	if (!english()) return dateFormat({ weekday: option.weekday, month: option.month ?? 'short', day: 'numeric', year: option.year ? 'numeric' : undefined }).format(dateOfDay(day));
+	const text = `${monthText(month, option.month)} ${date}${option.year ? `, ${year}` : ''}`;
+	return option.weekday ? `${weekdayText(weekdayOf(day), option.weekday)}, ${text}` : text;
+}
+
+/** A month and year: `November 2026`. */
+export function monthYearText(day: number): string {
+	const { year, month } = partOf(day);
+	return english() ? `${monthName[month]} ${year}` : dateFormat({ month: 'long', year: 'numeric' }).format(dateOfDay(day));
+}
+
+/** Two days as a range: `Nov 2 – 8, 2026`, `Oct 26 – Nov 1, 2026`. */
+export function rangeText(from: number, to: number): string {
+	const a = partOf(from);
+	const b = partOf(to);
+	if (!english()) {
+		const format = dateFormat({ month: 'short', day: 'numeric', year: 'numeric' }) as Intl.DateTimeFormat & { formatRange?: (start: Date, end: Date) => string };
+		return format.formatRange ? format.formatRange(dateOfDay(from), dateOfDay(to)) : `${format.format(dateOfDay(from))} – ${format.format(dateOfDay(to))}`;
+	}
+	if (a.year !== b.year) return `${monthShortName[a.month]} ${a.date}, ${a.year} – ${monthShortName[b.month]} ${b.date}, ${b.year}`;
+	if (a.month !== b.month) return `${monthShortName[a.month]} ${a.date} – ${monthShortName[b.month]} ${b.date}, ${b.year}`;
+	return `${monthName[a.month]} ${a.date} – ${b.date}, ${b.year}`;
+}
+
+/** Items in a sentence: `Mon, Wed`, or 周一、周三 in Chinese. */
+export function listText(list: readonly string[]): string {
+	if (english() || typeof Intl.ListFormat !== 'function') return list.join(', ');
+	return new Intl.ListFormat(languageTag(), { style: 'narrow', type: 'unit' }).format(list);
+}
+
+/** The 4th in English; elsewhere the number, for the language's own sentence (每月 4 日). */
+export function ordinalText(value: number): string {
+	if (!english()) return String(value);
+	return `${value}${value % 10 === 1 && value !== 11 ? 'st' : value % 10 === 2 && value !== 12 ? 'nd' : value % 10 === 3 && value !== 13 ? 'rd' : 'th'}`;
+}
+
+/** A repeat's unit in words, with how many: day, 3 weeks. */
+function unitText(every: string, count: number): string {
+	if (count === 1) return ({ Day: t('day'), Week: t('week'), Month: t('month'), Year: t('year') } as Record<string, string>)[every] ?? every;
+	return ({ Day: tr`${count} days`, Week: tr`${count} weeks`, Month: tr`${count} months`, Year: tr`${count} years` } as Record<string, string>)[every] ?? `${count} ${every}`;
+}
 
 const pad = (value: number): string => String(value).padStart(2, '0');
 
@@ -158,14 +230,10 @@ export function repeatValue(repeat: Repeat | undefined): PropertyValue | undefin
 
 /** In words: "Every week on Mon, Wed until Dec 15, 2026". */
 export function repeatTitle(repeat: Repeat, startDay: number): string {
-	const unit = repeat.every.toLowerCase();
-	let text = repeat.interval === 1 ? `Every ${unit}` : `Every ${repeat.interval} ${unit}s`;
-	if (repeat.every === 'Week') text += ` on ${(repeat.onList.length ? repeat.onList : [weekdayOf(startDay)]).map((index) => weekdayName[index]).join(', ')}`;
-	if (repeat.until !== undefined) {
-		const { year, month, date } = partOf(repeat.until);
-		text += ` until ${monthShortName[month]} ${date}, ${year}`;
-	}
-	if (repeat.count !== undefined) text += `, ${repeat.count} times`;
+	let text = tr`Every ${unitText(repeat.every, repeat.interval)}`;
+	if (repeat.every === 'Week') text = tr`${text} on ${listText((repeat.onList.length ? repeat.onList : [weekdayOf(startDay)]).map((index) => weekdayText(index)))}`;
+	if (repeat.until !== undefined) text = tr`${text} until ${dateText(repeat.until, { year: true })}`;
+	if (repeat.count !== undefined) text = tr`${text}, ${repeat.count} times`;
 	return text;
 }
 

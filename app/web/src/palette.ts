@@ -2,6 +2,7 @@
 // vault). Type to filter, arrows to move, Enter to run.
 
 import type { CommandRegistry } from '@octaether/core-edit';
+import { t } from '@octaether/core-sdk';
 import { escapeHtml, openModal } from './ui';
 
 export interface PickerItem {
@@ -109,16 +110,17 @@ export function openPicker(option: PickerOption): void {
 
 export function openCommandPalette(commandRegistry: CommandRegistry, hotkey: (command: string) => string): void {
 	openPicker({
-		placeholder: 'Type a command',
-		emptyText: 'No command matches',
+		placeholder: t('Type a command'),
+		emptyText: t('No command matches'),
 		itemList: (query) =>
 			commandRegistry
 				.list()
 				// commands with a context of their own (the drawing tool's) work only there
 				.filter((command) => command.when === undefined)
-				.map((command) => ({ command, score: bestFuzzyScore(query, [[command.title, 0], [command.id, 0.5]]) }))
+				// found by its name in your language, in English, or by its id
+				.map((command) => ({ command, score: bestFuzzyScore(query, [[t(command.title), 0], [command.title, 0.2], [command.id, 0.5]]) }))
 				.filter((item) => item.score >= 0)
 				.sort((left, right) => left.score - right.score || left.command.title.localeCompare(right.command.title))
-				.map(({ command }) => ({ title: command.title, hint: hotkey(command.id), run: () => void commandRegistry.run(command.id) })),
+				.map(({ command }) => ({ title: t(command.title), hint: hotkey(command.id), run: () => void commandRegistry.run(command.id) })),
 	});
 }

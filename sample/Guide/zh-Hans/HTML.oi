@@ -1,0 +1,28 @@
+---
+Created: 2026-09-30 12:00 -04:00
+Format: Oi 1
+---
+
+Property:
+	Tag: [Guide, Module]
+	Module: HTML
+
+**HTML** 模块显示一段 HTML，用于表达 Markdown 无法表达的内容。返回 [[Welcome]]。
+
+HTML:
+	<details>
+		<summary>25 °C 时纯水的 pH 是多少？</summary>
+		<p>是 <b>7</b>：<code>[H<sub>3</sub>O<sup>+</sup>] = 10<sup>−7</sup> M</code>。</p>
+	</details>
+
+HTML:
+	<table>
+		<tr><th>按键</th><th>作用</th></tr>
+		<tr><td><kbd>Ctrl</kbd> + <kbd>E</kbd></td><td>在编辑与阅读之间切换</td></tr>
+		<tr><td><kbd>Ctrl</kbd> + <kbd>,</kbd></td><td>打开设置</td></tr>
+	</table>
+
+它也能放进一句话里：按 {HTML: <kbd>Ctrl</kbd> + <kbd>P</kbd>} 打开命令面板。
+
+Callout {Kind: Info}: 从设计上保证安全
+	HTML 在显示之前会被清理。脚本、表单、框架和事件处理程序会被移除，`class` 和 `id` 会被去掉，`style` 只保留颜色、大小和间距。链接在新标签页中打开。

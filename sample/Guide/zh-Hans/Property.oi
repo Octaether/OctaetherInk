@@ -1,0 +1,23 @@
+---
+Created: 2026-09-30 12:00 -04:00
+Format: Oi 1
+---
+
+**Property** 模块给笔记添加它自己的字段：标签、截止日期、评分、复选框。它们保存在一个 **Property** 块中，而这个块是可选的：笔记可以没有它。返回 [[Welcome]]。
+
+Property:
+	Tag: [Guide, Module]
+	Module: Property
+	Rating: 5
+	Reviewed: True
+	Due: 2026-10-05
+	Exam: 2026-10-12 09:00 -04:00
+
+- 通过名称下方的 **+ 添加属性**、在书写处输入 `/property`，或按 `Ctrl+;` 来添加。
+- 它和其他块一样，可以放在任何地方：拖动它的 ⋮⋮ 把手即可移动，甚至可以放进标注或分栏中。无论它在哪里，标签和搜索都能找到它。
+- 每个字段都有类型：Text、List、Number、Checkbox、Date 或 Date & time。点击图标可更改类型，拖动图标可移动字段。
+- 标签显示为胶囊：点击可编辑，拖动可移动，按 **+** 添加。`Enter` 或逗号开始下一个。
+- 字段是采用 YAML 基本类型的普通 `Key: value` 行，所以其他工具也能读取。
+
+Callout {Kind: Info}: 笔记自己的开头不会碍事
+	`Created`、`Id` 和 `Format` 属于应用本身，只在源码视图中显示。

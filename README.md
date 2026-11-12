@@ -5,7 +5,7 @@
 <h1 align="center">Octaether Ink (OI)</h1>
 
 <p align="center">
-  <b>Local‑first, block‑based notes.</b> Plain‑text <code>.oi</code> files you own, with text, math, chemistry, code, TikZ drawings, tables, plots, calendars, boards, pictures, videos, and callouts in one note.<br>
+  <b>Local‑first, block‑based notes.</b> Plain‑text <code>.oi</code> files you own, with text, math, chemistry, code, TikZ drawings, tables, plots, calendars, boards, pictures, videos, and callouts in one note, and an AI of your own to write them.<br>
   Works in the browser today; desktop, iPad, and phone apps come next.
 </p>
 
@@ -21,14 +21,14 @@
 
 ![A note about the SN2 reaction in a vault: file sidebar, properties at the top, a callout, and an electron-pushing mechanism](doc/Edit.png)
 
-> **Status: version 1**, file format `Format: Oi 1`. Everything in the [user guide](#using-octaether-ink) works now. The [specification](#specification) is the design the build follows, and the [roadmap](#roadmap--todo) tracks what is done and what is next.
+> **Status: version 1.1.0**, file format `Format: Oi 1`. Everything in the [user guide](#using-octaether-ink) works now. The [specification](#specification) is the design the build follows, and the [roadmap](#roadmap--todo) tracks what is done and what is next.
 > Website: [octaether.com](https://octaether.com) · Licence: [MIT](LICENSE) · Support: [GitHub Sponsors](https://github.com/sponsors/Octaether) or [Ko-fi](https://ko-fi.com/octaether)
 
 ## Contents
 
 - [Highlights](#highlights)
 - [Quick start](#quick-start)
-- [Using Octaether Ink](#using-octaether-ink): [first launch](#first-launch-a-vault-a-quick-note-or-a-file), [files](#files-new-save-rename-delete), [tabs](#tabs), [views](#three-views-source-edit-read), [blocks](#writing-with-blocks), [media](#pictures-videos-markdown-and-html), [note top](#the-top-of-a-note-name-properties-and-page-layout), [find and links](#find-search-links-and-the-graph), [boards](#boards-free-placement-and-masonry), [tables, plots, calendars](#tables-plots-and-calendars), [chemistry](#chemistry-structures-mechanisms-and-the-drawing-tool), [color](#color), [hotkeys](#hotkeys-and-macros), [setting](#setting), [status bar](#status-bar), [broken blocks](#when-a-block-cant-render), [offline](#offline-install-and-phones)
+- [Using Octaether Ink](#using-octaether-ink): [first launch](#first-launch-a-vault-a-quick-note-or-a-file), [files](#files-new-save-rename-delete), [tabs](#tabs), [views](#three-views-source-edit-read), [blocks](#writing-with-blocks), [media](#pictures-videos-markdown-and-html), [note top](#the-top-of-a-note-name-properties-and-page-layout), [find and links](#find-search-links-and-the-graph), [boards](#boards-free-placement-and-masonry), [tables, plots, calendars](#tables-plots-and-calendars), [chemistry](#chemistry-structures-mechanisms-and-the-drawing-tool), [color](#color), [AI](#ai-a-model-of-your-own-in-your-notes), [hotkeys](#hotkeys-and-macros), [setting](#setting), [status bar](#status-bar), [broken blocks](#when-a-block-cant-render), [offline](#offline-install-and-phones)
 - [Syntax at a glance](#syntax-at-a-glance)
 - [Deploy](#deploy)
 - [Support](#support)
@@ -46,6 +46,7 @@
 - **Tables, plots, and calendars.** Type into a table like a spreadsheet (formulas, summaries, groups, Board and Gallery layouts), or show a `.csv` or an Excel sheet and edit it in place; plot functions and table columns like Desmos, in 2D and 3D; plan in a calendar with repeats and breaks, dragging events around.
 - **Boards.** Place blocks freely (with arrows between them, for whiteboards and mechanisms) or as a Pinterest‑style wall of cards. A drawing tool, like ALEKS or ChemDraw, edits structures and boards.
 - **Every key is yours.** Rebind any command, with chords and conflict warnings; macros chain commands. `Ctrl+Z` works everywhere, renames included.
+- **An AI of your own.** Connect Claude, OpenAI, Gemini, DeepSeek, OpenRouter, or a model on your computer with your own key; it formats and writes real blocks, previewed before anything enters the note. No account and no server of ours: the browser talks to the provider directly.
 - **Modules and plugins.** Every block type comes from a module and every system function from a plugin; each can be switched off and has its own settings.
 
 ## Quick start
@@ -57,7 +58,7 @@
 ```bash
 npm install
 npm run dev       # web app at http://localhost:5173
-npm test          # 381 tests: format, model, vault, expressions, editing, every module and plugin, render host, app
+npm test          # 469 tests: format, model, vault, expressions, editing, every module and plugin, render host, app
 npm run check     # TypeScript type-check of every package
 npm run build     # production build of the web app → app/web/dist
 npm run preview   # serve the production build locally
@@ -71,7 +72,7 @@ Requires Node 22+ and no global installs. The repository is an npm workspace ([�
 
 ### First launch: a vault, a quick note, or a file
 
-The first screen works like Obsidian's vault manager and VS Code's start page:
+The first screen is one quiet column in the middle of the window: the name, a line of what the app is, and what you can do, each with a line saying what it means. The first choice stands out (a vault; a quick note where the browser can't open folders):
 
 | Choice | What it does | Where it works |
 |---|---|---|
@@ -81,11 +82,13 @@ The first screen works like Obsidian's vault manager and VS Code's start page:
 | **Open file** | Edits one `.oi`, `.md`, or `.txt` file (saved in place in Chrome and Edge, downloaded elsewhere) | Everywhere |
 | **Open the welcome guide** | A small vault in memory: an overview and one note per module, linked for the graph | Everywhere |
 
-- **Recent** lists what you opened; **×** takes an entry off the list (nothing is deleted). The last vault reopens by itself, with its tabs; a folder may need one click to allow access again after a browser restart.
+- **Recent** lists what you opened, once there is something; **×** takes an entry off the list (nothing is deleted).
+- **Other devices:** a vault is an ordinary folder, so one kept in iCloud Drive, OneDrive, or Dropbox follows you to your other computers, with no account here. The start screen and *Create new vault* say so.
+- The version is at the bottom right of the start screen, and in *Setting → About*. The last vault reopens by itself, with its tabs; a folder may need one click to allow access again after a browser restart.
 - **Switch vaults** from the vault's name at the bottom of the sidebar (or *Switch vault* in the palette). The vault on screen stays until the next is ready, so the start screen never flashes in between.
 - **Quick notes** are a flat list per browser (links, search, pictures, and the graph work). A warning on top of their sidebar says they live **only in this browser**: clearing site data deletes them, and a deleted quick note comes back only with the **Undo** button right after. **Move to a folder** turns them into a vault; **Download .zip** saves a copy.
 
-![The start screen, with vaults and the quick notes under Recent](doc/Start.png)
+![The start screen: the actions in one column, and what was open under Recent](doc/Start.png)
 
 ### Files: new, save, rename, delete
 
@@ -95,11 +98,33 @@ The first screen works like Obsidian's vault manager and VS Code's start page:
 - **Delete** asks first, then moves the note or folder to the vault's trash, `.oi/Trash/` (a web page can't reach the system's recycle bin). **Undo** in the message puts it back; *Open the trash* in the palette restores later. Quick notes have no trash.
 - **Move** notes and folders by dragging them in the sidebar; links follow.
 
+### Export and import
+
+| What | Where | What you get |
+|---|---|---|
+| **A note as OI** | Note ⋯ → *Export* → *OI note* | The `.oi` file as it is |
+| **A note as Markdown** | Note ⋯ → *Export* → *Markdown* | Text, lists, math (`$`, `$$`), code fences, callouts (`> [!tip]`), tables (pipe tables), pictures, and properties (front matter) in Markdown. Blocks Markdown can't hold (a structure, a plot, a board, a calendar) go beside it as pictures, all in one `.zip` |
+| **A note, or one block, as a picture** | Note ⋯ → *Export* → *Picture*; a block's right‑click menu → *Save as picture* | A PNG of what the screen shows, in the theme in use, sharp at twice the screen's size |
+| **A note as PDF** | Note ⋯ → *Export* → *Print or save as PDF* | The browser's print dialog |
+| **A vault as `.zip`** | The vault's name at the bottom of the sidebar → *Export this vault as .zip* | Every file at its path, with the vault's settings and hotkeys, without its trash |
+| **A vault from `.zip`** | The same menu → *Import a vault from .zip*, or *Open file* with a `.zip` | Chrome and Edge: a new folder you name and place becomes the vault. Elsewhere: the notes join your quick notes |
+
+An imported `.zip` is checked first: paths that lead out of the vault (`..`, a drive, the root) or can't be file names are left out and counted, the files macOS and Windows add are skipped, a zipped folder becomes the vault itself, and nothing is unpacked beyond 20,000 files or 2 GB.
+
 ### Tabs
 
-- Every note opens in a tab, and so do pictures, videos, and sounds of the vault. `Ctrl`+click a link or file for a new tab; an open note is shown in its tab rather than opened twice.
+- Every note opens in a tab, and so do pictures, videos, and sounds of the vault; an open note is shown in its tab rather than opened twice.
+- **A click** shows a note in the tab in front. **A double‑click** in the sidebar gives it a tab of its own (the tab you were in goes back to what it showed). **`Ctrl`+click or a middle‑click** (a note in the sidebar, a link, a search result) opens it in a tab **behind** the one in front, as a browser does.
 - Middle‑click or **×** closes a tab (`Alt+W` in a browser tab, `Ctrl+W` in the app), dragging reorders, and right‑click offers *Close every other tab*, *Copy link*, and more. `Alt+PageDown`/`PageUp` step through.
 - **Each tab has its own Back and Forward** and keeps its scroll; the graph view opens in the tab too. A vault's tabs come back when you open it again.
+
+### Split panes
+
+- **Split the screen** as in VS Code, as many times as you like: *Split right* (`Ctrl+\`) or *Split down*, from a tab's right‑click menu or ⋯. Or **drag a tab** onto a pane: near a side it makes a new pane there, in the middle it joins that pane's tabs. Drag it onto another pane's tab bar to move it there.
+- **Each pane has its own tabs and its own view.** The pane with the focus has the editor; a click in another pane gives it the focus. Drag the line between two panes to share the room differently; double‑click it to share evenly. Closing a pane's last tab closes the pane. The panes come back with the vault.
+![Three panes: a note in Edit view, its source scrolled to the same place, and another note below](doc/Panes.png)
+
+- **The same note in two panes is one note**: one save, one undo, every change in both at once. Put its **Source beside its Edit view**, and scrolling one scrolls the other to the same place (*Scroll panes together* in ⋯, on by default).
 
 ### Three views: Source, Edit, Read
 
@@ -124,7 +149,7 @@ The buttons at the top right switch views (`Ctrl+E` toggles Edit and Read, `Ctrl
 - **Where it lands:** a line shows the spot as you move. Moving right over a block drops it inside. **Drop on the left or right edge of a block to put the two side by side** (columns); an emptied column goes away, and a grid of one column becomes its blocks again. On a Board a block moves where you drop it; on a Masonry wall a card goes before or after the nearest card.
 - **Right‑click** (long‑press on touch) for the block menu: *Full width* (a block at the top of the note wider than the text, `Wide: True`), *Turn into*, *Add block below*, *Add column left/right*, *Duplicate*, *Move up/down*, *Nest*, *Move out*, *Copy as OI text*, *Delete*. The `⋮⋮` handle and `+` in the margin come back with *Setting → Editor → Show the block handle*.
 - **Select text** for the format bar: bold, italic, strikethrough, highlight, code, math, link, and color. With text selected, `Delete` removes it and typing replaces it.
-- **Undo and redo work everywhere** (`Ctrl+Z`, `Ctrl+Shift+Z`/`Ctrl+Y`): while typing, on the page, and for renames.
+- **Undo and redo work everywhere** (`Ctrl+Z`, `Ctrl+Shift+Z`): while typing, on the page, and for renames.
 - **Aliases:** a Markdown fence is a Code block and `$$ … $$` a Math block; *Setting → Module → Code* (or *Math*) switches them off or changes the symbols. Obsidian's `> [!tip] Title` is a Callout.
 - **The pointer shows where a click lands:** the character (or equation piece) under it is highlighted (*Setting → Appearance*).
 
@@ -146,7 +171,7 @@ The buttons at the top right switch views (`Ctrl+E` toggles Edit and Read, `Ctrl
 ### Find, search, links, and the graph
 
 - **`Ctrl+F`** finds in the note (highlighted inside the rendered blocks), **`Ctrl+H`** (`⌘⌥F`) replaces, with match case and regular expressions.
-- **`Ctrl+Shift+F`** searches the vault (`tag:Exam` for tags); **`Ctrl+O`** is the quick switcher (a new name creates a note).
+- **`Ctrl+Shift+F`** searches the vault (`tag:Exam` for tags; `tag:` alone lists every tag with how many notes have it, in its color: a right‑click gives its color and *Rename everywhere*, which renames it in properties, `#tags` in text, and tables); **`Ctrl+O`** is the quick switcher (a new name creates a note).
 - **`[[Note]]`** links (`Ctrl`+click: new tab; a missing note is offered for creation), `[[Cell.png]]` opens a picture, `#Tag` and `#[Tag With Space]` are tags.
 - **`Ctrl+G`** opens the graph: notes as dots, links as lines, with tags and unlinked notes on or off. Back (or `Esc`) returns.
 
@@ -177,11 +202,20 @@ Board {Arrange: Masonry, ColumnWidth: 12em}:
 
 The guide has a note for each (Table, Plot, Calendar) and a **Tracker** that ties them together.
 
-- **Table:** rows kept as CSV in the note (`Table:` with `Date,Workout,Calorie` lines below), with a **title** first in its bar (`Title`) that plots and other notes find it by. Click a cell to type (`Enter`, `Tab`, arrows move), drag across cells for their count, sum, and average, paste rows from a spreadsheet, and drag a row by its handle. A column's name opens its menu: type (Text, Number, Date, Date and time, Checkbox, Choice, List, Link), sort, filter, group (by day, week, month, or year), a summary in the footer, a unit (`kcal`, `$`), decimals, *Analyze* (mean, median, spread, histogram), hide, insert, move, delete, and formula columns (`Calorie - Burned`). A Choice or List cell opens its choices on a click (pick, add, clear); *Edit choices* colors, renames (cells follow), reorders, and deletes them. *Board* puts the rows in lanes by a Choice column (drag a card to change it), *Gallery* shows cards, *List* lines. ⋯ → *Plot this table* puts a plot of it below.
+- **Table:** rows kept as CSV in the note (`Table:` with `Date,Workout,Calorie` lines below), with a **title** first in its bar (`Title`) that plots and other notes find it by. Click a cell to type (`Enter`, `Tab`, arrows move), drag across cells for their count, sum, and average, paste rows from a spreadsheet, and drag a row by its handle. A column's name opens its menu: type (Text, Number, Date, Date and time, Checkbox, Tag, Link), sort, filter, group (by day, week, month, or year), a summary in the footer, a unit (`kcal`, `$`), decimals, *Analyze* (mean, median, spread, histogram), hide, insert, move, delete, and formula columns (`Calorie - Burned`). *New* adds a row and opens its first cell; **+** adds a column with its type picked beside its name; **drag a column's name** to move it, and a row by its handle (a copy of it follows the pointer). **A Tag cell holds tags**, one or several, by the rule tags follow everywhere: **a comma separates them**, spaces stay inside (`Ada Lovelace` is one tag), and a tag that holds a comma is quoted (`"Smith, J"`); a `#` typed in front is dropped. `Enter` or a comma makes a chip, `×` takes one away, `Backspace` the last, and the field suggests the column's tags, then every tag of the vault, in the app's own list. *Edit tags* (in the column's menu) is one panel: drag a tag to reorder (the Board's lanes), its dot for its color, its name to rename it (cells follow), `×` to take it out of the list and every cell. **A tag's color is the vault's**: the same tag has the same color in text, properties, and every table. *Board* puts the rows in lanes by a Tag column, a card in each lane it has a tag for (drag a card to another lane: only that tag changes), *Gallery* shows cards, *List* lines. Tables written with `Choice` or `List` read as Tag. ⋯ → *Plot this table* puts a plot of it below.
 - **Tables in files:** `Table: Expense.csv` shows a `.csv`, a `.tsv`, or a sheet of an Excel `.xlsx` (`Sheet: Budget`, or the picker in the bar) and writes what you type back into it. In a workbook only the changed cells are written: their style, the other sheets, charts, and formulas stay as Excel made them, and Excel works the formulas out again on opening. The note keeps how the table looks; the file keeps the rows. A data file opened from the sidebar is a table over the whole page. The ⋯ menu moves a table's rows *to a CSV file* or *brings* a file's rows into the note.
 - **A table of notes:** `Source: "Reading/"` or `Source: "tag:Book"` makes each note a row and its properties the columns, like a Notion database; a cell you change is written into that note.
-- **Plot:** one line per thing, as in Desmos: `y = a sin(x)`, `a = 1 {Slider: [0, 5]}`, `f(x) = x^2`, `x^2 + y^2 = 4`, `y < f(x)`, `r = 1 + cos(θ)`, `(cos t, sin t)`, points, and tables: `Plot {Data: Gym log}` finds a table by its title, and its lines use the columns by name, `(Date, Weight) {Kind: Line, Trend: Linear}` (bars by month or category, pies and donuts). The axes are named after the columns, with units and how they are combined ("Amount ($, sum by month)"). Under the plot, the lines are typeset and edited in place, as in Desmos: click one to change it, `Enter` for a new one, *Add a line*; click a slider's number to type it, its ends for its range and step; drag a point with a ring; click a color dot for the line's color. `z = sin(x) cos(y)`, implicit surfaces, curves, and points make it 3D. Drag to move (or turn), click then scroll to zoom (pinch and `Ctrl` + scroll always), double‑click to go back, *Keep this view* to write it into the block; `Interactive: False` fixes it.
-- **Calendar:** Month, Week, Day, and Agenda. Click an empty time (or drag across times), type a name, `Enter`. Drag an event to move it, its bottom edge to resize, `Alt` + drag to copy it (same name, no "(1)"). Pick *End* or *Duration*, a repeat (every day, week on some days, weekday, month, year, until a day), and skipped days for breaks; changing one day of a repeat asks *this event*, *this and following*, or *all*. Events are blocks inside the calendar, or notes of their own (*As a linked note*, *Move to its own note*, *Move into the calendar*); `Source` adds notes by folder or tag, and `Data: Gym log` a table's rows by their dates. The zone button (`UTC+9`, with cities to search by) shows it in another place's time, daylight saving included (events move to that clock; the note doesn't change). Keys: `T` `D` `W` `M` `A` `J` `K` `C`, rebindable.
+- **Plot:** one line per thing, as in Desmos: `y = a sin(x)`, `a = 1 {Slider: [0, 5]}`, `f(x) = x^2`, `x^2 + y^2 = 4`, `y < f(x)`, `r = 1 + cos(θ)`, `(cos t, sin t)`, points, and tables: `Plot {Data: Gym log}` finds a table by its title, and its lines use the columns by name, `(Date, Weight) {Kind: Line, Trend: Linear}` (bars by month or category, pies and donuts). The axes are named after the columns, with units and how they are combined ("Amount ($, sum by month)"). Under the plot, the lines are typeset and edited in place, as in Desmos: click one to change it, `Enter` for a new one, or type in the blank line at the end (a `/` there lists what can be added, filtered as you type, as in a note); `# a note` shows as a comment; click a slider's number to type it, its ends for its range and step; drag a point with a ring; click a color dot for the line's color. **Vector fields**: `F(x, y) = (-y, x)` draws arrows, as long as the field is strong, on the plot's own grid (they move and grow as you zoom, until more fill in between); the field's color strip (its dot, as a gradient: weak left, strong right) or ⋯ → *Color by strength* opens the Palette's gradient picker, which changes the arrows as you edit (drag a color anywhere along, its place in %; click it to pick its color; click the bar to add one; ready ones such as Viridis and Magma, or yours, saved or imported from GIMP .ggr, SVG, or CSS; *Reverse*; `Ctrl+Z`; *Done*, or `Esc` to put it back) and writes `{Gradient: […]}` (`"Teal 40%"` where a color isn't evenly spaced), ⋯ → *Arrows* gives fewer or more (`{Density: 2}`); `F(x, y, z) = (…)` in space. The welcome guide's *Plot* note has a pendulum and a field in space. `z = sin(x) cos(y)`, implicit surfaces, curves, and points make it 3D (*Make it 3D* / *Make it 2D* in the `/` menu sets it), and a line in x and y is drawn there too, on the plane z = 0 (or `{Z: 2}`). **A plot is a graph or a chart, one at a time**: a line of the other kind (a table's bars beside a function, a second chart beside a pie) stays in the list, saying why, with *Move to a new plot*. Several sliders can play at once. Drag to move (or turn), click then scroll to zoom (pinch and `Ctrl` + scroll always), double‑click to go back, *Keep this view* to write it into the block; `Interactive: False` fixes it.
+- **Where a calendar's events are kept:**
+
+  | Kind | Kept in | Made by |
+  |---|---|---|
+  | An event of the calendar | An `Event` block inside the Calendar block | A click or drag on the calendar |
+  | An event as its own note | That note's properties (`Start`, `End`, `Repeat`…); the calendar keeps no link, it shows every note in its *Folder for event notes* (⋯, named after the calendar's note at first) that has a `Start` | *Save as its own note* when making it, or on an event's right‑click |
+  | An event from a table | The table's row, by its first date column (change it there) | `Data: Gym log` |
+
+  Renaming that folder in the sidebar keeps the calendar's `Folder` (and a table's `Source`) on it.
+- **Calendar:** Month, Week, Day, and Agenda. Click an empty time (or drag across times), type a name, `Enter`. Drag an event to move it, its bottom edge to resize, `Alt` + drag to copy it (same name, no "(1)"). Pick *End* or *Duration*, a repeat (every day, week on some days, weekday, month, year, until a day), and skipped days for breaks; changing one day of a repeat asks *this event*, *this and following*, or *all*. Events are blocks inside the calendar, or notes of their own (*Save as its own note*, and back with *Keep in the calendar instead*; see the table below); `Source` adds notes by folder or tag, and `Data: Gym log` a table's rows by their dates. The zone button (`UTC+9`, with cities to search by) shows it in another place's time, daylight saving included (events move to that clock; the note doesn't change). Keys: `T` `D` `W` `M` `A` `J` `K` `C`, rebindable.
 - **Room:** a note that is only a table or a calendar uses the window's whole width; elsewhere *Full width* (⋯, or right‑click) makes one wider than the text. *Move to its own note* (⋯) puts a table or calendar in a note of its own and leaves `Calendar {From: "[[Classes]]"}` behind, which shows and edits it there; *Bring into this note* brings it back.
 
 ### Chemistry: structures, mechanisms, and the drawing tool
@@ -222,6 +256,43 @@ Colors come from the **Palette** plugin: one menu with the theme's colors, a pal
 - **Edit** puts a **×** on each palette and recent color to remove it, *Clear* empties the recent ones, and *Delete* removes a palette. Palettes and recent colors are kept in this browser.
 - With the plugin off, nothing offers colors.
 
+### AI: a model of your own, in your notes
+
+The **AI** plugin lets a model you connect write and format notes as real blocks, and work in your vault in a chat. There is no Octaether account and no Octaether server: your browser talks straight to the provider, with your key.
+
+![Ask AI: the answer drawn as blocks, before anything is written into the note](doc/AI.png)
+
+- **Connect once**, in *Setting → Plugin → AI* (*Connect one in Setting* from the chat or `Ctrl+J`): pick a provider, paste your key, pick a model and an **effort**. *List models* asks the provider what the key can use, which is also the test that it works; the models then come in the app's own list, by name. Once saved, the key is never shown again, only its end (`••••9876`), with *Change* and *Forget*.
+- **Effort** (as in Claude Code): *Default* (the model's own), *Low*, *Medium*, *High*, *Extra high*, *Max*: how long the model thinks before it answers. Claude takes it as it is; OpenAI, Gemini, DeepSeek, and OpenRouter as a reasoning effort (low to high). A model that refuses one is asked again without it, and remembered.
+
+  | Provider | Needs |
+  |---|---|
+  | Anthropic (Claude) · OpenAI · Google Gemini · DeepSeek · OpenRouter | An API key from the provider (*Get a key* opens its page). A chat subscription (Claude Pro, ChatGPT Plus) is not an API key: providers give web apps no sign-in for those |
+  | Ollama (on this computer) | No key, and nothing leaves the computer. Start Ollama with `OLLAMA_ORIGINS` set to the site's address so it answers this page |
+  | Another (OpenAI‑compatible) | An address, and a key if it wants one: LM Studio, a company gateway, Groq, Mistral… It must allow requests from a web page (CORS) |
+
+- **Ask** with `Ctrl+J`, *Ask AI* in a block's right‑click menu, or the palette: a small panel over the note, with the chat's row under its field (the chats, the model and effort, a square Send). Each conversation is kept as a chat; **Open in chat** carries it on in the chat beside the note, and the chats icon reopens any chat there. Over a chat, `Ctrl+J` goes to the chat's own field; the panel closes when another tab comes to the front. The request is about **what is selected**: highlighted text, a selected block (`Esc`, with everything inside it), or, with nothing selected, the whole note. Ready requests: *Format* (messy or pasted text → headings, lists, Math, Code, Tables, Callouts, every word kept), *Fix writing*, *Shorten*, *Continue*, *Summarize*, *Explain*; or type anything ("make a table of the reagents", "plot this", "a week of revision as a calendar").
+- **Nothing enters the note until you say so.** The answer streams into a *Preview* drawn by the same modules as the note (or *Text*, the OI text, which you can still change). Then **Replace** (the selection, the block, or the note), **Insert below**, *Copy*, *Try again*, or type a change ("shorter", "in French") to revise it. What is written is **one undo step**.
+- **It knows your blocks.** Before each request the AI reads a guide to the `.oi` format, then how every block type that is switched on is written, in the module's own words. A module that is off is left out, so the AI doesn't write blocks that wouldn't draw; a module added later brings its own guide.
+![The AI chat in Manual mode: a change waits for Allow, with the lines it removes and adds](doc/Chat.png)
+
+- **The chat** (the ✦ button in the ribbon, or *Open the AI chat* in the palette) opens **in a pane beside the note** (the one there already, when it is open), as VS Code's chat sits beside the editors. Nothing sits on top: under the message field, as in Claude Code, are **+** (attach), *Chats*, *New chat*, *Memory*, the mode as three equal tabs with icons, the model with its effort (click for the key's models and the effort), and a square Send. There the AI **works in your vault**: it lists, reads, and searches notes, reads a module's guide before writing its blocks, looks at a note as the app draws it (a picture, with Claude), creates, edits, moves, and deletes notes and folders, runs the app's commands, and (with Claude, *Search the web* on) searches the web and reads pages, giving its sources as links. A message carries the note you were last looking at (its chip; × to leave it out).
+- **More context:** **+** attaches a note of the vault (its text goes with the message, as it is then) or **a file from this computer**: text or code (up to 200 KB), a picture (5 MB), a PDF (10 MB, read by Claude); drop files on the field or paste a picture too. A file is copied into the chat, never among your notes: a picture or PDF in `.oi/AI/Attachment/<chat>/`, deleted with the chat.
+- **Three modes, as in Claude Code** (the switch at the top of the chat; *Mode of a new chat* in Setting):
+
+  | Mode | What happens |
+  |---|---|
+  | **Manual** (default) | Each change is shown first, with the lines it removes and adds, and waits: **Allow**, **Allow all** (the rest of this chat in Auto), or **Deny** with a reason the AI reads |
+  | **Plan** | The AI only looks, then proposes a numbered plan. *Carry out this plan* starts it, asking before each change or without asking |
+  | **Auto** | Changes are made at once |
+
+  Every change made has its **Undo** in the chat; a note that is open changes in its tab, so `Ctrl+Z` there works too. Deletes go to the vault's trash. The AI never writes into `.oi/`, the app's own folder.
+- **Memory:** what the AI should always know about this vault and how you like to work, in a note kept hidden in the vault (`.oi/AI/Memory.oi`). It reads it before every conversation; it adds a line when you tell it to remember something; open it with *Memory* in the chat (or *Setting → Plugin → AI → Memory*) to edit it.
+- **Chats are kept** in the vault too (`.oi/AI/Chat/`, one file each, exactly as the provider sent them, so a chat goes on where it stopped), and come back with the vault's tabs. *Chats* shows them in place of the conversation, with a search: open one here, rename it, **archive** it (put away in *Archived*, `.oi/AI/Chat/Archive/`), or **delete** it for good with its files. *New chat* starts another in the same place. Without a vault the AI can talk, but not work with files, and nothing is kept.
+- **Web links** in notes and in the chat open in a new tab of your browser. A browser built into the app, for the AI to use, needs the desktop app (a web page can't open other sites inside itself), so it comes with it.
+- **Privacy and cost:** the key is kept in this browser only, never in a note, a vault, or `.oi/Setting.oi`. A request sends the note you are on (or only the selection, *Send with a request*), the AI's memory, your words, and what the AI reads with its tools to the provider you chose, and nowhere else. The provider bills your key, so give the key a spending limit. Until you connect, nothing is sent anywhere; with the plugin off, the button and the commands are gone.
+- **Hotkeys and macros:** `AI.Ask` takes a request as its argument, so a macro step `{Command: AI.Ask, Argument: Format}` formats the selection with one key.
+
 ### Hotkeys and macros
 
 Default keys (on a Mac, `Ctrl` is `⌘` and `Alt` is `⌥`):
@@ -235,10 +306,11 @@ Default keys (on a Mac, `Ctrl` is `⌘` and `Alt` is `⌥`):
 | Command palette | `Ctrl+P` | | Duplicate block | `Ctrl+D` |
 | Setting | `Ctrl+,` | | Move block up · down | `Alt+↑` · `Alt+↓` |
 | Edit ⇄ Read · Source | `Ctrl+E` · `Ctrl+Shift+E` | | Delete the selected block (or text) | `Delete` / `Backspace` |
-| Find · replace | `Ctrl+F` · `Ctrl+H` (`⌘⌥F`) | | Undo · redo | `Ctrl+Z` · `Ctrl+Shift+Z` / `Ctrl+Y` |
+| Find · replace | `Ctrl+F` · `Ctrl+H` (`⌘⌥F`) | | Undo · redo | `Ctrl+Z` · `Ctrl+Shift+Z` |
 | Search every note | `Ctrl+Shift+F` | | Add a property | `Ctrl+;` |
 | Graph view | `Ctrl+G` | | Next theme | `Ctrl+Shift+L` |
 | Back · forward | `Ctrl+Alt+←` · `Ctrl+Alt+→` | | Rename note | `F2` |
+| Ask AI | `Ctrl+J` | | | |
 
 - **Rebind anything** in *Setting → Hotkey* (the drawing tool's keys too), like a game's controls screen: **+** records keys (two chords in a row work), a key used twice turns red, **×** removes one, **↺** restores the default. A browser tab can't use a few keys the browser keeps (`Ctrl+N`, `Ctrl+T`, `Ctrl+W`).
 - **Macros** are your own commands: a name and steps, each a command such as *Toggle a setting*, *Switch theme*, or *Set the view*. They show in the palette and take hotkeys.
@@ -256,6 +328,14 @@ Macro:
 
 ![Setting → Hotkey](doc/Hotkey.png)
 
+### Language
+
+*Setting → Appearance → Language*: **English** or **简体中文** (Simplified Chinese), or *Match system*, which follows the device. The app starts again in the language chosen, with everything saved first; the welcome guide opens in it too. What a note is written in stays the same in every language: block types (`Math:`), properties, and `True`/`False` are the file's syntax, so a note reads the same everywhere.
+
+**Adding a language** is one file: copy [`app/web/src/language/zh-Hans.ts`](app/web/src/language/zh-Hans.ts) to `<id>.ts` (a BCP 47 tag such as `ja` or `es`), translate its right‑hand sides, and add a line to `languageList` in [`language/index.ts`](app/web/src/language/index.ts). The guide's notes go in `sample/Guide/<id>/` under the same file names (one left out shows in English). `npm test` lists every text a language still lacks: those written in code, and those it finds drawn when it drives the app through its screens in that language. In code, the app's words go through `t('English text')` or tr\`…${value}…\` from `core-sdk`; the English text is the key, so code reads as before and a missing translation shows the English.
+
+**Each module and plugin brings its own words** (`language` in its definition: one file per language, such as [`module/table/src/language/zh-Hans.ts`](module/table/src/language/zh-Hans.ts), loaded only when that language is chosen), so a module from anyone translates itself, and the app's file holds only the app's words. A module without a language shows its words in English; its block types and properties stay the same in every language.
+
 ### Setting
 
 `Ctrl+,` opens Setting: **Editor, File, Appearance, Hotkey, Module, Plugin, About**. Every setting explains itself. Values are saved in the browser and, in a vault, in `.oi/Setting.oi` (only values that differ from the default).
@@ -265,6 +345,7 @@ Macro:
 | `Editor.ClickToEdit` | SingleClick, DoubleClick, HotkeyOnly | How a block turns into its source |
 | `Editor.DefaultView` | Edit, Read, Source | The view notes open in |
 | `Editor.ReadableWidth` | On, Off | Keeps lines about 750 px wide |
+| `Editor.SyncScroll` | On, Off | Two panes showing one note scroll together |
 | `Editor.BlockOutline` | On, Off | Outlines the block being edited (with its type) and, dashed, the block around it |
 | `Editor.BlockHandle` | Off, On | Shows `⋮⋮` and `+` beside the block under the mouse |
 | `Appearance.FontSize` | 16px, 14–20px | Text size of the note |
@@ -295,6 +376,7 @@ Macro:
 | Layout | `Layout.StackWidth` (columns stack below 480, 640, or 800px, or never) |
 | Board | None |
 | Theme, Palette (plugins) | None: Theme adds Paper and HighContrast; Palette keeps its palettes in the browser |
+| AI (plugin) | *Connection* (drawn on the page: the provider, key, model, and effort, kept in the browser, not a setting), `AI.Context` (Note, Selection), `AI.Mode` (Manual, Plan, Auto), `AI.Web`, *Memory* (a button: opens `.oi/AI/Memory.oi`) |
 
 `.oi/Setting.oi` may be flat or nested:
 
@@ -318,7 +400,7 @@ Nothing is lost. A block that can't render keeps its text on screen with a **das
 ### Offline, install, and phones
 
 - The web app is a **PWA**: it opens offline and installs as an app (Chrome or Edge: the install icon; iPad and iPhone: Safari → Share → *Add to Home Screen*). Installed on a computer, it opens `.oi` files.
-- **It opens at once** from the copy the browser keeps; a new version downloads in the background and offers **Reload**.
+- **It opens at once** from the copy the browser keeps, and **updates itself**: a new version downloads in the background and shows by itself when that loses nothing (right after opening, or the next time you put the window aside with every note saved and no block being edited). While you are writing, a message with **Reload** waits instead. A window left open for days looks for a new version when you come back to it.
 - **On phones** the ribbon becomes a bottom bar, the sidebar a drawer, and columns stack.
 
   <img src="doc/Phone.png" width="300" alt="The welcome guide on a phone">
@@ -404,9 +486,9 @@ The web app is a static site, deployed to **[ink.octaether.com](https://ink.octa
 
 | File | Purpose |
 |---|---|
-| [`vercel.json`](vercel.json) | `npm ci`, `npm run build`, serve `app/web/dist`; security headers (a strict Content‑Security‑Policy: scripts only from the site, no eval, media from the web and the vault, frames only for YouTube and Vimeo), long caching for `/assets/*`, none for `sw.js`, every path served by `index.html` |
+| [`vercel.json`](vercel.json) | `npm ci`, `npm run build`, serve `app/web/dist`; security headers (a strict Content‑Security‑Policy: scripts only from the site, no eval, media from the web and the vault, frames only for YouTube and Vimeo, requests only to the site, to `https:` addresses, and to this computer, for the AI you connect), long caching for `/assets/*`, none for `sw.js`, every path served by `index.html` |
 | [`app/web/public/manifest.webmanifest`](app/web/public/manifest.webmanifest) | Installable app, with a file handler for `.oi` |
-| [`app/web/public/sw.js`](app/web/public/sw.js) | Offline and instant start: the cached page at once, refreshed in the background (open pages offer Reload) |
+| [`app/web/public/sw.js`](app/web/public/sw.js) | Offline and instant start: the cached page at once, refreshed in the background; open pages then show the new version by themselves, or offer Reload while you are writing |
 | `app/web/public/icon*.svg/png` | App icons (a gold octahedron whose lower half is a pen nib, on black), maskable and Apple touch |
 
 **First deployment (about 10 minutes):**
@@ -446,11 +528,18 @@ Tick an item in the change that ships it. New tasks go under **Next**, bigger id
 
 - [x] **Format and core:** `.oi` files (`Oi 1`) with a byte‑exact round trip; undo across text and renames; a render host with an error boundary per block; vaults (folder, quick notes, memory) with trash, link rewriting, backlinks, tags, graph, and search; one registry for modules, plugins, and settings
 - [x] **App:** start screen and vault switcher, file sidebar, tabs with their own history, three views, find, search, quick switcher, palette, graph, rebindable hotkeys and macros, a settings page per module and plugin; a PWA on Vercel
-- [x] **Modules:** Text, Property, Layout, Board, Math, Code, Chemistry, TikZ, Table, Plot, Calendar, Image, Video, Markdown, HTML. **Plugins:** Theme, Palette
+- [x] **Modules:** Text, Property, Layout, Board, Math, Code, Chemistry, TikZ, Table, Plot, Calendar, Image, Video, Markdown, HTML. **Plugins:** Theme, Palette, AI
+- [x] **AI:** your own model with your own key, straight from the browser (Anthropic, OpenAI, Gemini, OpenRouter, Ollama, any OpenAI‑compatible address); requests about the selection or the note, answers previewed as blocks, written on Replace or Insert in one undo step; a guide from every module, an instruction note
 - [x] **Tables, plots, and calendars:** spreadsheet‑style tables and `.csv`/`.xlsx` files, tables found by title (*Plot this table*), Desmos‑style plots in 2D and 3D, pies and bars, calendars with repeats and time zones, `From:` references, full‑width notes; module code loaded on first use
 - [x] **Boards and the drawing tool:** arrows between atoms, lone pairs, and bonds; tool groups, pan, and touch; `Alt` + drag for any block
 - [x] **Support:** GitHub Sponsors and Ko‑fi links, the repository's Sponsor button, an automatic `Sponsor` label
-- [x] **Quality:** 381 tests, strict TypeScript; 591 KB JS (193 KB gzipped) + 43 KB CSS; every review checked in Chromium, WebKit, and Firefox at desktop and phone sizes
+- [x] **Language, export, import (1.1.0):** a language switcher with Simplified Chinese (the app and the welcome guide), one file per language; a note as Markdown or a picture, a block as a picture; a vault as `.zip`, out and back in
+- [x] **AI chat (1.1.0):** a chat in a tab where the AI works in the vault with tools (read, search, write, edit, move, delete, see a note drawn, run commands, the web with Claude), in Manual, Plan, or Auto mode with a diff and Undo for every change; memory and chats kept in `.oi/AI/`
+- [x] **Tabs and languages (1.1.0):** a double‑click opens a tab, `Ctrl`+click a tab behind; every module's own controls in Chinese, each module with its own word list; a test that finds words drawn without `t()`
+- [x] **Split panes (1.1.0):** any number, side by side or stacked, each with its tabs and view; one note in two panes is one note, scrolled together
+- [x] **Tables, plots, calendars (1.1.0):** Tag columns (several per cell, names with spaces, colors), a typed new column, columns dragged, vault‑wide tag colors; vector fields in 2D and 3D with gradients, 2D lines in 3D, one kind per plot, the `/` line, sliders playing together; clearer event notes; chemistry arrows in 15° steps (`Alt` for any angle)
+- [x] **AI and tags (1.1.0):** the connection in Setting (the key shown only by its end), effort, a themed model list; the chat beside the note with everything under its field, attachments (notes, text, pictures, PDFs), chats archived and deleted; the Ask AI box kept as a chat, *Open in chat*; one tag rule (commas, quotes), the vault's tags suggested, vault‑wide colors, *Edit tags* in one panel, `tag:` listing tags, *Rename everywhere*
+- [x] **Quality:** 469 tests, strict TypeScript; 591 KB JS (193 KB gzipped; the settings, the graph, and panes load when first used) + 45 KB CSS; every review checked in Chromium, WebKit, and Firefox at desktop and phone sizes
 
 ### Next
 
@@ -463,15 +552,18 @@ Tick an item in the change that ships it. New tasks go under **Next**, bigger id
 
 **Version 1.x:**
 
-- [ ] Files: export and import a vault as `.zip`; reload a note changed on disk; empty the trash after a set number of days
-- [ ] Links and panes: block links (`[[Note#^id]]`, `![[Note#^id]]`, *Copy link to block*), backlinks and outline panes, split panes
+- [ ] Files: reload a note changed on disk; empty the trash after a set number of days
+- [ ] Links and panes: block links (`[[Note#^id]]`, `![[Note#^id]]`, *Copy link to block*), backlinks and outline panes; a pane without the focus that edits on the first click
 - [ ] Editing: selection across blocks, an inspector panel, a keyboard toolbar on phones
 - [ ] Media: paste into a single file, crop and resize, renaming a picture rewrites its blocks; PDFs opened on their own; recording video and audio
 - [ ] Tables, plots, and calendars: Calendar Timeline, `Remind`, `.ics`; tables over 200 rows in `.oi/Data`; plots as pictures on Boards; a Swiss theme
 - [ ] Boards: a generic editor in the Board module (today the Chem module gives it); `Layout: Board` as an infinite page
-- [ ] Look: theme files from `.oi/Theme/` (the parser exists), themes for one module, layouts as contributions (§11.3); palettes kept with the vault
+- [ ] Look: theme files from `.oi/Theme/` (the parser exists), themes for one module, palettes kept with the vault; themes that reshape the app itself (where the ribbon, sidebar, and tabs sit, labels beside icons, corners, tinted areas), with presets in the manner of Obsidian and OneNote, and a Swiss one
+- [ ] Language: Traditional Chinese; a picture without the Edit view's controls
+- [ ] `Card`: a flashcard module, as in Quizlet (a deck in a block, flip and shuffle in place)
 - [ ] Setting: search, a "where does this value come from" badge, a toolbar editor, keymap presets, a module dependency view
 - [ ] Math `\eqref` and `\ce{}`; chemistry `‡` brackets and SMILES; translations
+- [ ] AI: a browser in the desktop app that the AI can drive (open pages, read them, click) beside your notes; web search with providers other than Claude; sign in with OpenRouter (OAuth, no key to paste); pictures and handwriting sent with a request; the key in the OS keychain in the native apps
 
 ### Later
 
@@ -485,6 +577,10 @@ Tick an item in the change that ships it. New tasks go under **Next**, bigger id
 - Deleted files go to the vault's `.oi/Trash`, not the system's recycle bin. A pasted picture needs a vault; web pictures and videos need the network.
 - With the Chem module off, a free Board has no editor (its blocks still move with `Alt` + drag).
 - Edits through `From:` join undo only while the other note is open in a tab; edits to a data file can't be undone, and changes made by another app show when the note is opened again.
+- The AI's key is kept as plain text in this browser's storage (a web page has no keychain): use a key with a spending limit, and *Forget* it on a shared computer. A provider that refuses requests from web pages needs a gateway that allows them.
+- The AI searches the web only with Claude (Anthropic runs the search); with other providers it works with your notes only. On the web the AI can't use a browser of its own; that needs the desktop app.
+- A pane without the focus shows its note but doesn't edit it: the first click gives it the focus, the next edits. It shows a picture, the graph, or a plugin's page only once it has the focus.
+- A chat's Undo buttons last while the app is open; afterwards a change is undone like any other (`Ctrl+Z` in an open note, the trash for a delete).
 - No native apps yet.
 
 ---
@@ -971,10 +1067,10 @@ Lines between named nodes stop at node edges; unknown commands are reported with
 
 ### 6.8 Table, Calendar & Event
 
-- **Table (built):** a Raw block, with a `Title` its bar shows and edits (what `Data` and `TableData` find it by, any case), whose body is CSV (header first; quotes as spreadsheets write them; spaces around a cell ignored; rows nobody changed written back byte for byte), or a data file (`File`, §5.8), or notes as rows (`Source`: a folder, `tag:X`). `Column: {Name: {Type, Unit, Decimal, Summary, Formula, Choice, ChoiceColor, Width}}` (types guessed from the values otherwise), `Sort: {Date: Down}`, `Filter: "…"` (an expression; a name with a space is written with `_`), `Group: Name` or `{Date: Month}`, `Hidden`, `Show: Table | Board | Gallery | List`. Summaries: Count, Filled, Empty, Unique, Sum, Average, Median, Min, Max, Range, Deviation, Checked. A `Structured` editor: the grid in place, keyboard like a spreadsheet, paste of tab‑separated rows, selection stats, a row form, the CSV a click away. Plot and Calendar read tables through `TableData` by title (`Gym log`, `Gym#Gym log`), after Filter and Sort.
+- **Table (built):** a Raw block, with a `Title` its bar shows and edits (what `Data` and `TableData` find it by, any case), whose body is CSV (header first; quotes as spreadsheets write them; spaces around a cell ignored; rows nobody changed written back byte for byte), or a data file (`File`, §5.8), or notes as rows (`Source`: a folder, `tag:X`). `Column: {Name: {Type, Unit, Decimal, Summary, Formula, Tag, TagColor, Width}}` (Tag: the tags in order; `Choice`, `ChoiceColor`, and the types Choice and List still read) (types guessed from the values otherwise), `Sort: {Date: Down}`, `Filter: "…"` (an expression; a name with a space is written with `_`), `Group: Name` or `{Date: Month}`, `Hidden`, `Show: Table | Board | Gallery | List`. Summaries: Count, Filled, Empty, Unique, Sum, Average, Median, Min, Max, Range, Deviation, Checked. A `Structured` editor: the grid in place, keyboard like a spreadsheet, paste of tab‑separated rows, selection stats, a row form, the CSV a click away. Plot and Calendar read tables through `TableData` by title (`Gym log`, `Gym#Gym log`), after Filter and Sort.
 - **Calendar (built):** an Item block holding `Event` blocks (drawn by the calendar, hidden as frames; an Event elsewhere shows as a card). Views Month, Week (three days on a phone), Day, Agenda; `Show` is the view it opens with, `Date` the day, `Hour` where the day starts; switching views and moving through dates change nothing in the note. `Source` adds notes (folder, `tag:X`, `/` for all) by `Start` or `Date` (`DateProperty`), with `Title` as their name; `Data` adds tables by their titles (one or a list), each row on its first date column (read‑only); `Folder` is where linked notes go (named after the calendar's note when first needed).
 - **An event:** `Start` (a date alone: all day), `End` (a time: the same day; a date: the last day) or `Duration` (`1h30m`), `Repeat` (`Week`, or `{Every: Day | Week | Month | Year, Interval, On: [Mon, Wed], Until, Count}`; a month without the date is passed), `Skip` (dates and `a..b` ranges), `Color`, `Place`, `Tag`; times are wall‑clock, an offset in the text is read and not written. The event's children are what it holds (notes in the popover).
-- **Making and changing:** a click or a drag on empty time opens a popover (Name, date, times, *End* or *Duration* with 30m/1h/1h30m/2h, All day, repeat, until, skips, place, color, notes, *As a linked note*); `Enter` saves. Drag moves (snapped to `Calendar.Snap`), the bottom edge resizes, `Alt` + drag copies (the calendar's grid keeps `Alt` + drag from the block mover with `data-oi-own-alt`). One day of a repeat: *this event* (the series skips it, a copy gets the change), *this and following* (`Until` the day before, a new series from it), *all events*. Copies keep the exact name. *Move to its own note* / *Move into the calendar* convert an event and a note both ways (the note to the trash, with Undo). Keys are the `Calendar.*` commands in the `Calendar` context.
+- **Making and changing:** a click or a drag on empty time opens a popover (Name, date, times, *End* or *Duration* with 30m/1h/1h30m/2h, All day, repeat, until, skips, place, color, notes, *Save as its own note*); `Enter` saves. Drag moves (snapped to `Calendar.Snap`), the bottom edge resizes, `Alt` + drag copies (the calendar's grid keeps `Alt` + drag from the block mover with `data-oi-own-alt`). One day of a repeat: *this event* (the series skips it, a copy gets the change), *this and following* (`Until` the day before, a new series from it), *all events*. Copies keep the exact name. *Save as its own note* / *Keep in the calendar instead* convert an event and a note both ways (the note to the trash, with Undo). Keys are the `Calendar.*` commands in the `Calendar` context.
 - **Time zones (built):** a calendar is in its `TimeZone` (a place such as `America/New_York`, whose daylight saving is followed through `Intl`; or a fixed offset typed as `UTC+9`), else this device's; an event may say its own `TimeZone`. The zone button (labelled with the offset now, `UTC−5`) lists places by their offset now, with their cities, found by them; choosing one shows the calendar in its time: timed occurrences are converted (with daylight saving, through `Intl`), all‑day ones stay on their day, and nothing is written. An event made, pasted, or moved while another zone is shown keeps its own zone, its times written in it.
 - **Later:** a Timeline view, `Remind` (the `Reminder` plugin), `.ics` import and export, cloud calendar sync.
 
@@ -1000,7 +1096,7 @@ Lines between named nodes stop at node edges; unknown commands are reported with
 
 ### 6.10 Export
 
-**PDF** is primary: print mode (every block mounted, `Break` hints) through each platform's print‑to‑PDF; on the web, *Print or save as PDF* in the note menu (built). **`.oi` download** is built; the **`.zip` bundle** is §5.11. Markdown, HTML, LaTeX, `.pptx`, `.ics`, `.csv`, and PNG/SVG are optional export plugins.
+**PDF** is primary: print mode (every block mounted, `Break` hints) through each platform's print‑to‑PDF; on the web, *Print or save as PDF* in the note menu (built). **`.oi` download**, **Markdown** (a `.zip` with pictures of the blocks Markdown can't hold), **PNG** of a note or a block (the drawn page copied into an SVG `foreignObject`, painted on a canvas), and a **vault `.zip`** out and in are built (*Export and import* in the user guide); the full **`.zip` bundle** with `Manifest.oi` is §5.11. Markdown, HTML, LaTeX, `.pptx`, `.ics`, `.csv`, and PNG/SVG are optional export plugins.
 
 ---
 
@@ -1107,6 +1203,7 @@ interface BlockModule<Body> {
   layout?: LayoutProtocol;                        // containers only (§6.3)
   argument?: string;                              // the property the text after the colon sets: Code → Language
   aliasList?: { marker: string; opening: 'Argument' | 'Body'; repeat?: boolean }[];
+  guide?: string | (() => Promise<string>);       // how to write it, for an AI (§8.5 BlockGuide); loaded on first use
 }
 interface RenderContext {
   setting(id: string): PropertyValue | undefined;
@@ -1143,6 +1240,7 @@ interface CommandDefinition {
 | Error boundary, lazy loading, workers, render‑key cache | Render deterministically |
 | Tokens, macros, asset URLs, settings, read‑only mode | Support Light and Dark; provide `plainText` and alt text |
 | Settings UI from the schema | Explain every setting and feature |
+| The guides of the modules that are on, put together for an AI | Say how its blocks are written (`guide`), with examples that parse (a test reads them) |
 
 The **conformance kit** in `core-sdk` tests round‑trip, determinism, contrast, migration, and fuzzing.
 
@@ -1151,10 +1249,16 @@ The **conformance kit** in `core-sdk` tests round‑trip, determinism, contrast,
 A plugin can extend a block type without replacing it: commands, toolbar and inspector items, hotkeys, status items, theme variants for that type, render options, import/export formats, recognizers, and macros (`Chem` gives `Math` `\ce{}`). An extension is registered by name (`registerExtension`) and read with `context.extension`.
 
 - **`ColorPicker`** (the Palette plugin, built): one color menu (theme colors, palettes with import, recent colors you can remove, any hex code) that the drawing tool and the format bar open; it gives back a theme color's name (`Accent`) or `#rrggbb`. With the plugin off there is no color choice.
+- **`GradientPicker`** (the Palette plugin, built, loaded when first opened): colors along a line, weak to strong, each at its place (dragged, shown in %, or typed; added on the bar; picked from the color menu without *No color*), ready gradients and your own (saved, or imported from GIMP .ggr, SVG `<linearGradient>`, CSS `linear-gradient`, or hex codes), Reverse, Undo and Redo (your keys for them);  applied as it changes (`onChange`), kept with Done, put back with `Esc`; a vector field's color strip opens it. `readGradient`/`writeGradient` in core-sdk read and write `[Blue, "Teal 40%", Red]`. Any module that colors by how much can ask for it.
 - **`Board.Editor`** (the Chem module, built): the drawing tool for Boards, while *Drawing on Boards* is on.
 - **`Hotkey`** (the app, built): `HotkeyLookup.commandFor(event, when)` gives the command your keys (or the defaults) bind to a keydown in a module's own context, so the drawing tool's and the calendar's keys are rebindable like any other.
 - **`NoteIndex`** (the app, built): the vault for modules: `noteList()` (each note's properties: its first Property block over its header), `subscribe`, `setProperty`, `createNote`, `trashNote`, `readNote`, `modelOf(path)` (a note's live model, for `From`), `resolve`, `open`, and files (`findFile`, `readFile`, `writeFile`, `createFile`). `linkedBlock` and `linkedProperty` in core‑sdk read a `From`.
 - **`TableData`** (the Table module, built): `read(context, "Gym log" | "Gym#Gym log")` gives typed columns after Filter and Sort, `watch` tells when they change.
+- **`BlockGuide`** (the app, built): `list()` gives every block type that is on and written by hand, with its module's `guide` (plain words and `<example>` blocks, loaded when first asked for), its header argument, its aliases as set now, and its templates (the fallback for a module without a guide). The AI plugin builds what the model reads from it, so nothing about a module is written in the plugin.
+- **`VaultFile`** (the app, built): the open vault's files as a plugin changes them, the app's way: `list`, `read` (an open note with its unsaved edits), `write` (an open note changes in its tab, one undo step), `makeFolder`, `move` (links follow), `trash`, `search`, `open` (in the background too), `picture` (a note drawn off screen, as PNG), `currentPath` (the note on screen, or shown last); each change gives back its `undo`. `.oi/` is listed only when asked for.
+- **`Panel`** (the app, built): a plugin's own page in a tab (`register`, `open`), kept with the vault's tabs and its state (which chat), drawn once and kept while other tabs are in front. The AI's chat is one.
+- **`Command`** (the app, built): the palette's commands, listed and run by a plugin (the AI's `run_command`).
+- **`NoteEditor`** (the app, built): `capture()` gives the note on screen and its selection (`Text`: highlighted characters, `Block`: a selected block with what it holds, `Note`), with `apply(source, 'Replace' | 'After')`, which writes OI text there as one undo step and refuses when the place has changed; `preview(element)` draws OI text read‑only with the real modules.
 - **`Menu`** (the app, built): the app's menus (`open` with items, ticks, submenus) and its text prompt, so module menus look like the app's.
 - **Loading on first use** (built): `lazyRenderer(() => import('./view'))` mounts a placeholder until a module's code arrives; the page names those files as prefetch links, so the service worker keeps them for offline use.
 
@@ -1163,7 +1267,7 @@ A plugin can extend a block type without replacing it: commands, toolbar and ins
 | Level | Example | When off |
 |---|---|---|
 | Module | `Chem`, `Math`, `Board` | Blocks show their source with an outline; data untouched |
-| Plugin | `Palette`, `Theme`, later `Transfer` | The function disappears; its files stay |
+| Plugin | `Palette`, `Theme`, `AI`, later `Transfer` | The function disappears; its files stay |
 | Feature | `Chem.Board` (Drawing on Boards), later `Code.Run` | Only that part is off, and it is off while a module it needs is off |
 | Setting · status item | `Code.LineNumber` · `Text.WordCount` | — |
 
@@ -1190,6 +1294,7 @@ A public GitHub repository holds the registry index (`Registry.oi`); packages ar
 | Plugin | v1 | P1 | P2 | P3 |
 |---|---|---|---|---|
 | `Theme`, `Palette`; `Search`, `Graph` (in the shell in v1) | ✓ | theme files | | |
+| `AI` (your own model and key) | ✓ (1.x) | OpenRouter sign‑in, pictures | vault‑wide questions | |
 | `Transfer`, `ExportPDF`, `ExportZip`, `ImportObsidian`, `History`, `Backlink` | | ✓ | | |
 | `Sync`, `Calendar`, `Reminder`, `ICS`, `Collab` (LAN) | | | ✓ | |
 | `RuntimePython`, `Collab` (internet), `Registry`, more exporters | | | | ✓ |
@@ -1351,6 +1456,8 @@ Unavailable features appear **disabled with a one‑line reason**, never silentl
 | Windows · macOS · Linux | 10 (WebView2) · 11+ · WebKitGTK 4.1 | NSIS/MSI (signed) · DMG (notarized) · AppImage, deb, Flatpak |
 | iPadOS/iOS · Android | 16+ · 8.0+ | App Store/TestFlight · Play + APK |
 
+**Versions** are `1.Update.Fix`, and every commit raises one of them: the second number for anything new or changed, the third for a fix to that update (1.1.0 → 1.1.1 → 1.2.0). The first stays 1. The number is written once, in the repository's [`package.json`](package.json); the app shows it on the start screen and in *Setting → About*.
+
 **Small core:** the desktop installer targets < 10 MB and the web core < 200 KB gzipped (with every module and plugin, 193 KB of JS gzipped; Table, Plot, Calendar (with their CSS, through `installStyle`), and the guide's notes load on first use, about 100 KB more). Everything beyond the core loads only when switched on or first used.
 
 ---
@@ -1373,8 +1480,9 @@ Unavailable features appear **disabled with a one‑line reason**, never silentl
 
 ### 14.1 Security & privacy
 
-- **Local‑first:** no account, no telemetry, crash reports only if you opt in, no note encryption (your disk's applies). The web app never uploads notes.
-- **Headers** (`vercel.json`): a strict CSP (scripts only from the site, no `eval`, `connect-src 'self'`, frames only for YouTube and Vimeo), `nosniff`, a strict referrer policy, no camera, microphone, or location.
+- **Local‑first:** no account, no telemetry, crash reports only if you opt in, no note encryption (your disk's applies). The web app never uploads notes, with one exception you start yourself: a request to the AI you connected sends the note you are on (or the selection) to that provider, from your browser, with your key.
+- **The AI's key** is kept in this browser's storage under its own name, never in a setting (settings travel with the vault), and is sent only to the address of the provider it belongs to; a provider's address can't be changed in storage, only a local or custom one. Answers are OI text: they pass the same parsers and the HTML cleaner as anything typed, and are never run. Text in a note can try to instruct the model (prompt injection), which is why nothing is written without Replace or Insert.
+- **Headers** (`vercel.json`): a strict CSP (scripts only from the site, no `eval`, frames only for YouTube and Vimeo; `connect-src` is the site, `https:`, and localhost, opened for the AI plugin, as `img-src` already allowed `https:`), `nosniff`, a strict referrer policy, no camera, microphone, or location.
 - **Untrusted input:** HTML goes through our whitelist cleaner (fresh nodes, no scripts, forms, frames, handlers, `class`, `id`; `style` limited; links only `http(s)`, `mailto`, and relative, in a new tab). Pictures load through `<img>` (no scripts in SVG); videos play in sandboxed frames. Code doesn't auto‑run, macros are limited, zip imports are validated, and parsers are fuzzed.
 - **Transfer:** Noise E2E with keys pinned by QR or BLE, one‑time tokens that expire in 5 minutes, LAN only, no listener outside a session, a visible log; keys in the OS keychain. Modules and plugins have permissions, signatures, and sandboxes (§8.7).
 
@@ -1418,18 +1526,30 @@ The decisions behind the design, by topic (from eight reviews; the history of ea
 | Name, files | Octaether Ink (OI): notes `.oi`, bundles `.zip` (no custom compression), one `.oi/` folder. American spelling (*color*); singular labels everywhere; an acronym keeps its capitals (`HTML`) |
 | Format | Python‑style indentation and PascalCase names. One place for a block's settings: braces before the colon; a header argument takes only the main setting (`Code: Python`, `Image: Cell.png`). Markdown's symbols are aliases that modules own, each switchable. Inline blocks are `{Name: text}` (no `$` math). Blocks hold blocks. IDs only where something links. Version 1 is `Format: Oi 1` |
 | Data | A content‑addressed store in `.oi/` for files the app makes; your pictures in a visible `Attachment` folder. Ink as text, one stroke per line. Settings per vault, sent with transfers when you choose |
+| Accounts and devices | No account. Other devices are reached by keeping the vault in a cloud folder now, and by a direct, temporary link between two devices later (QR pairing, no server; an iPad's handwriting showing on a laptop that types into the same note). An account‑based sync may come as a separate, optional service if sponsors carry it |
+| Updates and versions | The cached app updates itself when nothing would be lost, and asks while you write. `1.Update.Fix`, raised with every commit |
 | Vaults and files | A vault is a folder (*Create new vault*, *Open folder as vault*); browsers keep only **quick notes**, under a warning, movable into a folder or downloadable. The trash is `.oi/Trash` with Undo right after a delete; quick notes have none. A blank Untitled note is never kept. Switching vaults never flashes the start screen. The app opens from its cache at once and offers Reload |
-| Look and app | Obsidian's look with a VS Code‑like start; a gold octahedron‑and‑nib logo on warm greys, no blue or purple; an accent color of your own. Tabs with their own history; files opened on their own; one note per module in the guide |
+| Look and app | Obsidian's look; the start screen is a centered column in the Swiss manner (large type, hairlines, square corners, one filled action), no longer VS Code's small top‑left lists, which read as unfinished on a note app. It shows nothing off before the actions. Layouts like OneNote's or Obsidian's are to come from themes, not from the app; a gold octahedron‑and‑nib logo on warm greys, no blue or purple; an accent color of your own. Tabs with their own history; files opened on their own; one note per module in the guide |
 | Views and editing | Source, Edit, and Read. A block opens as its own source, header included, so its type changes in place. The caret lands exactly where you click, in every block. Selected text is deleted or replaced, never the block. `Ctrl+Z` works everywhere, renames included. Every key is rebindable, with macros |
 | Blocks | Picked up by `Alt` + drag from anywhere (`⌃` and an always‑on `⋮⋮` were hard to use on small and nested blocks), with `Alt` + wheel or `Esc`, `Esc` for the block around and hold‑then‑drag on touch; the handle is a setting, off. Side drops make columns. The hover box sits where the editing outline goes, and the dashed outline skips a parent just as big as the block |
 | Properties | An optional Property block of YAML's basic types (tags as pills); the `---` header is the app's (`Created`, `Id`, `Format`, `Layout`) |
 | Layout | `Callout` replaced `Group`. Free placement is a generic **Board** (not `Canvas`, which looks plural), a module of its own with `Arrow`; `Arrange: Masonry` is the Pinterest wall. A whole note can be a Board; an empty note offers Document or Masonry, and the ⋯ menu changes it |
 | Chemistry | Own parsers from zero. `Chem` holds one structure in our dense syntax (chemfig stays for pasting LaTeX; no `Molecule` type); mechanisms are Boards with arrows between named atoms, lone pairs, and bonds. The drawing tool has Photoshop‑style groups, right click to undo the tool, right drag to pan, and touch. A Board without chemistry is edited without chemistry tools; a Masonry Board in the note. Arrow text has `At` and is dragged along, across, off, or onto arrows |
 | Modules and plugins | Plugins extend modules (themes, actions, extensions). A module's parts are features with their own switch and needs (Chem's *Drawing on Boards* needs Board); modules declare `provide`/`use` for a later dependency view. Colors come from the **Palette** plugin: one menu, palettes with import, removable recent colors, and no color UI when it is off |
+| AI | Bring your own model: the key is typed into the browser and requests go straight to the provider (Anthropic's Messages API; OpenAI's Responses API for OpenAI's own models in the chat, since its older chat API refuses tools with reasoning; the OpenAI chat shape for everyone else and for local models), so the site stays static, with no account, no proxy, and no cost to host. The key lives in browser storage only, never in settings, which travel with the vault. The AI answers in OI text that is previewed first and written only on Replace or Insert, as one undo step. What it knows comes from the modules (`guide` on each block type, loaded on first use), so new modules teach it by themselves. The price: `connect-src` now allows `https:` and localhost |
+| AI chat | Claude Code's way in a note app: tools over the vault through the app (so open notes, links, undo, and the trash all behave as when you do it), three modes with Manual as the default, a diff before every change in Manual, and Undo after. Conversations are stored as the API sent them and only ever added to, which Claude's thinking needs. Memory is a note in `.oi/AI/`, like a CLAUDE.md for the vault. Modules are the AI's skills: one line each up front, the whole guide when the AI asks for it. The chat is a tab, like VS Code's |
+| Tabs | A click shows a note here, a double‑click gives it a tab of its own, `Ctrl`+click and a middle‑click open it behind, as in a browser |
+| Split panes | VS Code's editor groups: a layout of rows and columns, each pane with its tabs and its view. The pane with the focus has the one editor (the app's own parts move into it), so every command, key, and find works as before; the others draw their note live, read only. A note open twice is one model, watched once (closing one tab doesn't stop the other's saving) |
+| Tags in tables | Choice and List became one Tag type: a cell is a comma list (names keep their spaces), typed like property tags. A Board shows a card in each of its tags' lanes and a drag changes only that tag |
+| One tag rule | A tag is a name: commas separate, quotes only around one with a comma, the same in property lists, table cells, and both editors (`#word` stays the way to tag inside text). A tag of the same name is one tag everywhere, so its color is the vault's only (`Tag.Color` in `.oi/Setting.oi`); a column's old `TagColor` is read until a color is set. Managing tags lives where tags are found: `tag:` in search and the graph, each with *Rename everywhere* |
+| AI layout | Claude Code's input: everything under the message field (nothing on top), so the chat fits a narrow pane beside the note; the connection is a setting's page, not part of the chat; the quick `Ctrl+J` panel stays for answers about a selection that go into the note, kept as a chat so either can go on |
+| Plot kinds | A plot is a graph or a chart: they don't share axes, so a line of the other kind is listed with the reason and a one‑click move to a plot of its own, never silently dropped. A 2D line in a 3D graph lies on z = 0 (`Z` moves it) |
+| Language | The English text is the key (`t('Cancel')`), so code reads as it did and a missing word shows in English; one file per language, loaded only when chosen; a test drives the app in each language and lists what is missing. Block types and properties are syntax and never translated. Changing the language restarts the app |
+| Export | Markdown keeps what Markdown can say and makes pictures of the rest, so nothing is lost and nothing is fenced as unreadable code when a picture can be made; a vault `.zip` trusts nothing it reads |
 | Themes | The app chooses (one list in *Appearance*); plugins and modules add themes. Module themes and whole layouts follow the same pattern next |
 | Tables | Rows as CSV in the note by default (readable, diffable); a table may instead show a `.csv`, `.tsv`, or an `.xlsx` sheet and edit it in place, the note keeping only the view. Excel files keep their styles: only changed cells are written. Tables of notes for database‑like use. Board, Gallery, and List layouts |
 | Plot | Desmos‑like lines (one thing each, style in braces at the end), sliders written back on release, our own sampler; 3D in WebGL 2 now (surfaces, implicit surfaces, curves, points); interactive by default, the wheel zooms only after a click so notes still scroll; *Keep this view* writes the view |
-| Calendar | Events are Event blocks inside the calendar by default; *As a linked note* and both‑way conversion for Notion‑style event notes. Copies keep their name (no "(1)"). One day of a repeat asks this / following / all. `Alt` + drag copies inside the calendar |
+| Calendar | Events are Event blocks inside the calendar by default; *Save as its own note* and both‑way conversion for Notion‑style event notes. Copies keep their name (no "(1)"). One day of a repeat asks this / following / all. `Alt` + drag copies inside the calendar |
 | Room and references | Blocks don't break out of the margins unless set *Full width*; a note that is only a table or calendar fills the window. A table or calendar can live in a note of its own and be shown elsewhere with `From`, moved out or brought back from its ⋯ menu |
 | Diagram → TikZ | The module is named for its syntax; `Diagram:` still reads, so old notes keep working. Its templates say *(TikZ)*, so they aren't taken for Plot |
 | Block menu | Grouped under each module's name, entries indented; a search lists them all with the module at the right |

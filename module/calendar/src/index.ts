@@ -9,10 +9,10 @@
 //   	Event {Start: 2026-09-02 09:00, End: 10:30, Repeat: {Every: Week, On: [Mon, Wed], Until: 2026-12-15}, Skip: [2026-11-23..2026-11-29]}: Linear Algebra
 //   		Room 204
 
-import { type BlockTypeDefinition, type ModuleDefinition, escapeHtml, lazyRenderer } from '@octaether/core-sdk';
+import { type BlockTypeDefinition, type ModuleDefinition, escapeHtml, lazyRenderer, t } from '@octaether/core-sdk';
 import { calendarCommandList } from './command';
 import { eventOf } from './event';
-import { clockText, dayOfMoment, minutePerDay, monthShortName, partOf, repeatTitle, weekdayName, weekdayOf } from './time';
+import { clockText, dateText, dayOfMoment, minutePerDay, repeatTitle } from './time';
 
 export { blockEventList, eventOf, eventSource, occurrenceList, splitFollowing, splitThis } from './event';
 export { durationOf, durationText, momentOf, repeatDayList, repeatOf, skipOf } from './time';
@@ -32,15 +32,13 @@ const calendarStyleOwn = `
 /** An Event outside a Calendar: a card saying when it is. */
 function eventCardHtml(block: { property: Map<string, unknown>; body: string }, resolveColor: (value: string) => string | undefined): string {
 	const event = eventOf(block.property as never, { id: 'Card', kind: 'Block', title: block.body.trim() });
-	const name = `<span class="oi-event-card-name" data-oi-s="0">${escapeHtml(block.body.trim() || 'Untitled')}</span>`;
-	if (!event) return `<div class="oi-event-card">${name}<span class="oi-event-card-when" data-oi-problem>needs a Start (2026-11-04 09:00)</span></div>`;
+	const name = `<span class="oi-event-card-name" data-oi-s="0">${escapeHtml(block.body.trim() || t('Untitled'))}</span>`;
+	if (!event) return `<div class="oi-event-card">${name}<span class="oi-event-card-when" data-oi-problem>${t('needs a Start (2026-11-04 09:00)')}</span></div>`;
 	const day = dayOfMoment(event.start);
-	const { year, month, date } = partOf(day);
-	let when = `${weekdayName[weekdayOf(day)]}, ${monthShortName[month]} ${date}, ${year}`;
+	let when = dateText(day, { weekday: 'short', year: true });
 	if (!event.allDay) when += ` · ${clockText(event.start - day * minutePerDay)}–${clockText((event.start + event.duration - day * minutePerDay) % minutePerDay)}`;
 	else if (event.duration > minutePerDay) {
-		const last = partOf(day + event.duration / minutePerDay - 1);
-		when += ` – ${monthShortName[last.month]} ${last.date}`;
+		when += ` – ${dateText(day + event.duration / minutePerDay - 1)}`;
 	}
 	const color = event.color ? (resolveColor(event.color) ?? '') : '';
 	return (
@@ -54,6 +52,7 @@ function eventCardHtml(block: { property: Map<string, unknown>; body: string }, 
 const calendarType: BlockTypeDefinition = {
 	name: 'Calendar',
 	content: 'Item',
+	guide: () => import('./guide').then((module) => module.calendarGuide),
 	render: lazyRenderer(() => import('./view').then((module) => module.calendarRenderer)),
 	edit: { kind: 'Structured' },
 	fillPage: true,
@@ -85,6 +84,7 @@ const calendarType: BlockTypeDefinition = {
 const eventType: BlockTypeDefinition = {
 	name: 'Event',
 	content: 'Item',
+	guide: () => import('./guide').then((module) => module.eventGuide),
 	render: {
 		mount(frame, block, context) {
 			frame.innerHTML = eventCardHtml(block, context.resolveColor);
@@ -103,6 +103,7 @@ export const calendarModule: ModuleDefinition = {
 	kind: 'Module',
 	name: 'Calendar',
 	publisher: 'Octaether',
+	language: { 'zh-Hans': () => import('./language/zh-Hans').then((module) => module.default) },
 	version: '1.0.0',
 	title: 'Calendar',
 	explain:

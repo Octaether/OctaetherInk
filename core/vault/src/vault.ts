@@ -123,6 +123,11 @@ export class Vault {
 
 	// ------------------------------------------------------------ entries
 
+	/** Every file and folder, the app's own `.oi/` included. */
+	allEntryList(): Entry[] {
+		return [...this.entryList];
+	}
+
 	/** Files and folders shown in the file tree (not `.oi/`, not hidden files). */
 	visibleEntryList(): Entry[] {
 		return this.entryList.filter((entry) => !isHidden(entry.path));
@@ -260,6 +265,18 @@ export class Vault {
 			if (entry.kind === 'File' && isInside(entry.path, path)) moveMap.set(entry.path, newPath + entry.path.slice(path.length));
 		}
 		const rewriteList = option.updateLink ? this.linkRewriteList(moveMap) : [];
+		// a folder named in a block (a calendar's Folder, a table's Source) follows the folder, as links do
+		if (option.updateLink && kind === 'Folder') {
+			const pattern = new RegExp(`(\\b(?:Folder|Source)\\s*:\\s*"?)${path.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?=[/",}\\s]|$)`, 'g');
+			for (const [notePath, original] of this.textMap) {
+				const item = rewriteList.find((entry) => entry.path === notePath);
+				const text = item?.text ?? original;
+				const next = text.replace(pattern, `$1${newPath}`);
+				if (next === text) continue;
+				if (item) item.text = next;
+				else rewriteList.push({ path: notePath, text: next });
+			}
+		}
 		await this.fs.move(path, newPath);
 		this.entryList = this.entryList.map((entry) => (isInside(entry.path, path) ? { ...entry, path: newPath + entry.path.slice(path.length) } : entry));
 		this.addParent(newPath);
@@ -416,6 +433,23 @@ export class Vault {
 
 	tagList(path: string): string[] {
 		return tagList(this.textMap.get(path) ?? '');
+	}
+
+	/** Every tag of the vault (one per name, case aside) with how many notes have it, by name. */
+	allTagList(): { tag: string; count: number }[] {
+		const map = new Map<string, { tag: string; count: number }>();
+		for (const path of this.noteList()) {
+			const seen = new Set<string>();
+			for (const tag of this.tagList(path)) {
+				const key = tag.toLowerCase();
+				if (seen.has(key)) continue;
+				seen.add(key);
+				const entry = map.get(key) ?? { tag, count: 0 };
+				entry.count++;
+				map.set(key, entry);
+			}
+		}
+		return [...map.values()].sort((left, right) => left.tag.localeCompare(right.tag, undefined, { sensitivity: 'base', numeric: true }));
 	}
 
 	graph(option: GraphOption = {}): { nodeList: GraphNode[]; edgeList: GraphEdge[] } {

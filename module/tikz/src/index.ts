@@ -69,6 +69,7 @@ function draw(frame: HTMLElement, block: ResolvedBlock, context: RenderContext):
 const tikzBlockType: BlockTypeDefinition = {
 	name: 'TikZ',
 	content: 'Raw',
+	guide: () => import('./guide').then((module) => module.tikzGuide),
 	render: {
 		mount(frame, block, context) {
 			draw(frame, block, context);
@@ -109,12 +110,13 @@ const tikzBlockType: BlockTypeDefinition = {
 };
 
 /** Notes from before the module was named TikZ say `Diagram:`; those blocks still draw, the same way. */
-const legacyBlockType: BlockTypeDefinition = { ...tikzBlockType, name: 'Diagram', templateList: [], style: undefined };
+const legacyBlockType: BlockTypeDefinition = { ...tikzBlockType, name: 'Diagram', templateList: [], guide: undefined, style: undefined };
 
 export const tikzModule: ModuleDefinition = {
 	kind: 'Module',
 	name: 'TikZ',
 	publisher: 'Octaether',
+	language: { 'zh-Hans': () => import('./language/zh-Hans').then((module) => module.default) },
 	version: '1.0.0',
 	title: 'TikZ',
 	explain:

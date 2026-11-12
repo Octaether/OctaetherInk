@@ -12,6 +12,7 @@ import { findTableNode, parseReference } from './reference';
 
 export { parseCsv, parsePasted, recordText, writeCsv, writeTsv } from './csv';
 export { parseReference } from './reference';
+export { renameTagInTable } from './table';
 
 
 /** Reads tables for Plot and Calendar; the reading code loads when it is first asked for. */
@@ -40,6 +41,7 @@ const tableData: TableData = {
 const tableType: BlockTypeDefinition = {
 	name: 'Table',
 	content: 'Raw',
+	guide: () => import('./guide').then((module) => module.tableGuide),
 	render: lazyRenderer(() => import('./view').then((module) => module.tableRenderer)),
 	edit: { kind: 'Structured' },
 	// Table: Data/Gym.csv shows (and edits) a data file
@@ -68,7 +70,7 @@ const tableType: BlockTypeDefinition = {
 		{
 			title: 'Reading list',
 			icon: '▦',
-			source: 'Table {Show: Board, Column: {Status: {Type: Choice, Choice: [To read, Reading, Done]}}}:\n\tTitle,Author,Status\n\tThe Art of Problem Solving,Paul Zeitz,Reading\n\tPrinciples of Chemistry,Mendeleev,To read',
+			source: 'Table {Show: Board, Column: {Status: {Type: Tag, Tag: [To read, Reading, Done]}}}:\n\tTitle,Author,Status\n\tThe Art of Problem Solving,Paul Zeitz,Reading\n\tPrinciples of Chemistry,Mendeleev,To read',
 			keywordList: ['reading', 'books', 'kanban', 'board', 'status'],
 			explain: 'Cards in lanes by status',
 		},
@@ -80,6 +82,7 @@ export const tableModule: ModuleDefinition = {
 	kind: 'Module',
 	name: 'Table',
 	publisher: 'Octaether',
+	language: { 'zh-Hans': () => import('./language/zh-Hans').then((module) => module.default) },
 	version: '1.0.0',
 	title: 'Table',
 	explain:

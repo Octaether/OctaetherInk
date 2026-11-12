@@ -1,11 +1,11 @@
 // @vitest-environment happy-dom
 import { NoteModel } from '@octaether/core-model';
 import { Registry, RenderHost, ThemeRegistry } from '@octaether/core-render';
-import { type MenuEntry, type NoteIndex, type NoteSummary, type TableData, menuExtension, noteIndexExtension, tableDataExtension } from '@octaether/core-sdk';
+import { type MenuEntry, type NoteIndex, type NoteSummary, type TableData, colorPickerExtension, menuExtension, noteIndexExtension, tableDataExtension, tagExtension } from '@octaether/core-sdk';
 import { textModule } from '@octaether/module-text';
 import { afterEach, describe, expect, it } from 'vitest';
-import { parseCsv, parsePasted, tableModule, writeCsv, writeTsv } from '../src';
-import { formatValue, guessType, numberOf, readTable, setCell, snapshotOf, summarize, viewOf } from '../src/table';
+import { parseCsv, parsePasted, recordText, tableModule, writeCsv, writeTsv } from '../src';
+import { formatValue, guessType, numberOf, readTable, renameTagInTable, setCell, snapshotOf, summarize, tagListOf, tagText, viewOf } from '../src/table';
 import { withColumnSetting } from '../src/view';
 
 const property = (text: string): Map<string, unknown> => NoteModel.fromText(`Table ${text}:\n\ta\n`).document.itemList[0]!.property;
@@ -37,7 +37,7 @@ describe('columns', () => {
 		expect(guessType(['2026-11-01', ''])).toBe('Date');
 		expect(guessType(['2026-11-01 09:00'])).toBe('DateTime');
 		expect(guessType(['True', 'false'])).toBe('Checkbox');
-		expect(guessType(['Legs', 'Push', 'Legs', 'Push', 'Legs'])).toBe('Choice');
+		expect(guessType(['Legs', 'Push', 'Legs', 'Push', 'Legs'])).toBe('Tag');
 		expect(guessType(['Hello there', 'Something else'])).toBe('Text');
 		expect(numberOf('$1,200.50')).toBe(1200.5);
 		expect(numberOf('15%')).toBe(0.15);
@@ -162,6 +162,18 @@ describe('the Table block', () => {
 		expect(model.document.itemList[0]!.body).toBe('Name,Number\na,42\nb,2');
 		// the editor moved to the next row
 		expect(document.querySelector('td.oi-table-editing')?.getAttribute('data-row')).toBe('1');
+	});
+
+	it('adds an empty row with New, and opens its first cell for typing', async () => {
+		const { model, root } = await mount('Table:\n\tName,Number\n\ta,1\n');
+		(root.querySelector('[data-action="AddRow"]') as HTMLElement).click();
+		expect(model.document.itemList[0]!.body).toBe('Name,Number\na,1\n,');
+		const after = document.querySelector('.oi-table')!;
+		expect(after.querySelectorAll('td[data-column="0"]').length).toBe(2);
+		expect(document.querySelector('td.oi-table-editing')?.getAttribute('data-row')).toBe('1');
+		// a one-column table keeps its empty row too
+		expect(recordText([''])).toBe('""');
+		expect(parseCsv('Name\n""').length).toBe(2);
 	});
 
 	it('pastes a block from a spreadsheet at the selected cell, growing the table', async () => {
@@ -318,15 +330,128 @@ describe('titles, choices, and plotting a table', () => {
 		expect((await data.read(context, 'gym LOG'))?.columnList[1]!.valueList).toEqual([72]);
 	});
 
-	it('picks a choice from a menu, adds one, and colors it', async () => {
-		const { model, menuList, root } = await mountMenu('Table {Column: {Status: {Type: Choice, Choice: [To do, Done]}}}:\n\tTask,Status\n\tWash,To do\n');
-		const cell = root.querySelector('td[data-row="0"][data-column="1"]')!;
+	it('types tags into a cell: a comma or Enter makes a chip, spaces stay in a tag, a tag with a comma is quoted', async () => {
+		// Choice (and List) written before read as Tag
+		const { model, menuList } = await mountMenu('Table {Column: {Who: {Type: Choice, Choice: [Lab]}}}:\n\tTask,Who\n\tWash,Lab\n');
+		const open = (): HTMLInputElement => {
+			const cell = document.querySelector('.oi-table td[data-row="0"][data-column="1"]')!;
+			cell.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, button: 0, buttons: 1, pointerId: 1 }));
+			cell.dispatchEvent(new PointerEvent('pointerup', { bubbles: true, button: 0, pointerId: 1 }));
+			return document.querySelector<HTMLInputElement>('.oi-table input[data-tag]')!;
+		};
+		const key = (input: HTMLInputElement, name: string): void => void input.dispatchEvent(new KeyboardEvent('keydown', { key: name, bubbles: true, cancelable: true }));
+		let input = open();
+		expect([...document.querySelectorAll('.oi-table-tag-editor .oi-table-pill')].map((pill) => pill.textContent)).toEqual(['Lab']);
+		input.value = 'Ada Lovelace';
+		key(input, ',');
+		input = document.querySelector<HTMLInputElement>('.oi-table input[data-tag]')!;
+		expect([...document.querySelectorAll('.oi-table-tag-editor .oi-table-pill')].map((pill) => pill.textContent)).toEqual(['Lab', 'Ada Lovelace']);
+		// a # typed in front out of habit is dropped
+		input.value = '#Organic';
+		key(input, 'Enter');
+		input = document.querySelector<HTMLInputElement>('.oi-table input[data-tag]')!;
+		// Backspace in the empty field takes the last one back
+		input.value = 'Oops';
+		key(input, 'Enter');
+		input = document.querySelector<HTMLInputElement>('.oi-table input[data-tag]')!;
+		key(input, 'Backspace');
+		input = document.querySelector<HTMLInputElement>('.oi-table input[data-tag]')!;
+		// inside "quotes" a comma is part of the tag
+		input.value = '"Smith';
+		key(input, ',');
+		expect(document.querySelector('.oi-table input[data-tag]')).toBe(input);
+		input.value = '"Smith, J"';
+		key(input, 'Enter');
+		input = document.querySelector<HTMLInputElement>('.oi-table input[data-tag]')!;
+		expect([...document.querySelectorAll('.oi-table-tag-editor .oi-table-pill')].map((pill) => pill.textContent)).toEqual(['Lab', 'Ada Lovelace', 'Organic', 'Smith, J']);
+		// Enter with nothing typed writes the cell
+		key(input, 'Enter');
+		expect(model.document.itemList[0]!.body).toBe('Task,Who\nWash,"Lab, Ada Lovelace, Organic, ""Smith, J"""');
+		expect([...document.querySelectorAll('.oi-table td[data-row="0"][data-column="1"] .oi-table-pill')].map((pill) => pill.textContent)).toEqual(['Lab', 'Ada Lovelace', 'Organic', 'Smith, J']);
+		expect(tagListOf('#a, Ada Lovelace, "Smith, J", "say ""hi""", #[Marie Curie], a')).toEqual(['a', 'Ada Lovelace', 'Smith, J', 'say "hi"', 'Marie Curie']);
+		expect(tagText(['a', 'Smith, J', 'say "hi"'])).toBe('a, "Smith, J", "say ""hi"""');
+		// the menu of every tag still adds and takes away
+		input = open();
+		document.querySelector<HTMLElement>('.oi-table [data-tag-menu]')!.click();
+		const menu = menuList.at(-1)!;
+		expect(menu.map((item) => `${item.title}${item.checked ? ' ✓' : ''}`)).toEqual(['Lab ✓', 'Ada Lovelace ✓', 'Organic ✓', 'Smith, J ✓', 'New tag', 'Clear', 'Edit tags']);
+		menu.find((item) => item.title === 'Lab')!.run!();
+		expect(model.document.itemList[0]!.body).toBe('Task,Who\nWash,"Ada Lovelace, Organic, ""Smith, J"""');
+	});
+
+	it('edits a column’s tags in one panel: rename (cells follow), a color for the whole vault, add, delete', async () => {
+		const { model, menuList, registry } = await mountMenu('Table {Column: {Who: {Type: Tag, Tag: [Ada, Marie]}}}:\n\tTask,Who\n\tPaper,"Ada, Marie"\n\tTalk,Marie\n');
+		const colorMap = new Map<string, string>();
+		registry.registerExtension(tagExtension, {
+			colorOf: (tag: string) => colorMap.get(tag.toLowerCase()),
+			setColor: (tag: string, color: string | undefined) => void (color ? colorMap.set(tag.toLowerCase(), color) : colorMap.delete(tag.toLowerCase())),
+			openMenu: () => undefined,
+		});
+		let pick: ((color: string | undefined) => void) | undefined;
+		registry.registerExtension(colorPickerExtension, { open: ({ onPick }: { onPick(color: string | undefined): void }) => void (pick = onPick), close: () => undefined });
+		const cell = document.querySelector('.oi-table td[data-row="0"][data-column="1"]')!;
 		cell.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, button: 0, buttons: 1, pointerId: 1 }));
 		cell.dispatchEvent(new PointerEvent('pointerup', { bubbles: true, button: 0, pointerId: 1 }));
-		const menu = menuList.at(-1)!;
-		expect(menu.map((item) => `${item.title}${item.checked ? ' ✓' : ''}`)).toEqual(['To do ✓', 'Done', 'New choice', 'Clear', 'Edit choices']);
-		menu.find((item) => item.title === 'Done')!.run!();
-		expect(model.document.itemList[0]!.body).toBe('Task,Status\nWash,Done');
+		document.querySelector<HTMLElement>('.oi-table [data-tag-menu]')!.click();
+		menuList.at(-1)!.find((item) => item.title === 'Edit tags')!.run!();
+		const panel = (): HTMLElement => document.querySelector<HTMLElement>('.oi-table-tag-panel')!;
+		const nameList = (): string[] => [...panel().querySelectorAll<HTMLInputElement>('.oi-table-tag-name')].map((input) => input.value);
+		const tagSetting = (): unknown => ((model.document.itemList[0]!.property.get('Column') as Map<string, Map<string, unknown>>).get('Who')!.get('Tag'));
+		expect(nameList()).toEqual(['Ada', 'Marie']);
+		expect([...panel().querySelectorAll('.oi-table-tag-count')].map((item) => item.textContent)).toEqual(['1', '2']);
+		// rename: the cells follow
+		const marie = panel().querySelector<HTMLInputElement>('[data-tag-panel="name:1"]')!;
+		marie.value = 'Marie Curie';
+		marie.dispatchEvent(new Event('change', { bubbles: true }));
+		await new Promise((done) => setTimeout(done, 20));
+		expect(model.document.itemList[0]!.body).toBe('Task,Who\nPaper,"Ada, Marie Curie"\nTalk,Marie Curie');
+		expect(nameList()).toEqual(['Ada', 'Marie Curie']);
+		// a color is the vault's: the same tag anywhere
+		panel().querySelector<HTMLElement>('[data-tag-color="0"]')!.click();
+		pick!('Danger');
+		expect(colorMap.get('ada')).toBe('Danger');
+		// add one, then delete one (it leaves every cell too)
+		const add = panel().querySelector<HTMLInputElement>('[data-tag-panel="add"]')!;
+		add.value = 'Lab, "Smith, J"';
+		add.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }));
+		await new Promise((done) => setTimeout(done, 20));
+		expect(tagSetting()).toEqual(['Ada', 'Marie Curie', 'Lab', 'Smith, J']);
+		panel().querySelector<HTMLElement>('[data-tag-delete="0"]')!.click();
+		await new Promise((done) => setTimeout(done, 20));
+		expect(model.document.itemList[0]!.body).toBe('Task,Who\nPaper,Marie Curie\nTalk,Marie Curie');
+		expect(tagSetting()).toEqual(['Marie Curie', 'Lab', 'Smith, J']);
+		expect(nameList()).toEqual(['Marie Curie', 'Lab', 'Smith, J']);
+		// Esc closes it
+		panel().dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }));
+		expect(document.querySelector('.oi-table-tag-panel')).toBeNull();
+	});
+
+	it('renames a tag in a table’s Tag columns: cells, its list, and a color it kept', () => {
+		const property = NoteModel.fromText('Table {Column: {Who: {Type: Tag, Tag: [Ada, Lab], TagColor: {Ada: Danger}}}}:\n\tTask,Who\n\tPaper,"Ada, Lab"\n\tTalk,Lab\n').document.itemList[0]!;
+		const result = renameTagInTable(property.property, property.body, 'ada', 'Ada Lovelace')!;
+		expect(result.body).toBe('Task,Who\nPaper,"Ada Lovelace, Lab"\nTalk,Lab');
+		const who = (result.property.get('Column') as Map<string, Map<string, unknown>>).get('Who')!;
+		expect(who.get('Tag')).toEqual(['Ada Lovelace', 'Lab']);
+		expect([...(who.get('TagColor') as Map<string, unknown>).keys()]).toEqual(['Ada Lovelace']);
+		expect(renameTagInTable(property.property, property.body, 'Nobody', 'X')).toBeUndefined();
+	});
+
+	it('puts a card in the lane of each of its tags, and a drag moves only that one', async () => {
+		const { model } = await mountMenu('Table {Show: Board, Column: {Who: {Type: Tag, Tag: [Ada Lovelace, Marie Curie]}}}:\n\tTask,Who\n\tPaper,"Ada Lovelace, Marie Curie"\n\tTalk,Marie Curie\n');
+		const lane = [...document.querySelectorAll<HTMLElement>('.oi-table-lane')].map((element) => `${element.dataset.lane}:${element.querySelectorAll('.oi-table-card').length}`);
+		expect(lane).toEqual(['Ada Lovelace:1', 'Marie Curie:2']);
+		expect(snapshotOf(readTable(model.document.itemList[0]!.property, model.document.itemList[0]!.body)).columnList[1]!.valueList).toEqual(['Ada Lovelace, Marie Curie', 'Marie Curie']);
+	});
+
+	it('adds a column with the type picked beside its name', async () => {
+		const { model, root } = await mountMenu('Table:\n\tTask\n\tWash\n');
+		(root.querySelector('[data-action="AddColumn"]') as HTMLElement).click();
+		document.querySelector<HTMLElement>('.oi-table [data-ask-type="Number"]')!.click();
+		const input = document.querySelector<HTMLInputElement>('.oi-table [data-field="ask"]')!;
+		input.value = 'Minutes';
+		input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+		expect(model.document.itemList[0]!.body).toBe('Task,Minutes\nWash');
+		expect(model.document.itemList[0]!.property.get('Column')).toEqual(new Map([['Minutes', new Map([['Type', 'Number']])]]));
 	});
 
 	it('plots itself: a Plot below, finding it by its title', async () => {

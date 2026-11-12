@@ -18,7 +18,7 @@
 // order. A whole note can be one: `Layout: Board {Arrange: Masonry}`.
 
 import type { BlockNode, PropertyValue } from '@octaether/core-format';
-import { type BlockTypeDefinition, type BoardEditor, type BoardItem, type ChildFrame, type LayoutContext, type RenderContext, type ResolvedBlock, boardEditorExtension } from '@octaether/core-sdk';
+import { type BlockTypeDefinition, type BoardEditor, type BoardItem, type ChildFrame, type LayoutContext, type RenderContext, type ResolvedBlock, boardEditorExtension, t } from '@octaether/core-sdk';
 import { type ArrowCurve, type Point, arrowCurve, arrowLabelPlace, arrowMarkup, autoCurve, bezierPoint, readAt, readHead, readKind, sampleCurve } from './arrow';
 
 export const boardStyle = `
@@ -364,7 +364,7 @@ function drawBoardHead(frame: HTMLElement, block: ResolvedBlock, context: Render
 	const editor = context.extension<BoardEditor>(boardEditorExtension);
 	const empty = block.node.childList.length === 0;
 	const masonry = isMasonry(block.property);
-	const emptyText = masonry ? 'Empty wall: put blocks inside it, and each one becomes a card.' : 'Empty board: open it to draw arrows and text, or put blocks inside it with X and Y.';
+	const emptyText = masonry ? t('Empty wall: put blocks inside it, and each one becomes a card.') : t('Empty board: open it to draw arrows and text, or put blocks inside it with X and Y.');
 	frame.innerHTML = `<div class="oi-board-head">${empty ? `<p class="oi-board-empty" data-oi-s="0">${emptyText}</p>` : ''}</div>`;
 	// a Masonry wall has no editor: its cards are edited right in the note
 	if (!editor || context.readOnly() || masonry) return;
@@ -372,8 +372,8 @@ function drawBoardHead(frame: HTMLElement, block: ResolvedBlock, context: Render
 	button.type = 'button';
 	button.className = 'oi-board-edit';
 	button.dataset.oiInteractive = '';
-	button.textContent = 'Edit board';
-	button.title = 'Move, draw, and write on this board';
+	button.textContent = t('Edit board');
+	button.title = t('Move, draw, and write on this board');
 	button.addEventListener('click', () => {
 		const node = context.note.get(block.key) ?? block.node;
 		const emPx = Number.parseFloat(getComputedStyle(frame).fontSize) || 16;
@@ -385,6 +385,7 @@ function drawBoardHead(frame: HTMLElement, block: ResolvedBlock, context: Render
 export const boardType: BlockTypeDefinition = {
 	name: 'Board',
 	content: 'Item',
+	guide: () => import('./guide').then((module) => module.boardGuide),
 	style: boardStyle,
 	render: {
 		mount(frame, block, context) {
@@ -428,6 +429,7 @@ function drawArrowAlone(frame: HTMLElement, block: ResolvedBlock): void {
 export const arrowType: BlockTypeDefinition = {
 	name: 'Arrow',
 	content: 'Item',
+	guide: () => import('./guide').then((module) => module.arrowGuide),
 	render: {
 		mount(frame, block) {
 			drawArrowAlone(frame, block);

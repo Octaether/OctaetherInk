@@ -10,7 +10,7 @@
 //   	…
 
 import type { BlockTypeDefinition, ModuleDefinition, RenderContext, ResolvedBlock } from '@octaether/core-sdk';
-import { escapeHtml } from '@octaether/core-sdk';
+import { escapeHtml, t } from '@octaether/core-sdk';
 
 export const calloutKindList = ['Note', 'Info', 'Tip', 'Success', 'Question', 'Warning', 'Danger', 'Bug', 'Example', 'Quote'] as const;
 export type CalloutKind = (typeof calloutKindList)[number];
@@ -108,6 +108,7 @@ const flowType: BlockTypeDefinition = { name: 'Flow', content: 'Item', render: t
 const columnType: BlockTypeDefinition = {
 	name: 'Column',
 	content: 'Item',
+	guide: () => import('./guide').then((module) => module.columnGuide),
 	render: titleRenderer(),
 	layout: flowArrange,
 	templateList: [{ title: 'Column', icon: '▯', source: 'Column:\n\t', keywordList: ['column'], explain: 'One column; add more beside it from its menu' }],
@@ -119,7 +120,7 @@ function drawCallout(frame: HTMLElement, block: ResolvedBlock, context: RenderCo
 	const title = block.body.trim();
 	frame.innerHTML =
 		`<div class="oi-callout-title">${calloutIcon[kind]}<span class="oi-callout-text"${title ? ' data-oi-s="0"' : ''}>${escapeHtml(title || kind)}</span>` +
-		`<button type="button" class="oi-callout-fold" data-oi-interactive title="${collapsed ? 'Expand' : 'Collapse'}" aria-label="${collapsed ? 'Expand' : 'Collapse'}" aria-expanded="${!collapsed}">${collapsed ? '▸' : '▾'}</button></div>`;
+		`<button type="button" class="oi-callout-fold" data-oi-interactive title="${collapsed ? t('Expand') : t('Collapse')}" aria-label="${collapsed ? t('Expand') : t('Collapse')}" aria-expanded="${!collapsed}">${collapsed ? '▸' : '▾'}</button></div>`;
 	frame.querySelector('.oi-callout-fold')!.addEventListener('click', () => context.setProperty('Collapsed', collapsed ? undefined : true));
 }
 
@@ -127,6 +128,7 @@ function drawCallout(frame: HTMLElement, block: ResolvedBlock, context: RenderCo
 const calloutType: BlockTypeDefinition = {
 	name: 'Callout',
 	content: 'Item',
+	guide: () => import('./guide').then((module) => module.calloutGuide),
 	render: {
 		mount(frame, block, context) {
 			drawCallout(frame, block, context);
@@ -153,6 +155,7 @@ const calloutType: BlockTypeDefinition = {
 const gridType: BlockTypeDefinition = {
 	name: 'Grid',
 	content: 'Item',
+	guide: () => import('./guide').then((module) => module.gridGuide),
 	style: layoutStyle,
 	render: titleRenderer(),
 	layout: {
@@ -195,6 +198,7 @@ export const layoutModule: ModuleDefinition = {
 	kind: 'Module',
 	name: 'Layout',
 	publisher: 'Octaether',
+	language: { 'zh-Hans': () => import('./language/zh-Hans').then((module) => module.default) },
 	version: '1.0.0',
 	title: 'Layout',
 	explain: 'Blocks that hold blocks: Grid with Columns (side by side, stacks on narrow screens) and Callout (a colored box with a title, like Obsidian’s callouts). Always on. Blocks placed freely are the Board module.',

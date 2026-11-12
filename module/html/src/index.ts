@@ -44,6 +44,7 @@ function draw(frame: HTMLElement, body: string, context: RenderContext): void {
 const htmlBlockType: BlockTypeDefinition = {
 	name: 'HTML',
 	content: 'Raw',
+	guide: () => import('./guide').then((module) => module.htmlGuide),
 	render: {
 		mount(frame, block, context) {
 			draw(frame, block.body, context);
@@ -70,6 +71,7 @@ export const htmlModule: ModuleDefinition = {
 	kind: 'Module',
 	name: 'HTML',
 	publisher: 'Octaether',
+	language: { 'zh-Hans': () => import('./language/zh-Hans').then((module) => module.default) },
 	version: '1.0.0',
 	title: 'HTML',
 	explain:

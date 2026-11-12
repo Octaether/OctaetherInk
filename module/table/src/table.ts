@@ -7,13 +7,20 @@
 //   	Date,Workout,Calorie,Burned
 //   	2026-11-01,Legs,2100,520
 
+import { t } from '@octaether/core-sdk';
 import { type Compiled, type Value, compileText, dayOf, dayText, quantile } from '@octaether/core-expression';
-import { type PropertyMap, type PropertyValue, formatInline } from '@octaether/core-format';
+import { type PropertyMap, type PropertyValue, formatInline, tagListOf, tagText, tagWord } from '@octaether/core-format';
 import type { NoteSummary, TableCell, TableSnapshot } from '@octaether/core-sdk';
 import { type CsvRecord, parseCsv, writeCsv } from './csv';
 
-export const columnTypeList = ['Text', 'Number', 'Date', 'DateTime', 'Checkbox', 'Choice', 'List', 'Link', 'Formula'] as const;
+export const columnTypeList = ['Text', 'Number', 'Date', 'DateTime', 'Checkbox', 'Tag', 'Link', 'Formula'] as const;
 export type ColumnType = (typeof columnTypeList)[number];
+
+/** Names a type had before: Choice (one label) and List (several) are both Tag now. */
+const oldTypeMap: Readonly<Record<string, ColumnType>> = { Choice: 'Tag', List: 'Tag' };
+
+/** A cell's tags: the vault's one rule (commas between, quotes around a tag with a comma). */
+export { tagListOf, tagText };
 
 export const summaryList = ['None', 'Count', 'Filled', 'Empty', 'Unique', 'Sum', 'Average', 'Median', 'Min', 'Max', 'Range', 'Deviation', 'Checked'] as const;
 export type Summary = (typeof summaryList)[number];
@@ -116,11 +123,11 @@ export function guessType(cellList: readonly string[]): ColumnType {
 	if (filled.every((cell) => numberOf(cell) !== undefined)) return 'Number';
 	if (filled.every((cell) => /^\[\[[^\]]+\]\]$/.test(cell))) return 'Link';
 	const distinct = new Set(filled.map((cell) => cell.toLowerCase()));
-	if (filled.length >= 4 && distinct.size <= Math.max(2, Math.floor(filled.length / 2)) && distinct.size <= 12 && filled.every((cell) => cell.length <= 24)) return 'Choice';
+	if (filled.length >= 4 && distinct.size <= Math.max(2, Math.floor(filled.length / 2)) && distinct.size <= 12 && filled.every((cell) => cell.length <= 24)) return 'Tag';
 	return 'Text';
 }
 
-/** A cell's value: numbers for Number, Checkbox (1/0), Date and DateTime (days from 1970); a list for List. */
+/** A cell's value: numbers for Number, Checkbox (1/0), Date and DateTime (days from 1970); for Tag the tag, or a list of several. */
 export function cellValue(type: ColumnType, text: string): TableCell {
 	const trimmed = text.trim();
 	if (trimmed === '') return undefined;
@@ -132,11 +139,10 @@ export function cellValue(type: ColumnType, text: string): TableCell {
 			return dayOf(trimmed);
 		case 'Checkbox':
 			return checkTrue.test(trimmed) ? 1 : checkFalse.test(trimmed) ? 0 : undefined;
-		case 'List':
-			return trimmed
-				.split(',')
-				.map((item) => item.trim())
-				.filter(Boolean);
+		case 'Tag': {
+			const list = tagListOf(trimmed);
+			return list.length === 1 ? list[0] : list;
+		}
 		case 'Link': {
 			const match = /^\[\[([^\]|#]+)/.exec(trimmed);
 			return match ? match[1]!.trim() : trimmed;
@@ -160,7 +166,7 @@ function mapOf(value: PropertyValue | undefined): PropertyMap {
 /** A note property as a cell's text: a list as `a, b`. */
 function propertyText(value: PropertyValue | undefined): string {
 	if (value === undefined || value === null) return '';
-	if (Array.isArray(value)) return value.map((item) => (typeof item === 'string' ? item : formatInline(item))).join(', ');
+	if (Array.isArray(value)) return value.map((item) => (typeof item === 'string' ? tagWord(item) : formatInline(item))).join(', ');
 	if (typeof value === 'boolean') return value ? 'True' : 'False';
 	if (value instanceof Map) return formatInline(value);
 	return String(value);
@@ -244,18 +250,23 @@ export function readTable(property: PropertyMap, body: string, noteList: readonl
 function columnOf(name: string, index: number, setting: PropertyMap, rowList: readonly Row[], hiddenSet: ReadonlySet<string>): ColumnInfo {
 	const formula = textOf(setting.get('Formula'));
 	const typeText = textOf(setting.get('Type'));
-	const given = columnTypeList.find((type) => type === typeText);
+	const given = columnTypeList.find((type) => type === typeText) ?? (typeText ? oldTypeMap[typeText] : undefined);
 	const type: ColumnType = formula !== undefined ? 'Formula' : (given ?? guessType(index < 0 ? [] : rowList.map((row) => row.cellList[index] ?? '')));
 	const valueTypeText = textOf(setting.get('Result'));
-	const choiceValue = setting.get('Choice');
+	// the tags offered, in order: Tag (Choice, before)
+	const choiceValue = setting.get('Tag') ?? setting.get('Choice');
 	let choiceList = (Array.isArray(choiceValue) ? choiceValue : []).map(String);
-	if ((type === 'Choice' || type === 'List') && choiceList.length === 0) {
-		const seen = new Set<string>();
+	// the tags in its list first, in their order, then the ones typed in cells that it doesn't have
+	if (type === 'Tag') {
+		const seen = new Set(choiceList.map((item) => item.toLowerCase()));
 		for (const row of rowList) {
 			const value = cellValue(type, row.cellList[index] ?? '');
-			for (const item of Array.isArray(value) ? value : value === undefined ? [] : [String(value)]) seen.add(item);
+			for (const item of Array.isArray(value) ? value : value === undefined ? [] : [String(value)]) {
+				if (seen.has(item.toLowerCase())) continue;
+				seen.add(item.toLowerCase());
+				choiceList.push(item);
+			}
 		}
-		choiceList = [...seen];
 	}
 	const format = setting.get('Format');
 	const decimalValue = format instanceof Map ? format.get('Decimal') : setting.get('Decimal');
@@ -424,7 +435,7 @@ function groupKey(column: ColumnInfo, value: TableCell, period: Period | undefin
 		const start = periodStart(value, period ?? 'Day');
 		return { key: String(start).padStart(8, '0'), label: periodLabel(start, period ?? 'Day') };
 	}
-	if (column.valueType === 'Checkbox') return { key: String(value), label: value === 1 ? 'Checked' : 'Not checked' };
+	if (column.valueType === 'Checkbox') return { key: String(value), label: value === 1 ? t('Checked') : t('Not checked') };
 	if (typeof value === 'number') return { key: String(value).padStart(16, '0'), label: formatValue(column, value) };
 	return { key: String(value).toLowerCase(), label: String(value) };
 }
@@ -621,11 +632,11 @@ export function propertyValueOf(column: ColumnInfo, text: string): PropertyValue
 			return numberOf(trimmed) ?? trimmed;
 		case 'Checkbox':
 			return checkTrue.test(trimmed);
-		case 'List':
-			return trimmed
-				.split(',')
-				.map((item) => item.trim())
-				.filter(Boolean);
+		case 'Tag': {
+			// a note's tags stay a list (Tag: [Organic]); another property with one tag is that tag
+			const list = tagListOf(trimmed);
+			return list.length === 1 && !/^(?:tag|alias|author|keyword)s?$/i.test(column.name) ? list[0] : list;
+		}
 		default:
 			return trimmed;
 	}
@@ -637,8 +648,65 @@ export function propertyValueOf(column: ColumnInfo, text: string): PropertyValue
 export function snapshotOf(model: TableModel): TableSnapshot {
 	const { rowList, valueOf } = viewOf(model);
 	return {
-		columnList: model.columnList.map((column, index) => ({ name: column.name, type: column.valueType, unit: column.unit, valueList: rowList.map((row) => valueOf(row)[index]) })),
+		// a cell with several tags reads as one label (Organic, Lab) to a plot or a calendar
+		columnList: model.columnList.map((column, index) => ({ name: column.name, type: column.valueType, unit: column.unit, valueList: rowList.map((row) => { const value = valueOf(row)[index]; return Array.isArray(value) ? value.join(', ') : value; }) })),
 		rowCount: rowList.length,
 		pathList: model.kind === 'Note' ? rowList.map((row) => row.path) : undefined,
 	};
+}
+
+// ---------------------------------------------------------------- a tag renamed across the vault
+
+/**
+ * A table's text with a tag renamed in its Tag columns: in the cells, the column's list of tags, and
+ * a color it kept. Undefined when nothing changes (or the table's rows are notes, renamed in their properties).
+ */
+export function renameTagInTable(property: PropertyMap, body: string, from: string, to: string): { property: PropertyMap; body: string } | undefined {
+	const model = readTable(property, body);
+	if (model.kind !== 'Csv') return undefined;
+	const same = (item: string): boolean => item.toLowerCase() === from.toLowerCase();
+	const columnList = model.columnList.filter((column) => column.type === 'Tag' && column.formula === undefined && column.index >= 0);
+	if (columnList.length === 0) return undefined;
+	let changed = false;
+	const recordList = model.recordList.map((record, index) => {
+		if (index === 0) return record;
+		let cellList = record.cellList;
+		for (const column of columnList) {
+			const cell = cellList[column.index] ?? '';
+			const list = tagListOf(cell);
+			if (!list.some(same)) continue;
+			if (cellList === record.cellList) cellList = [...cellList];
+			cellList[column.index] = tagText(list.map((item) => (same(item) ? to : item)));
+			changed = true;
+		}
+		return cellList === record.cellList ? record : { cellList };
+	});
+	let nextProperty = property;
+	const columnMap = property.get('Column');
+	if (columnMap instanceof Map) {
+		const next = new Map(columnMap);
+		for (const column of columnList) {
+			const setting = next.get(column.name);
+			if (!(setting instanceof Map)) continue;
+			const copy = new Map(setting);
+			for (const key of ['Tag', 'Choice']) {
+				const value = copy.get(key);
+				if (Array.isArray(value) && value.some((item) => typeof item === 'string' && same(item))) {
+					copy.set(key, value.map((item) => (typeof item === 'string' && same(item) ? to : item)));
+					changed = true;
+				}
+			}
+			for (const key of ['TagColor', 'ChoiceColor']) {
+				const value = copy.get(key);
+				if (value instanceof Map && [...value.keys()].some(same)) {
+					copy.set(key, new Map([...value].map(([name, color]) => [same(name) ? to : name, color])));
+					changed = true;
+				}
+			}
+			next.set(column.name, copy);
+		}
+		nextProperty = new Map(property);
+		nextProperty.set('Column', next);
+	}
+	return changed ? { property: nextProperty, body: writeCsv(recordList) } : undefined;
 }

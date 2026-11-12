@@ -11,12 +11,16 @@
 //   P = (2, f(2))                   a named point (its name is its label)
 //   z = sin(x) cos(y)               3D: a surface;  x^2 + y^2 + z^2 = 4 an implicit surface;
 //   (cos t, sin t, t/5)             a curve in space;  (A, B, C) points in space from three columns
-//   # a comment
+//   F(x, y) = (-y, x)               a vector field (arrows);  F(x, y, z) = (-y, x, 0.2) in space;
+//                                   (-y, x) the same, unnamed;  {Gradient: [Blue, Red]} colors by length
+//   # a comment                     shown in the list as a note to the reader
+//
+// In a 3D plot, a line in x and y (a curve, a region, points) lies on the plane z = 0 (or {Z: 2}).
 
 import { type ExpressionNode, ExpressionError, isBuiltinFunction, nameListOf, parseExpression } from '@octaether/core-expression';
 import { type PropertyMap, type PropertyValue, findClosingBracket, parseFlowMapText } from '@octaether/core-format';
 
-export type ItemKind = 'Define' | 'Function' | 'Explicit' | 'Polar' | 'Implicit' | 'Parametric' | 'Point' | 'Data' | 'Value';
+export type ItemKind = 'Define' | 'Function' | 'Explicit' | 'Polar' | 'Implicit' | 'Parametric' | 'Point' | 'Data' | 'Field' | 'Value';
 
 export interface PlotItem {
 	kind: ItemKind;
@@ -110,12 +114,12 @@ export function parsePlot(body: string, dimension?: number): PlotProgram {
 			else problemList.push({ line: lineIndex, start: lineStart, end: lineStart + line.length, message: String(error) });
 			return;
 		}
-		const item = classify(node, { line: lineIndex, offset: lineStart, text: expression.trim(), style }, variableSet, functionSet, dimension === 3);
+		const item = classify(node, { line: lineIndex, offset: lineStart, text: expression.trim(), style }, variableSet, functionSet, false);
 		if (typeof item === 'string') problemList.push({ line: lineIndex, start: lineStart, end: lineStart + expression.length, message: item });
 		else itemList.push(item);
 	});
+	// a line in x and y stays one: in a 3D plot it is drawn on a plane (z held)
 	const space = dimension === 3 || (dimension !== 2 && itemList.some((item) => item.space));
-	if (space) for (const item of itemList) if (item.kind === 'Explicit' || item.kind === 'Implicit' || item.kind === 'Parametric' || item.kind === 'Point' || item.kind === 'Data') item.space = item.space || dimension === 3;
 	return { itemList, problemList, variableSet, functionSet, space };
 }
 
@@ -132,6 +136,9 @@ function classify(node: ExpressionNode, base: { line: number; offset: number; te
 			// f(x) = …: a function of your own
 			if (left.kind === 'Call' && functionSet.has(left.name) && left.argumentList.every((argument) => argument.kind === 'Name')) {
 				const parameterList = left.argumentList.map((argument) => (argument as { name: string }).name);
+				// F(x, y) = (P, Q): a vector field, with an arrow at each place
+				if (right.kind === 'Tuple' && right.itemList.length === parameterList.length && parameterList.length >= 2 && parameterList.every((name, index) => name === ['x', 'y', 'z'][index]))
+					return make('Field', { name: left.name, parameterList, right, left, partList: right.itemList, space: parameterList.length === 3 });
 				return make('Function', { name: left.name, parameterList, right, left });
 			}
 			if (left.kind === 'Name') {
@@ -169,6 +176,8 @@ function classify(node: ExpressionNode, base: { line: number; offset: number; te
 		const space = node.itemList.length === 3;
 		if (node.itemList.some(hasData)) return make('Data', { partList: node.itemList, space });
 		if (node.itemList.some((item) => uses(item, 't'))) return make('Parametric', { partList: node.itemList, space });
+		// (-y, x): parts of x and y (and z) are a field, not a point
+		if (node.itemList.some((item) => uses(item, 'x') || uses(item, 'y') || (space && uses(item, 'z')))) return make('Field', { partList: node.itemList, space });
 		return make('Point', { partList: node.itemList, space });
 	}
 	if (node.kind === 'List' && node.itemList.length > 0 && node.itemList.every((item) => item.kind === 'Tuple')) {

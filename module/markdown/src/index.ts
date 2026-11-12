@@ -62,6 +62,7 @@ function draw(frame: HTMLElement, body: string, context: RenderContext): void {
 const markdownBlockType: BlockTypeDefinition = {
 	name: 'Markdown',
 	content: 'Raw',
+	guide: () => import('./guide').then((module) => module.markdownGuide),
 	render: {
 		mount(frame, block, context) {
 			let current = { body: block.body, context };
@@ -101,6 +102,7 @@ export const markdownModule: ModuleDefinition = {
 	kind: 'Module',
 	name: 'Markdown',
 	publisher: 'Octaether',
+	language: { 'zh-Hans': () => import('./language/zh-Hans').then((module) => module.default) },
 	version: '1.0.0',
 	title: 'Markdown',
 	explain:

@@ -1,0 +1,55 @@
+---
+Created: 2026-09-30 12:00 -04:00
+Format: Oi 1
+---
+
+Property:
+	Tag: [Guide, Module]
+	Module: Layout
+
+**Layout** 模块负责摆放块：标注在块的周围加一个带标题的方框，网格让块并排排列。返回 [[Welcome]]。
+
+## 标注
+
+Callout {Kind: Note}: 一条注释
+	标注可以包含任何块。它的标题就是冒号后面的文字。
+
+Callout {Kind: Tip}: 带公式的提示
+	Math: \sum_{k=1}^{n} k = \frac{n(n+1)}{2}
+
+Callout {Kind: Warning}: 十种类型
+	Note、Info、Tip、Success、Question、Warning、Danger、Bug、Example 和 Quote。Obsidian 的名称（如 hint、caution、faq）也可以使用。
+
+Callout {Kind: Example, Collapsed: True}: 折叠起来的例子（点击箭头）
+	在你展开之前，它会一直隐藏。
+
+## 分栏
+
+Grid {Gap: 16px}:
+	Column {Width: 50%}:
+		**左栏。** 在窄屏上，分栏会上下堆叠（设置 → 模块 → Layout）。
+	Column {Width: 50%}:
+		**右栏。** 这里可以放任何块：
+		```Python
+		print("side by side")
+		```
+
+按住 Alt 把一个块拖到另一个块的左边缘或右边缘，两者就会并排；拖到某个分栏的边缘则会新增一栏。清空的分栏会消失，只剩一栏的网格会还原成它的块。Alt + 滚轮可以选中整个分栏来移动。右键点击分栏中的块，也可以选择 *在左侧添加分栏* 或 *在右侧添加分栏*。
+
+## 瀑布流
+
+带 `Arrange: Masonry` 的 Board 是一面卡片墙，Pinterest 风格：每个块是一张卡片，每张卡片都会放到最短的那一列。`ColumnWidth` 和 `Gap` 设置各列。按住 Alt 拖动卡片可以改变它的顺序。
+
+Board {Arrange: Masonry, ColumnWidth: 12em}:
+	由任何块组成的**卡片**：文字、公式、代码、图片。（每个列表项都是一个块，所以每一项都会成为单独的卡片。）
+
+	一张短的。
+
+	$$E = mc^2$$
+
+	Code: Python
+		print("a card of code")
+
+	下一张卡片会放到最短的那一列下面。
+
+整篇笔记也可以是这样一面墙：新的空白笔记会在名称下方提供 *文档* 或 *瀑布流*，之后也可以在笔记的 ⋯ 菜单中通过 *页面布局* 修改。它会在笔记的开头写入 `Layout: Board {Arrange: Masonry}`，页面会占满窗口的宽度。

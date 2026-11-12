@@ -74,8 +74,10 @@ export function cellText(cell: string, separator = ','): string {
 	return cell;
 }
 
-/** A record as one CSV line (or more, for cells with line breaks). Empty cells at the end are left out. */
+/** A record as one CSV line (or more, for cells with line breaks). Empty cells at the end are left out,
+ * but an empty record keeps a separator (or "") so it stays a row: a blank line is skipped when read. */
 export function recordText(cellList: readonly string[], separator = ','): string {
+	if (cellList.every((cell) => cell === '')) return cellList.length > 1 ? separator : '""';
 	let last = cellList.length;
 	while (last > 1 && cellList[last - 1] === '') last--;
 	return cellList.slice(0, last).map((cell) => cellText(cell, separator)).join(separator);

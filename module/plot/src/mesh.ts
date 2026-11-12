@@ -196,6 +196,51 @@ export function curveList(work: (t: number) => [number, number, number], from: n
 	return lineList;
 }
 
+/**
+ * F(x, y) = 0 over the box's x and y as short segments on the plane z = `height` (in box space):
+ * a curve of a 2D plot drawn in a 3D one. Marching squares on a grid of `count` cells a side.
+ */
+export function contourList(work: (x: number, y: number) => number, box: Box, height: number, count = 96): number[][] {
+	const size = count + 1;
+	const grid = new Float64Array(size * size);
+	for (let row = 0; row < size; row++) {
+		for (let column = 0; column < size; column++) {
+			let value: number;
+			try {
+				value = work(fromBox((column / count) * 2 - 1, box.x), fromBox((row / count) * 2 - 1, box.y));
+			} catch {
+				value = Number.NaN;
+			}
+			grid[row * size + column] = value;
+		}
+	}
+	const segmentList: number[][] = [];
+	const place = (column: number, row: number): [number, number] => [(column / count) * 2 - 1, (row / count) * 2 - 1];
+	for (let row = 0; row < count; row++) {
+		for (let column = 0; column < count; column++) {
+			const corner = [grid[row * size + column]!, grid[row * size + column + 1]!, grid[(row + 1) * size + column + 1]!, grid[(row + 1) * size + column]!];
+			if (!corner.every(Number.isFinite)) continue;
+			const point = [place(column, row), place(column + 1, row), place(column + 1, row + 1), place(column, row + 1)];
+			// where each edge crosses zero
+			const crossList: [number, number][] = [];
+			for (let edge = 0; edge < 4; edge++) {
+				const a = corner[edge]!;
+				const b = corner[(edge + 1) % 4]!;
+				if ((a < 0) === (b < 0)) continue;
+				const part = a / (a - b);
+				const from = point[edge]!;
+				const to = point[(edge + 1) % 4]!;
+				crossList.push([from[0] + (to[0] - from[0]) * part, from[1] + (to[1] - from[1]) * part]);
+			}
+			for (let index = 0; index + 1 < crossList.length; index += 2) {
+				const [a, b] = [crossList[index]!, crossList[index + 1]!];
+				segmentList.push([a[0], a[1], height, b[0], b[1], height]);
+			}
+		}
+	}
+	return segmentList;
+}
+
 // ---------------------------------------------------------------- camera
 
 export type Matrix = Float32Array;

@@ -1,0 +1,33 @@
+---
+Created: 2026-09-30 12:00 -04:00
+Format: Oi 1
+---
+
+Property:
+	Tag: [Guide, Module]
+	Module: Image
+
+**Image** 模块显示图片。一个块以 `Image:` 和图片名称开头，说明文字写在下方的行中。返回 [[Welcome]]；视频有自己的指南：[[Video]]。
+
+Image {Width: 220}: Octahedron.svg
+	Octaether 的八面体：它的下半部分是一支笔的**笔尖**。
+
+## 图片从哪里来
+
+- 只写名称，如 `Octahedron.svg`，会像 Obsidian 一样在库中的任何位置查找图片。
+- 写路径，如 `Attachment/Cell.png`，从库的顶层或笔记所在的文件夹开始查找。
+- 网址（`https://…`）会从网络加载图片。
+
+粘贴图片（`Ctrl+V`）或把图片拖到笔记上：它会保存到库的 `Attachment` 文件夹中，并由一个 Image 块显示。这个文件夹可以在“设置 → 文件”中修改。
+
+库中的图片也可以单独在标签页中打开：在侧边栏中点击 `Octahedron.svg`。
+
+## 单张图片的设置
+
+它们写在冒号前的花括号里，与所有块一样：`Width`（`320` 像素，或 `50%`）、`Align`（`Left`、`Center` 或 `Right`），以及为屏幕阅读器描述图片的 `Alt`。在阅读视图中，点击图片会以原始大小显示。
+
+Image {Width: 90, Align: Left}: Octahedron.svg
+
+## 句中的图片
+
+段落中也可以放图片，像 Markdown 那样写 `![说明文字](Octahedron.svg)`，或像 Obsidian 那样写 `![[Octahedron.svg|28]]`，其中的数字是宽度：![[Octahedron.svg|28]]

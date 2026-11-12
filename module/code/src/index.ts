@@ -6,7 +6,7 @@
 //
 // The rendered block shows the language in its corner and a copy button (both can be turned off).
 
-import { type BlockTypeDefinition, type ModuleDefinition, type RenderContext, type ResolvedBlock, escapeHtml } from '@octaether/core-sdk';
+import { type BlockTypeDefinition, type ModuleDefinition, type RenderContext, type ResolvedBlock, escapeHtml, t } from '@octaether/core-sdk';
 import { highlight, languageName, resolveLanguage } from './highlight';
 
 export { highlight, languageMap, languageName, languageRule, resolveLanguage } from './highlight';
@@ -67,8 +67,8 @@ function draw(frame: HTMLElement, block: ResolvedBlock, context: RenderContext):
 	const lineCount = block.body.split('\n').length;
 	frame.innerHTML =
 		`<div class="oi-code${wrap ? ' oi-code-wrap' : ''}"${Number.isFinite(tabSize) && tabSize > 0 && tabSize <= 16 ? ` style="--oi-code-tab: ${tabSize}"` : ''}>` +
-		`<div class="oi-code-corner">${showLabel && label ? `<span class="oi-code-label" title="${resolveLanguage(language) ? 'Highlighted as' : 'Not highlighted'}: ${escapeHtml(label)}">${escapeHtml(label)}</span>` : ''}` +
-		`${showCopy ? '<button type="button" class="oi-code-copy" data-oi-interactive>Copy</button>' : ''}</div>` +
+		`<div class="oi-code-corner">${showLabel && label ? `<span class="oi-code-label" title="${resolveLanguage(language) ? t('Highlighted as') : t('Not highlighted')}: ${escapeHtml(label)}">${escapeHtml(label)}</span>` : ''}` +
+		`${showCopy ? `<button type="button" class="oi-code-copy" data-oi-interactive>${t('Copy')}</button>` : ''}</div>` +
 		`<div class="oi-code-body">${lineNumber ? `<div class="oi-code-gutter" aria-hidden="true">${Array.from({ length: lineCount }, (_, index) => index + 1).join('\n')}</div>` : ''}` +
 		`<pre><code>${code || '<span data-oi-s="0"> </span>'}</code></pre></div>` +
 		(typeof output === 'string' ? `<pre class="oi-code-output">${escapeHtml(output)}</pre>` : '') +
@@ -77,9 +77,9 @@ function draw(frame: HTMLElement, block: ResolvedBlock, context: RenderContext):
 		const button = event.currentTarget as HTMLButtonElement;
 		void navigator.clipboard?.writeText(block.body).then(
 			() => {
-				button.textContent = 'Copied';
+				button.textContent = t('Copied');
 				setTimeout(() => {
-					button.textContent = 'Copy';
+					button.textContent = t('Copy');
 				}, 1200);
 			},
 			() => undefined,
@@ -90,6 +90,7 @@ function draw(frame: HTMLElement, block: ResolvedBlock, context: RenderContext):
 const codeBlockType: BlockTypeDefinition = {
 	name: 'Code',
 	content: 'Raw',
+	guide: () => import('./guide').then((module) => module.codeGuide),
 	argument: 'Language',
 	aliasList: [
 		{ marker: '```', opening: 'Argument', repeat: true },
@@ -127,6 +128,7 @@ export const codeModule: ModuleDefinition = {
 	kind: 'Module',
 	name: 'Code',
 	publisher: 'Octaether',
+	language: { 'zh-Hans': () => import('./language/zh-Hans').then((module) => module.default) },
 	version: '1.0.0',
 	title: 'Code',
 	explain:

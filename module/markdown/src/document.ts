@@ -3,7 +3,7 @@
 // renderer, so it looks like the rest of the note, and every piece keeps its offset in the
 // body (data-oi-s), so a click lands on its spot.
 
-import { escapeHtml } from '@octaether/core-sdk';
+import { escapeHtml, t } from '@octaether/core-sdk';
 import { type MarkdownOption, headingLevel, listShape, renderInline, renderMarkdown } from '@octaether/module-text';
 
 export interface DocumentOption extends MarkdownOption {
@@ -87,7 +87,7 @@ function renderList(itemList: readonly ListItem[], option: DocumentOption): stri
 	const html = itemList
 		.map((item) => {
 			const [first, ...rest] = item.lineList;
-			const box = item.task ? `<input type="checkbox" data-oi-interactive data-oi-markdown-task="${item.boxOffset}"${item.task === 'Done' ? ' checked' : ''} aria-label="Done"> ` : '';
+			const box = item.task ? `<input type="checkbox" data-oi-interactive data-oi-markdown-task="${item.boxOffset}"${item.task === 'Done' ? ' checked' : ''} aria-label="${t('Done')}"> ` : '';
 			const text = renderInline(first!.text.slice(item.textStart), option, first!.offset + item.textStart);
 			const more = rest.map((line) => {
 				const trimmed = line.text.trimStart();

@@ -1,0 +1,14 @@
+{
+	"name": "@octaether/plugin-ai",
+	"version": "0.1.0",
+	"private": true,
+	"description": "OI AI plugin: connect an AI of your own (your key, straight from this device) to write and format notes as OI blocks",
+	"license": "MIT",
+	"type": "module",
+	"exports": {
+		".": "./src/index.ts"
+	},
+	"dependencies": {
+		"@octaether/core-sdk": "*"
+	}
+}

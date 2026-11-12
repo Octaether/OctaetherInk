@@ -93,6 +93,7 @@ export const themePlugin: PluginDefinition = {
 	kind: 'Plugin',
 	name: 'Theme',
 	publisher: 'Octaether',
+	language: { 'zh-Hans': () => import('./language/zh-Hans').then((module) => module.default) },
 	version: '0.1.0',
 	title: 'Theme',
 	explain: 'Adds the Paper and HighContrast themes (and, next, theme files from the vault). Pick a theme in Setting → Appearance or with Switch theme in the command palette; Light and Dark are built in and always there.',

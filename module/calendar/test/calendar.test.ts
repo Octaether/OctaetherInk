@@ -207,7 +207,7 @@ describe('the Calendar block', () => {
 	it('moves an event to its own note and back in the calendar', async () => {
 		const { model, root, menuList, created } = await mount('Calendar {Date: 2026-11-15}:\n\tEvent {Start: 2026-11-04 09:00, End: 10:00}: Review\n');
 		root.querySelector<HTMLElement>('.oi-calendar-event')!.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, clientX: 10, clientY: 10 }));
-		menuList[0]!.find((item) => item.title === 'Move to its own note')!.run!();
+		menuList[0]!.find((item) => item.title === 'Save as its own note')!.run!();
 		await new Promise((resolve) => setTimeout(resolve, 20));
 		expect(created[0]).toMatchObject({ folder: 'Plan', name: 'Review' });
 		expect(created[0]!.property.get('Start')).toBe('2026-11-04 09:00');
@@ -267,7 +267,7 @@ describe('calendars in other notes', () => {
 		expect(model.document.itemList[0]!.property.get('Wide')).toBe(true);
 		expect(document.querySelector('.oi-frame[data-oi-type="Calendar"]')!.classList.contains('oi-wide')).toBe(true);
 		document.querySelector<HTMLElement>('.oi-calendar [data-action="More"]')!.click();
-		menuList[1]!.find((item) => item.title === 'Move to its own note')!.run!();
+		menuList[1]!.find((item) => item.title === 'Move the calendar to its own note')!.run!();
 		await new Promise((resolve) => setTimeout(resolve, 20));
 		expect(created[0]!.body).toBe('Calendar {Show: Week}:\n\tEvent {Start: 2026-11-04 09:00}: Review\n\t\tRoom 1');
 		expect(model.document.itemList[0]!.property.get('From')).toBe('[[Classes]]');

@@ -1,6 +1,7 @@
 // Popup menu and modal. Everything floats above the page (nothing pushes the note down).
 // Popups are marked data-oi-keep-editor so using them doesn't close the block editor.
 
+import { lookup, t } from '@octaether/core-sdk';
 import { icon } from './icon';
 
 export interface MenuItem {
@@ -18,6 +19,8 @@ export interface MenuItem {
 	itemList?: MenuItem[];
 	/** A heading the item sits under (the module that gives a block); with a search, shown at the right instead. */
 	group?: string;
+	/** The title is a name of yours (a vault, a note, a column), or already in your language: shown as it is. */
+	literal?: boolean;
 }
 
 export interface MenuOption {
@@ -27,6 +30,8 @@ export interface MenuOption {
 	search?: boolean;
 	/** The query is typed somewhere else (the "/" menu types into the block editor). */
 	externalQuery?: boolean;
+	/** Nothing is picked until an arrow key: Enter and Tab stay with the field (a field that suggests, where what is typed may be new). */
+	free?: boolean;
 	emptyText?: string;
 	onClose?(): void;
 }
@@ -77,8 +82,8 @@ export class Menu {
 		if (option.search) {
 			this.searchElement = document.createElement('input');
 			this.searchElement.className = 'menu-search';
-			this.searchElement.placeholder = 'Search';
-			this.searchElement.setAttribute('aria-label', 'Search');
+			this.searchElement.placeholder = t('Search');
+			this.searchElement.setAttribute('aria-label', t('Search'));
 			this.searchElement.addEventListener('input', () => this.setQuery(this.searchElement!.value));
 			this.searchElement.addEventListener('keydown', (event) => {
 				if (this.handleKey(event)) event.preventDefault();
@@ -134,7 +139,7 @@ export class Menu {
 					.filter((entry) => entry.score >= 0)
 					.sort((a, b) => a.score - b.score || a.index - b.index)
 					.map((entry) => entry.item);
-		this.active = 0;
+		this.active = this.option.free ? -1 : 0;
 		this.render();
 	}
 
@@ -150,6 +155,7 @@ export class Menu {
 				return true;
 			case 'Enter':
 			case 'Tab':
+				if (this.active < 0) return false;
 				this.runActive();
 				return true;
 			case 'ArrowRight':
@@ -185,6 +191,7 @@ export class Menu {
 
 	private move(step: number): void {
 		if (this.visibleList.length === 0) return;
+		if (this.active < 0 && step < 0) this.active = 0;
 		this.active = (this.active + step + this.visibleList.length) % this.visibleList.length;
 		this.render();
 		this.rowOf(this.active)?.scrollIntoView({ block: 'nearest' });
@@ -208,6 +215,12 @@ export class Menu {
 		this.child?.close();
 		const rect = row.getBoundingClientRect();
 		this.child = new Menu(item.itemList, { x: rect.right - 4, y: rect.top - 4 }, this);
+		// no room on the right (a menu at the window's edge): it opens on the left, never over its own row
+		const width = this.child.element.getBoundingClientRect().width;
+		if (rect.right - 4 + width > document.documentElement.clientWidth - 8) {
+			const parent = this.element.getBoundingClientRect();
+			this.child.element.style.left = `${Math.max(8, parent.left - width + 4)}px`;
+		}
 	}
 
 	/** An item's row (headings and separators sit between rows). */
@@ -217,12 +230,15 @@ export class Menu {
 
 	private render(): void {
 		if (this.visibleList.length === 0) {
-			this.listElement.innerHTML = `<div class="menu-empty">${escapeHtml(this.option.emptyText ?? 'Nothing matches')}</div>`;
+			this.listElement.innerHTML = `<div class="menu-empty">${escapeHtml(this.option.emptyText ?? t('Nothing matches'))}</div>`;
 			return;
 		}
 		let lastGroup: string | undefined;
+		// the app's own words in your language; names of yours (literal) as they are
+		const word = (text: string, item: MenuItem): string => (item.literal ? text : (lookup(text) ?? text));
 		this.listElement.innerHTML = this.visibleList
-			.map((item, index) => {
+			.map((source, index) => {
+				const item: MenuItem = { ...source, title: word(source.title, source), ...(source.explain ? { explain: word(source.explain, source) } : {}), ...(source.hint ? { hint: word(source.hint, source) } : {}), ...(source.group !== undefined ? { group: word(source.group, source) } : {}) };
 				// grouped under a heading while nothing is typed; the group at the right while searching
 				const grouped = item.group !== undefined && this.query === '';
 				const heading = grouped && item.group !== lastGroup ? `<div class="menu-group" role="presentation">${escapeHtml(item.group!)}</div>` : '';
@@ -288,13 +304,13 @@ export function openModal(className: string, build: (body: HTMLElement, close: (
 }
 
 /** A yes/no question in a small dialog; resolves true for the action, false for Cancel or Esc. */
-export function confirmDialog(message: string, action = 'OK', danger = false): Promise<boolean> {
+export function confirmDialog(message: string, action = t('OK'), danger = false): Promise<boolean> {
 	return new Promise((resolve) => {
 		let answer = false;
 		openModal(
 			'dialog-modal',
 			(modal, close) => {
-				modal.innerHTML = `<p class="dialog-text">${escapeHtml(message)}</p><div class="dialog-row"><button type="button" class="dialog-button" data-answer="No">Cancel</button><button type="button" class="dialog-button primary${danger ? ' danger' : ''}" data-answer="Yes">${escapeHtml(action)}</button></div>`;
+				modal.innerHTML = `<p class="dialog-text">${escapeHtml(message)}</p><div class="dialog-row"><button type="button" class="dialog-button" data-answer="No">${escapeHtml(t('Cancel'))}</button><button type="button" class="dialog-button primary${danger ? ' danger' : ''}" data-answer="Yes">${escapeHtml(action)}</button></div>`;
 				for (const button of modal.querySelectorAll<HTMLButtonElement>('[data-answer]')) {
 					button.addEventListener('click', () => {
 						answer = button.dataset.answer === 'Yes';
@@ -309,13 +325,13 @@ export function confirmDialog(message: string, action = 'OK', danger = false): P
 }
 
 /** Asks for a line of text; resolves undefined on Cancel. */
-export function promptDialog(message: string, value = '', action = 'OK'): Promise<string | undefined> {
+export function promptDialog(message: string, value = '', action = t('OK')): Promise<string | undefined> {
 	return new Promise((resolve) => {
 		let answer: string | undefined;
 		openModal(
 			'dialog-modal',
 			(modal, close) => {
-				modal.innerHTML = `<p class="dialog-text">${escapeHtml(message)}</p><input class="dialog-input" aria-label="${escapeHtml(message)}"><div class="dialog-row"><button type="button" class="dialog-button" data-answer="No">Cancel</button><button type="button" class="dialog-button primary" data-answer="Yes">${escapeHtml(action)}</button></div>`;
+				modal.innerHTML = `<p class="dialog-text">${escapeHtml(message)}</p><input class="dialog-input" aria-label="${escapeHtml(message)}"><div class="dialog-row"><button type="button" class="dialog-button" data-answer="No">${escapeHtml(t('Cancel'))}</button><button type="button" class="dialog-button primary" data-answer="Yes">${escapeHtml(action)}</button></div>`;
 				const input = modal.querySelector<HTMLInputElement>('.dialog-input')!;
 				input.value = value;
 				const finish = (keep: boolean): void => {

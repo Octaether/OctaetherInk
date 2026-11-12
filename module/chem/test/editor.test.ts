@@ -209,6 +209,28 @@ describe('drawing tool on a Board', () => {
 		expect(result[0]).toMatch(/\tH₂O leaves \{X: -?[\d.]+, Y: -?[\d.]+\}/);
 	});
 
+	it('draws a reaction arrow in 15° steps, and at any angle with Alt', () => {
+		const angleOf = (alt: boolean): number => {
+			document.body.innerHTML = '';
+			const result: string[] = [];
+			openStructureEditor({ board: { property: new Map(), itemList: [] }, chemistry: false, onDone: (text) => result.push(text) });
+			// the straight arrow: the second of the arrow group
+			const arrow = document.querySelector<HTMLButtonElement>('[data-group="Arrow"]')!;
+			arrow.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true }));
+			document.querySelector<HTMLButtonElement>('.oi-draw-flyout [data-member="Reaction"]')!.click();
+			const svg = canvas();
+			// dragged 100 px right and 75 px up: 36.9°
+			svg.dispatchEvent(new PointerEvent('pointerdown', { button: 0, buttons: 1, clientX: 100, clientY: 200, pointerId: 1, bubbles: true }));
+			svg.dispatchEvent(new PointerEvent('pointermove', { button: 0, buttons: 1, clientX: 150, clientY: 160, pointerId: 1, altKey: alt, bubbles: true }));
+			svg.dispatchEvent(new PointerEvent('pointermove', { button: 0, buttons: 1, clientX: 200, clientY: 125, pointerId: 1, altKey: alt, bubbles: true }));
+			svg.dispatchEvent(new PointerEvent('pointerup', { button: 0, clientX: 200, clientY: 125, pointerId: 1, altKey: alt, bubbles: true }));
+			button('Done').click();
+			return Number(/Angle: (-?[\d.]+)/.exec(result[0] ?? '')?.[1]);
+		};
+		expect(angleOf(false)).toBe(30);
+		expect(angleOf(true)).toBe(37);
+	});
+
 	it('paints any color: the Color button asks the Palette, then colors what it clicks; no Color without it', () => {
 		const result: string[] = [];
 		const asked: (string | undefined)[] = [];
@@ -257,5 +279,33 @@ describe('drawing tool on a Board', () => {
 		key('KeyQ', 'q');
 		expect(document.querySelector('[data-group="Text"]')!.classList.contains('active')).toBe(true);
 		expect(document.querySelector<HTMLElement>('[data-group="Text"]')!.title.endsWith('(Q)')).toBe(true);
+	});
+
+	it('undoes and redoes with your keys for Undo and Redo from Setting → Hotkey, shown on the buttons', () => {
+		// yours: Alt+Z undoes, Alt+X redoes; Ctrl+Z is nothing here then
+		const hotkey = {
+			commandFor: (event: KeyboardEvent, when: string) => (when === 'GlobalUndo' && event.altKey ? (event.code === 'KeyZ' ? 'Edit.Undo' : event.code === 'KeyX' ? 'Edit.Redo' : undefined) : undefined),
+			keyText: (command: string) => (command === 'Edit.Undo' ? 'Alt+Z' : command === 'Edit.Redo' ? 'Alt+X' : ''),
+		};
+		openStructureEditor({ board: board(), hotkey, onDone: () => {} });
+		expect(document.querySelector<HTMLElement>('[data-action="Undo"]')!.title).toBe('Undo (Alt+Z)');
+		expect(document.querySelector<HTMLElement>('[data-action="Redo"]')!.title).toBe('Redo (Alt+X)');
+		const before = source().value;
+		// everything picked with a box, then deleted
+		document.querySelector<HTMLButtonElement>('[data-group="Select"]')!.click();
+		const svg = canvas();
+		svg.dispatchEvent(new PointerEvent('pointerdown', { button: 0, clientX: -5000, clientY: -5000, pointerId: 1, bubbles: true }));
+		svg.dispatchEvent(new PointerEvent('pointermove', { button: 0, clientX: 5000, clientY: 5000, pointerId: 1, bubbles: true }));
+		svg.dispatchEvent(new PointerEvent('pointerup', { button: 0, clientX: 5000, clientY: 5000, pointerId: 1, bubbles: true }));
+		svg.dispatchEvent(new KeyboardEvent('keydown', { key: 'Delete', bubbles: true, cancelable: true }));
+		const after = source().value;
+		expect(after).not.toBe(before);
+		const press = (code: string, option: KeyboardEventInit): void => void canvas().dispatchEvent(new KeyboardEvent('keydown', { code, key: code.slice(3).toLowerCase(), bubbles: true, cancelable: true, ...option }));
+		press('KeyZ', { ctrlKey: true });
+		expect(source().value).toBe(after);
+		press('KeyZ', { altKey: true });
+		expect(source().value).toBe(before);
+		press('KeyX', { altKey: true });
+		expect(source().value).toBe(after);
 	});
 });

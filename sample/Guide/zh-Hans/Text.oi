@@ -1,0 +1,48 @@
+---
+Created: 2026-09-30 12:00 -04:00
+Format: Oi 1
+---
+
+Property:
+	Tag: [Guide, Module]
+	Module: Text
+
+**Text** 模块负责显示你的文字。每个 Markdown 段落、标题、列表项、引用和表格都是一个独立的块。返回 [[Welcome]]。
+
+## 样式
+
+**粗体**、*斜体*、~~删除线~~、==高亮==、`行内代码`，以及[彩色文字]{Color: Accent}。颜色可以是主题中的名称（[危险]{Color: Danger}、[成功]{Color: Success}），也可以是任意十六进制代码（[铁锈色]{Color: #b5452c}）。选中文字会出现格式栏（其中的颜色按钮会打开调色板），也可以按 `Ctrl+B` 和 `Ctrl+I`。
+
+## 链接和标签
+
+- 指向另一篇笔记的链接：[[Math]]，或带上显示文字：[[Chemistry|化学指南]]。
+- 网页链接：[octaether.com](https://octaether.com)。
+- 标签：#Guide 和 #[Two Words]。在阅读视图中，点击标签会搜索它。
+
+## 列表
+
+1. 有序列表会自动编号。
+2. `Enter` 继续列表，在空的列表项上按 `Enter` 结束列表。
+- [x] 点击待办的方框即可勾选。
+- [ ] 这一项还没完成。
+
+## 引用和表格
+
+> 引用也是一个块。
+> 它可以跨越好几行。
+
+| 符号 | 名称 | 数值 |
+|:--|:--:|--:|
+| {Math: \pi} | 圆周率 | 3.14159 |
+| {Math: e} | 欧拉数 | 2.71828 |
+
+## 图片
+
+图片可以放进一行文字里：像 Markdown 那样写 `![显示的内容](Octahedron.svg)`，或像 Obsidian 那样写 `![[Octahedron.svg]]`。[[Image]] 指南中有更多内容。
+
+## 句中的任何块
+
+任何一种块都能以 `{Type: …}` 的形式放进一行文字：水是 {Chem: H_2O}，一个导数是 {Math: \frac{d}{dx} x^2 = 2x}，代码是 {Code {Language: Python}: print("hi")}。
+
+> [!tip] Obsidian 标注
+> 从 Obsidian 粘贴来的笔记会保留它们的标注。[[Layout]] 指南展示 Octaether 自己的标注。

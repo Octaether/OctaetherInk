@@ -80,8 +80,10 @@ export function envelopeStyle(property: PropertyMap, option: EnvelopeOption): En
 	length('Width', 'width');
 	length('Height', 'height');
 	length('Radius', 'border-radius');
-	// Left and Right read as Start and End (a picture's {Align: Left})
-	const align = text('Align');
+	// Left and Right read as Start and End (a picture's {Align: Left}). Auto margins only place a frame
+	// that has a width: without one, inside a column (a flex box) they would shrink it to its content,
+	// so a video in a two-column layout ran out of its column; such a block lines itself up inside.
+	const align = frame.has('width') ? text('Align') : text('Align') === 'Stretch' ? 'Stretch' : undefined;
 	if (align === 'Left' || align === 'Start') frame.set('margin-inline-end', 'auto');
 	else if (align === 'Center') {
 		frame.set('margin-inline-start', 'auto');

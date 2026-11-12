@@ -3,21 +3,27 @@
 // drag into a note) and search across every note. The vault's name sits at the bottom and opens
 // the vault switcher. Notes kept in the browser get a warning on top that can't be missed.
 
+import { t, tr } from '@octaether/core-sdk';
 import { type SortOrder, baseName, extensionOf, isDataFile, isInside, mediaKindOf, parentPath, stemOf } from '@octaether/core-vault';
 import { icon } from './icon';
 import { Menu, type MenuItem, escapeHtml } from './ui';
 import type { Workspace } from './workspace';
 
+export type OpenHow = 'Here' | 'NewTab' | 'Background';
+
 export interface SidebarOption {
 	workspace: Workspace;
 	/** Opens a note (in a new tab with Ctrl/Cmd+click or a middle-click). */
-	openNote(path: string, newTab: boolean): void;
+	/** Here: in the tab in front. NewTab: a tab of its own, shown. Background: a tab of its own, behind (Ctrl+click, middle-click). */
+	openNote(path: string, how: OpenHow): void;
 	/** Shows a picture, a video, or a sound of the vault in a tab (a new one when asked). */
-	openFile(path: string, newTab: boolean): void;
+	openFile(path: string, how: OpenHow): void;
 	newNote(folder: string): void;
 	notify(message: string): void;
 	/** A search result was chosen: open the note and find the query there. */
-	openSearchResult(path: string, query: string, matchCase: boolean, regex: boolean, newTab: boolean): void;
+	openSearchResult(path: string, query: string, matchCase: boolean, regex: boolean, how: OpenHow): void;
+	/** A tag's menu (its color, Rename everywhere). */
+	tagMenu?(tag: string, x: number, y: number): void;
 	/** The vault switcher, opened from the vault's name at the bottom. */
 	vaultMenu(x: number, y: number): void;
 	copyLink(path: string): void;
@@ -306,10 +312,10 @@ export class Sidebar {
 		return extensionOf(path) === 'oi' || mediaKindOf(path) !== undefined || isDataFile(path);
 	}
 
-	private open(path: string, newTab: boolean): void {
-		if (extensionOf(path) === 'oi') this.option.openNote(path, newTab);
-		else if (mediaKindOf(path) || isDataFile(path)) this.option.openFile(path, newTab);
-		else this.option.notify(`No module opens .${extensionOf(path)} files yet.`);
+	private open(path: string, how: OpenHow): void {
+		if (extensionOf(path) === 'oi') this.option.openNote(path, how);
+		else if (mediaKindOf(path) || isDataFile(path)) this.option.openFile(path, how);
+		else this.option.notify(tr`No module opens .${extensionOf(path)} files yet.`);
 	}
 
 	startRename(path: string): void {
@@ -336,7 +342,13 @@ export class Sidebar {
 				this.render();
 				return;
 			}
-			this.open(path, event.ctrlKey || event.metaKey);
+			this.open(path, event.ctrlKey || event.metaKey ? 'Background' : 'Here');
+		});
+		// a double-click keeps the file in a tab of its own (its first click showed it here)
+		this.tree.addEventListener('dblclick', (event) => {
+			const row = (event.target as Element).closest<HTMLElement>('.tree-item');
+			if (!row || row.dataset.kind !== 'File' || event.ctrlKey || event.metaKey || (event.target as Element).closest('.tree-rename') || !this.canOpen(row.dataset.path!)) return;
+			this.open(row.dataset.path!, 'NewTab');
 		});
 		// a middle-click opens a note in a new tab, as in a browser
 		this.tree.addEventListener('mousedown', (event) => {
@@ -346,7 +358,7 @@ export class Sidebar {
 			const row = (event.target as Element).closest<HTMLElement>('.tree-item');
 			if (event.button !== 1 || !row || row.dataset.kind !== 'File' || !this.canOpen(row.dataset.path!)) return;
 			event.preventDefault();
-			this.open(row.dataset.path!, true);
+			this.open(row.dataset.path!, 'Background');
 		});
 		this.tree.addEventListener('contextmenu', (event) => {
 			event.preventDefault();
@@ -358,7 +370,7 @@ export class Sidebar {
 			const itemList: MenuItem[] = [{ title: 'New note', icon: icon.FilePlus, run: () => this.option.newNote(folder) }];
 			if (workspace.source?.kind !== 'Browser') itemList.push({ title: 'New folder', icon: icon.FolderPlus, run: () => void this.newFolder(folder) });
 			if (path && row?.classList.contains('pending') === false) {
-				if (row.dataset.kind === 'File' && this.canOpen(path)) itemList.unshift({ title: 'Open', run: () => this.open(path, false) }, { title: 'Open in a new tab', run: () => this.open(path, true) });
+				if (row.dataset.kind === 'File' && this.canOpen(path)) itemList.unshift({ title: 'Open', run: () => this.open(path, 'Here') }, { title: 'Open in a new tab', run: () => this.open(path, 'NewTab') });
 				itemList.push(
 					{ title: 'Rename', hint: 'F2', separatorBefore: true, run: () => this.startRename(path) },
 					...(row.dataset.kind === 'File' ? [{ title: 'Copy link', run: () => this.option.copyLink(path) }] : []),
@@ -463,6 +475,33 @@ export class Sidebar {
 			this.searchResult.replaceChildren();
 			return;
 		}
+		// tag: lists the vault's tags (filtered by what follows); a click searches one, a right-click opens its menu
+		const tagPart = /^tag:#?(.*)$/i.exec(query.trim());
+		const tagMatchList = tagPart ? vault.allTagList().filter((entry) => entry.tag.toLowerCase().includes(tagPart[1]!.trim().toLowerCase())) : [];
+		const exact = tagPart !== null && tagMatchList.some((entry) => entry.tag.toLowerCase() === tagPart[1]!.trim().toLowerCase());
+		const tagHtml =
+			tagPart && !exact
+				? tagMatchList.length
+					? `<div class="search-summary">${escapeHtml(tagMatchList.length === 1 ? t('1 tag') : tr`${tagMatchList.length} tags`)}</div><div class="search-tag-list">${tagMatchList
+							.slice(0, 200)
+							.map((entry) => `<button type="button" class="search-tag" data-search-tag="${escapeHtml(entry.tag)}" data-oi-tag="${escapeHtml(entry.tag)}" title="${escapeHtml(t('Right-click for its color and Rename everywhere'))}">#${escapeHtml(entry.tag)}<span class="search-count">${entry.count}</span></button>`)
+							.join('')}</div>`
+					: `<div class="search-none">${escapeHtml(t('No tag matches.'))}</div>`
+				: '';
+		if (tagHtml) {
+			this.searchResult.innerHTML = tagHtml;
+			for (const item of this.searchResult.querySelectorAll<HTMLElement>('[data-search-tag]')) {
+				item.addEventListener('click', () => {
+					this.searchInput.value = `tag:${item.dataset.searchTag}`;
+					this.renderSearch();
+				});
+				item.addEventListener('contextmenu', (event) => {
+					event.preventDefault();
+					this.option.tagMenu?.(item.dataset.searchTag!, event.clientX, event.clientY);
+				});
+			}
+			return;
+		}
 		const resultList = vault.search(query, { matchCase: this.matchCase, regex: this.regex });
 		if (resultList.length === 0) {
 			this.searchResult.innerHTML = '<div class="search-none">No notes match.</div>';
@@ -486,7 +525,7 @@ export class Sidebar {
 		for (const item of this.searchResult.querySelectorAll<HTMLElement>('[data-path]')) {
 			item.addEventListener('click', (event) => {
 				const tagQuery = /^tag:#?(.+)$/i.exec(query.trim());
-				this.option.openSearchResult(item.dataset.path!, tagQuery ? `#${tagQuery[1]}` : query, this.matchCase, this.regex, event.ctrlKey || event.metaKey);
+				this.option.openSearchResult(item.dataset.path!, tagQuery ? `#${tagQuery[1]}` : query, this.matchCase, this.regex, event.ctrlKey || event.metaKey ? 'Background' : 'Here');
 			});
 		}
 	}

@@ -93,7 +93,7 @@ describe('web app', () => {
 		expect(start.textContent).not.toContain('New vault in this browser');
 		expect(start.querySelector('.start-logo svg rect')!.getAttribute('fill')).toBe('#0c0b09');
 		// a quiet Support line, each link in a new tab
-		const supportList = [...start.querySelectorAll<HTMLAnchorElement>('.start-support a')];
+		const supportList = [...start.querySelectorAll<HTMLAnchorElement>('.start-foot a')];
 		expect(supportList.map((link) => link.textContent)).toEqual(['GitHub Sponsors', 'Ko-fi']);
 		expect(supportList.map((link) => link.href)).toEqual(['https://github.com/sponsors/Octaether', 'https://ko-fi.com/octaether']);
 		expect(supportList.every((link) => link.target === '_blank' && link.rel === 'noopener noreferrer')).toBe(true);
@@ -256,9 +256,13 @@ describe('web app', () => {
 		document.getElementById('viewBack')!.click();
 		await settle();
 		expect(app.workspace.note!.path).toBe('Welcome.oi');
+		// Ctrl+click: a tab of its own, behind; Welcome stays in front, as in a browser
 		click(document.querySelector('#note [data-oi-link="Markdown"]')!, mod);
 		await settle();
 		expect(tabTitleList()).toEqual(['Welcome', 'Markdown']);
+		expect(app.workspace.note!.path).toBe('Welcome.oi');
+		app.workspace.activateTab(app.workspace.tabList[1]!.id);
+		await settle();
 		expect(frameOfType('Markdown').querySelectorAll('.oi-markdown li.oi-task')).toHaveLength(4);
 		press('w', document, { altKey: true, code: 'KeyW' });
 		await settle();
@@ -538,7 +542,7 @@ describe('web app', () => {
 		click(button);
 		await settle();
 		const titleList = [...document.querySelectorAll('#layer .menu-item .menu-title')].map((title) => title.textContent);
-		expect(titleList).toEqual(['Chemistry', 'Create new vault', 'Open folder as vault', 'Close vault']);
+		expect(titleList).toEqual(['Chemistry', 'Create new vault', 'Open folder as vault', 'Import a vault from .zip', 'Export this vault as .zip', 'Close vault']);
 		expect(menuItem('Chemistry').querySelector('.menu-hint')!.textContent).toBe('✓');
 		press('Escape', document.querySelector('#layer .menu')!);
 	});

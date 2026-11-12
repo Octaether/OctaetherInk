@@ -102,6 +102,17 @@ describe('Vault', () => {
 		await expect(v.rename('SN2.oi', 'unimolecular.oi')).rejects.toThrow(/already exists/);
 	});
 
+	it('keeps a calendar’s Folder and a table’s Source on a folder that is renamed', async () => {
+		const { vault: v, fs } = await vault({
+			'Plan.oi': 'Calendar {Folder: Plan/Week}:\n\nTable {Source: "Plan/Week/"}:\n\nTable {Source: "Plan/Weekly/"}:\n',
+			'Plan/Week/Meeting.oi': '---\nStart: 2026-11-04 09:00\n---\n',
+		});
+		const result = await v.rename('Plan/Week', 'Plan/Term', { updateLink: true });
+		expect(result.changedList).toEqual(['Plan.oi']);
+		// a folder whose name only starts the same stays as it is
+		expect(await fs.read('Plan.oi')).toBe('Calendar {Folder: Plan/Term}:\n\nTable {Source: "Plan/Term/"}:\n\nTable {Source: "Plan/Weekly/"}:\n');
+	});
+
 	it('resolves links by path or name (closest first) and builds the graph', async () => {
 		const { vault: v } = await vault({
 			'A.oi': '[[B]] [[Lab/B]] [[Missing]] #Organic',

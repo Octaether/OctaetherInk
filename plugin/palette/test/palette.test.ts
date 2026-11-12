@@ -1,5 +1,7 @@
 // @vitest-environment happy-dom
+import { readGradient, writeGradient } from '@octaether/core-sdk';
 import { afterEach, describe, expect, it } from 'vitest';
+import { createGradientPicker, readGradientFile, readSavedGradient } from '../src/gradient';
 import { createColorPicker, forgetColor, readAse, readPaletteState, readPaletteText, recentColorList, rememberColor, startPaletteList, themeColorList, writePaletteState } from '../src';
 
 afterEach(() => {
@@ -112,5 +114,65 @@ describe('Palette', () => {
 		expect(readPaletteState().current).toBe('Other');
 		document.querySelector<HTMLElement>('[data-action="DeletePalette"]')!.click();
 		expect(readPaletteState().list.map((palette) => palette.name)).toEqual(['Mine']);
+	});
+});
+
+describe('gradients', () => {
+	it('reads and writes stops at their places: even ones as plain colors', () => {
+		expect(readGradient(['Blue', 'Red'])).toEqual([{ color: 'Blue', at: 0 }, { color: 'Red', at: 1 }]);
+		expect(readGradient(['Blue', 'Teal 25%', 'Gold', 'Red'])).toEqual([{ color: 'Blue', at: 0 }, { color: 'Teal', at: 0.25 }, { color: 'Gold', at: 0.625 }, { color: 'Red', at: 1 }]);
+		expect(readGradient(['Red 100%', 'Blue 0%']).map((stop) => stop.color)).toEqual(['Blue', 'Red']);
+		expect(writeGradient([{ color: 'Blue', at: 0 }, { color: 'Gold', at: 0.5 }, { color: 'Red', at: 1 }])).toEqual(['Blue', 'Gold', 'Red']);
+		expect(writeGradient([{ color: '#440154', at: 0 }, { color: 'Teal', at: 0.4 }, { color: 'Red', at: 1 }])).toEqual(['#440154 0%', 'Teal 40%', 'Red 100%']);
+	});
+
+	it('imports gradients from GIMP, SVG, CSS, and hex codes', () => {
+		const ggr = 'GIMP Gradient\nName: Sunset\n2\n0.000000 0.250000 0.500000 1.000000 0.000000 0.000000 1.000000 1.000000 0.500000 0.000000 1.000000 0 0\n0.500000 0.750000 1.000000 1.000000 0.500000 0.000000 1.000000 1.000000 1.000000 0.000000 1.000000 0 0\n';
+		expect(readGradientFile('sun.ggr', ggr)).toEqual([{ name: 'Sunset', stopList: ['#ff0000', '#ff8000', '#ffff00'] }]);
+		const svg = '<svg><defs><linearGradient id="Sea"><stop offset="0" stop-color="#001f3f"/><stop offset="30%" stop-color="#0074d9"/><stop offset="1" style="stop-color:#7fdbff"/></linearGradient></defs></svg>';
+		expect(readGradientFile('sea.svg', svg)).toEqual([{ name: 'Sea', stopList: ['#001f3f 0%', '#0074d9 30%', '#7fdbff 100%'] }]);
+		expect(readGradientFile('a.css', '.x { background: linear-gradient(to right, #000 0%, rgb(255, 0, 0) 50%, #fff); }')).toEqual([{ name: 'a', stopList: ['#000', 'rgb(255, 0, 0)', '#fff'] }]);
+		expect(readGradientFile('hex.txt', '#111111 #222222\n#333333, #444444, #555555\n')).toEqual([
+			{ name: 'hex 1', stopList: ['#111111', '#222222'] },
+			{ name: 'hex 2', stopList: ['#333333', '#444444', '#555555'] },
+		]);
+		expect(readGradientFile('none.txt', 'nothing here')).toEqual([]);
+	});
+
+	it('edits as it goes: a place typed, Ctrl+Z and Ctrl+Shift+Z, colors without "No color", Save, Esc puts it back', () => {
+		const opened: { none?: boolean; onPick(color: string | undefined): void }[] = [];
+		const colorPicker = { open: (option: { none?: boolean; onPick(color: string | undefined): void }) => void opened.push(option), close: () => undefined };
+		const picker = createGradientPicker(() => colorPicker, (color) => color, '');
+		const changeList: (string[] | undefined)[] = [];
+		const pickList: (string[] | undefined)[] = [];
+		picker.open({ x: 0, y: 0, current: ['Blue', 'Red'], onChange: (list) => void changeList.push(list), onPick: (list) => void pickList.push(list) });
+		const menu = document.querySelector<HTMLElement>('.oi-gradient')!;
+		// the second color, chosen; its place typed
+		menu.querySelector<HTMLElement>('.oi-gradient-track [data-stop="1"]')!.click();
+		expect(opened.at(-1)!.none).toBe(false);
+		opened.at(-1)!.onPick('Gold');
+		expect(changeList.at(-1)).toEqual(['Blue', 'Gold']);
+		const place = menu.querySelector<HTMLInputElement>('[data-field="place"]')!;
+		place.value = '60';
+		place.dispatchEvent(new Event('change', { bubbles: true }));
+		expect(changeList.at(-1)).toEqual(['Blue 0%', 'Gold 60%']);
+		expect(menu.querySelector('[aria-current="true"] .oi-gradient-pct')!.textContent).toBe('60%');
+		// Ctrl+Z steps back, Ctrl+Shift+Z forward
+		const key = (name: string, shift = false): void => void menu.dispatchEvent(new KeyboardEvent('keydown', { key: name, ctrlKey: true, shiftKey: shift, bubbles: true, cancelable: true }));
+		key('z');
+		expect(changeList.at(-1)).toEqual(['Blue', 'Gold']);
+		key('z');
+		expect(changeList.at(-1)).toEqual(['Blue', 'Red']);
+		key('Z', true);
+		key('Z', true);
+		expect(changeList.at(-1)).toEqual(['Blue 0%', 'Gold 60%']);
+		// kept to use again
+		menu.querySelector<HTMLElement>('[data-action="Save"]')!.click();
+		expect(readSavedGradient()).toEqual([{ name: 'My gradient', stopList: ['Blue 0%', 'Gold 60%'] }]);
+		// Esc puts back what was there
+		document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }));
+		expect(document.querySelector('.oi-gradient')).toBeNull();
+		expect(changeList.at(-1)).toEqual(['Blue', 'Red']);
+		expect(pickList).toEqual([]);
 	});
 });

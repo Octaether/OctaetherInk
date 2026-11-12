@@ -3,6 +3,7 @@
 // pinch to zoom, click a note to open it. Colors come from the theme.
 
 import type { GraphNode, Vault } from '@octaether/core-vault';
+import { t } from '@octaether/core-sdk';
 import { icon } from './icon';
 
 export interface GraphViewOption {
@@ -10,6 +11,10 @@ export interface GraphViewOption {
 	currentPath(): string | undefined;
 	openNote(path: string): void;
 	searchTag(tag: string): void;
+	/** A tag's own color (any CSS color), when it has one. */
+	tagColor?(tag: string): string | undefined;
+	/** A tag's menu: its color, Rename everywhere. */
+	tagMenu?(tag: string, x: number, y: number): void;
 	close(): void;
 }
 
@@ -61,14 +66,14 @@ export class GraphView {
 		this.element.hidden = true;
 		this.element.innerHTML =
 			'<div class="graph-tool">' +
-			'<input class="graph-filter" placeholder="Filter by name" aria-label="Filter by name" spellcheck="false">' +
-			'<label><input type="checkbox" data-option="tag"> Tag</label>' +
-			'<label><input type="checkbox" data-option="unresolved"> Unresolved link</label>' +
-			'<label><input type="checkbox" data-option="orphan"> Unlinked note</label>' +
-			`<button type="button" class="icon-button" data-action="Fit" title="Fit everything" aria-label="Fit everything">${icon.Fit}</button>` +
-			`<button type="button" class="icon-button" data-action="Close" title="Close the graph (Esc)" aria-label="Close the graph">${icon.Close}</button></div>` +
-			'<canvas class="graph-canvas" aria-label="Graph view: every note and link"></canvas>' +
-			'<div class="graph-empty" hidden>No notes to show yet. Link notes with [[Note name]] and they appear here.</div>';
+			`<input class="graph-filter" placeholder="${t('Filter by name')}" aria-label="${t('Filter by name')}" spellcheck="false">` +
+			`<label><input type="checkbox" data-option="tag"> ${t('Tag')}</label>` +
+			`<label><input type="checkbox" data-option="unresolved"> ${t('Unresolved link')}</label>` +
+			`<label><input type="checkbox" data-option="orphan"> ${t('Unlinked note')}</label>` +
+			`<button type="button" class="icon-button" data-action="Fit" title="${t('Fit everything')}" aria-label="${t('Fit everything')}">${icon.Fit}</button>` +
+			`<button type="button" class="icon-button" data-action="Close" title="${t('Close the graph (Esc)')}" aria-label="${t('Close the graph')}">${icon.Close}</button></div>` +
+			`<canvas class="graph-canvas" aria-label="${t('Graph view: every note and link')}"></canvas>` +
+			`<div class="graph-empty" hidden>${t('No notes to show yet. Link notes with [[Note name]] and they appear here.')}</div>`;
 		container.append(this.element);
 		this.canvas = this.element.querySelector('canvas')!;
 		for (const input of this.element.querySelectorAll<HTMLInputElement>('[data-option]')) {
@@ -295,7 +300,7 @@ export class GraphView {
 			const at = this.toScreen(node);
 			const radius = this.radius(node) * Math.min(Math.max(this.view.scale, 0.6), 1.6);
 			context.globalAlpha = dimmed(node) ? 0.18 : 1;
-			context.fillStyle = node.id === current || node === focus || node.match ? accent : node.kind === 'Tag' ? success : node.kind === 'Unresolved' ? border : muted;
+			context.fillStyle = node.id === current || node === focus || node.match ? accent : node.kind === 'Tag' ? (this.option.tagColor?.(node.label.replace(/^#/, '')) ?? success) : node.kind === 'Unresolved' ? border : muted;
 			context.beginPath();
 			context.arc(at.x, at.y, radius, 0, Math.PI * 2);
 			context.fill();
@@ -351,6 +356,12 @@ export class GraphView {
 			this.draw();
 		};
 		canvas.addEventListener('pointerup', finish);
+		canvas.addEventListener('contextmenu', (event) => {
+			const node = this.nodeAt(event.clientX, event.clientY);
+			if (node?.kind !== 'Tag' || !this.option.tagMenu) return;
+			event.preventDefault();
+			this.option.tagMenu(node.label.replace(/^#/, ''), event.clientX, event.clientY);
+		});
 		canvas.addEventListener('pointercancel', finish);
 		canvas.addEventListener(
 			'wheel',

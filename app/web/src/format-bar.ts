@@ -1,5 +1,6 @@
 // Floating format bar over selected text (in the rendered view or in the block editor).
 
+import { t } from '@octaether/core-sdk';
 import type { EditSession, FormatKind } from '@octaether/core-edit';
 import type { NoteModel } from '@octaether/core-model';
 
@@ -32,7 +33,7 @@ export function setupFormatBar(option: FormatBarOption): () => void {
 	bar.setAttribute('role', 'toolbar');
 	bar.setAttribute('aria-label', 'Format');
 	bar.innerHTML = buttonList
-		.map((button) => `<button type="button" data-kind="${button.kind}" title="${button.title}${option.hotkey(button.command) ? ` (${option.hotkey(button.command)})` : ''}" aria-label="${button.title}">${button.label}</button>`)
+		.map((button) => `<button type="button" data-kind="${button.kind}" title="${t(button.title)}${option.hotkey(button.command) ? ` (${option.hotkey(button.command)})` : ''}" aria-label="${t(button.title)}">${button.label}</button>`)
 		.join('');
 	document.getElementById('layer')!.append(bar);
 	for (const element of bar.querySelectorAll<HTMLButtonElement>('button')) {

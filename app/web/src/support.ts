@@ -1,6 +1,7 @@
 // Where people can support Octaether Ink with money (README "Support"). One list for the start
 // screen and Setting → About; .github/FUNDING.yml names the same accounts for GitHub's Sponsor button.
 
+import { t } from '@octaether/core-sdk';
 import { escapeHtml } from './ui';
 
 export interface SupportLink {
@@ -17,6 +18,6 @@ export const supportLinkList: readonly SupportLink[] = [
 /** The links as HTML, each opening in a new tab, joined by " or ". */
 export function supportLinkHtml(): string {
 	return supportLinkList
-		.map((link) => `<a href="${escapeHtml(link.url)}" target="_blank" rel="noopener noreferrer" title="${escapeHtml(link.explain)}">${escapeHtml(link.title)}</a>`)
-		.join(' or ');
+		.map((link) => `<a href="${escapeHtml(link.url)}" target="_blank" rel="noopener noreferrer" title="${escapeHtml(t(link.explain))}">${escapeHtml(link.title)}</a>`)
+		.join(` ${escapeHtml(t('or'))} `);
 }

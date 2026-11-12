@@ -12,6 +12,7 @@ import {
 	defaultKnownTypeSet,
 } from '@octaether/core-format';
 import type {
+	BlockGuideEntry,
 	BlockTemplate,
 	BlockTypeDefinition,
 	CommandDefinition,
@@ -290,6 +291,31 @@ export class Registry {
 					return { ...template, type: blockType.name, module: (owner ? this.definitionMap.get(owner)?.title : undefined) ?? blockType.name };
 				}),
 		);
+	}
+
+	/**
+	 * How each block type that is on is written (its module's guide, its aliases as set, its templates),
+	 * for the `BlockGuide` extension. A type with neither a guide nor a template is one nobody writes by
+	 * hand (the root `Flow`, an old name that is still read), so it is left out.
+	 */
+	async guideList(): Promise<BlockGuideEntry[]> {
+		const aliasList = this.aliasState().aliasList;
+		const writtenList = this.enabledBlockTypeList().filter((blockType) => blockType.guide !== undefined || (blockType.templateList ?? []).length > 0);
+		// a guide that can't load leaves the type to its templates
+		const guideList = await Promise.all(writtenList.map((blockType) => (typeof blockType.guide === 'function' ? blockType.guide().catch(() => undefined) : blockType.guide)));
+		return writtenList.map((blockType, index) => {
+			const guide = guideList[index];
+			const owner = this.blockTypeOwner.get(blockType.name);
+			return {
+				type: blockType.name,
+				module: (owner ? this.definitionMap.get(owner)?.title : undefined) ?? blockType.name,
+				content: blockType.content,
+				...(blockType.argument ? { argument: blockType.argument } : {}),
+				aliasList: aliasList.filter((alias) => alias.type === blockType.name).map((alias) => alias.marker),
+				...(guide ? { guide } : {}),
+				exampleList: (blockType.templateList ?? []).filter((template) => template.feature === undefined || this.isFeatureActive(template.feature)).map((template) => template.source),
+			};
+		});
 	}
 
 	moduleTokenList(): ModuleToken[] {
